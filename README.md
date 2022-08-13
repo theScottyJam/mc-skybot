@@ -1,3 +1,17 @@
+# Helpful information
+
+turtle api: https://computercraft.info/wiki/Turtle_(API)
+
+       (-Z)
+         N     up: +y
+         ^   down: -y
+         |
+(-x) W<--*-->E (+x)
+         |
+         V
+         S
+       (+Z)
+
 # Installing ComputerCraft
 
 Use Minecraft 1.8.9

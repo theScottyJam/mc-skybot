@@ -30,15 +30,17 @@ function module.comparePos(pos1, pos2)
     return module.compareCoord(module.posToCoord(pos1), module.posToCoord(pos2)) and pos1.face == pos2.face
 end
 
+-- `amount` is optional
 function module.rotateFaceClockwise(face, amount)
-    for i = 1, amount do
+    for i = 1, amount or 1 do
         face = ({ N = 'E', E = 'S', S = 'W', W = 'N' })[face]
     end
     return face
 end
 
+-- `amount` is optional
 function module.rotateFaceCounterClockwise(face, amount)
-    for i = 1, amount do
+    for i = 1, amount or 1 do
         face = ({ N = 'W', W = 'S', S = 'E', E = 'N' })[face]
     end
     return face

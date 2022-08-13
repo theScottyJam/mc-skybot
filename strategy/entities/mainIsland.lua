@@ -18,7 +18,8 @@ function entityBuilder(opts)
     -- local nowhereInParticularLoc = _G.act.location.register(space.resolveRelPos({ x=5, y=8, z=5, face='E' }, bedrockPos))
 
     local harvestInitialTree = harvestInitialTreeProject({ bedrockPos = bedrockPos, homeLoc = homeLoc })
-    local buildBasicCobblestoneGenerator = buildBasicCobblestoneGeneratorProject({ bedrockPos = bedrockPos, homeLoc = homeLoc })
+    local prepareCobblestoneGenerator = prepareCobblestoneGeneratorProject({ bedrockPos = bedrockPos, homeLoc = homeLoc })
+    local waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGeneratorProject({ bedrockPos = bedrockPos, homeLoc = homeLoc })
 
     return {
         init = function()
@@ -30,7 +31,8 @@ function entityBuilder(opts)
         entity = {
             homeLoc = homeLoc,
             harvestInitialTree = harvestInitialTree,
-            buildBasicCobblestoneGenerator = buildBasicCobblestoneGenerator
+            prepareCobblestoneGenerator = prepareCobblestoneGenerator,
+            waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGenerator
         }
     }
 end
@@ -103,7 +105,9 @@ function harvestInitialTreeProject(opts)
     })
 end
 
-function buildBasicCobblestoneGeneratorProject(opts)
+-- End condition: An empty bucket will be left in slot 16.
+--   (so you can't do any project that utilises slot 16)
+function prepareCobblestoneGeneratorProject(opts)
     local absoluteBedrockPos = opts.bedrockPos
     local absoluteHomeLoc = opts.homeLoc
 
@@ -113,7 +117,7 @@ function buildBasicCobblestoneGeneratorProject(opts)
     local highLevelCommands = _G.act.highLevelCommands
     local space = _G.act.space
 
-    return _G.act.project.register('mainIsland:buildBasicCobblestoneGenerator', {
+    return _G.act.project.register('mainIsland:prepareCobblestoneGenerator', {
         createProjectState = function()
             return { done = false }
         end,
@@ -128,15 +132,8 @@ function buildBasicCobblestoneGeneratorProject(opts)
 
             local startPos = util.copyTable(shortTermPlaner.turtlePos)
 
-            -- Dig cobblestone mining spot
-            navigate.face(shortTermPlaner, 'W')
-            commands.turtle.digDown(shortTermPlaner, 'left')
-            commands.turtle.down(shortTermPlaner)
-            commands.turtle.dig(shortTermPlaner, 'left')
-            commands.turtle.digDown(shortTermPlaner, 'left')
-            
             -- Dig out east branch
-            navigate.moveTo(shortTermPlaner, { x=0, y=0, z=0, face='E' })
+            navigate.face(shortTermPlaner, 'E')
             for i = 1, 2 do
                 commands.turtle.forward(shortTermPlaner)
                 commands.turtle.digDown(shortTermPlaner, 'left')
@@ -156,22 +153,81 @@ function buildBasicCobblestoneGeneratorProject(opts)
             commands.turtle.select(shortTermPlaner, LAVA_BUCKET_SLOT)
             commands.turtle.placeDown(shortTermPlaner)
             -- Move the empty bucket to an earlier cell.
-            highLevelCommands.transferToFirstEmptySlot(shortTermPlaner, firstEmptySlot)
+            -- highLevelCommands.transferToFirstEmptySlot(shortTermPlaner, firstEmptySlot)
             commands.turtle.select(shortTermPlaner, 1)
 
             -- Dig out west branch
             navigate.moveTo(shortTermPlaner, { x=0, y=0, z=0, face='S' })
-            for i = 1, 2 do
-                commands.turtle.forward(shortTermPlaner)
-                commands.turtle.digDown(shortTermPlaner, 'left')
-            end
+            commands.turtle.forward(shortTermPlaner)
+            commands.turtle.digDown(shortTermPlaner, 'left')
+            commands.turtle.down(shortTermPlaner)
+            commands.turtle.digDown(shortTermPlaner, 'left')
+            commands.turtle.dig(shortTermPlaner, 'left')
+            commands.turtle.up(shortTermPlaner)
 
-            -- Place water down
+            -- Place ice down
+            -- (We're placing ice here, instead of in it's final spot, so it can be closer to the lava
+            -- so the lava can melt it)
             commands.turtle.select(shortTermPlaner, ICE_SLOT)
             commands.turtle.placeDown(shortTermPlaner)
             commands.turtle.select(shortTermPlaner, 1)
 
+            -- Dig out place for player to stand
+            navigate.moveTo(shortTermPlaner, { x=-1, y=0, z=0 })
+            commands.turtle.digDown(shortTermPlaner, 'left')
+
             navigate.moveTo(shortTermPlaner, startPos)
+
+            return { done = true }, shortTermPlaner.shortTermPlan
+        end
+    })
+end
+
+-- Start condition: An empty bucket must be in slot 16.
+function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
+    local absoluteBedrockPos = opts.bedrockPos
+    local absoluteHomeLoc = opts.homeLoc
+
+    local location = _G.act.location
+    local navigate = _G.act.navigate
+    local commands = _G.act.commands
+    local highLevelCommands = _G.act.highLevelCommands
+    local space = _G.act.space
+
+    return _G.act.project.register('mainIsland:waitForIceToMeltAndfinishCobblestoneGenerator', {
+        createProjectState = function()
+            return { done = false }
+        end,
+        nextShortTermPlan = function(state, projectState)
+            if projectState.done == true then
+                return nil, nil
+            end
+
+            local shortTermPlaner = _G.act.shortTermPlaner.create({ absTurtlePos = state.turtlePos })
+            location.travelToLocation(shortTermPlaner, absoluteHomeLoc)
+            local shortTermPlaner = _G.act.shortTermPlaner.withRelativePos(shortTermPlaner, space.locToPos(absoluteHomeLoc))
+
+            local startPos = util.copyTable(shortTermPlaner.turtlePos)
+
+            -- Wait for ice to melt
+            navigate.moveTo(shortTermPlaner, { x=0, y=0, z=1 })
+            highLevelCommands.waitUntilDetectBlock(shortTermPlaner, {
+                expectedBlockId = 'WATER',
+                direction = 'down',
+                endFacing = 'S'
+            })
+
+            -- Move water
+            local BUCKET_SLOT = 16
+            commands.turtle.select(shortTermPlaner, BUCKET_SLOT)
+            commands.turtle.placeDown(shortTermPlaner, 'left')
+            commands.turtle.forward(shortTermPlaner)
+            commands.turtle.placeDown(shortTermPlaner)
+            highLevelCommands.transferToFirstEmptySlot(shortTermPlaner)
+            commands.turtle.select(shortTermPlaner, 1)
+
+            navigate.moveTo(shortTermPlaner, startPos)
+            commands.turtle.digDown(shortTermPlaner, 'left')
 
             return { done = true }, shortTermPlaner.shortTermPlan
         end

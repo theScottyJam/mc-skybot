@@ -5,6 +5,7 @@ local module = {}
 local MAX_INVENTORY_SIZE = 100
 
 function module.up()
+    tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     currentWorld.turtle.pos.y = currentWorld.turtle.pos.y + 1
     assertNotInsideBlock(currentWorld)
@@ -12,6 +13,7 @@ function module.up()
 end
 
 function module.down()
+    tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     currentWorld.turtle.pos.y = currentWorld.turtle.pos.y - 1
     assertNotInsideBlock(currentWorld)
@@ -19,6 +21,7 @@ function module.down()
 end
 
 function module.forward()
+    tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     currentWorld.turtle.pos = getPosInFront(currentWorld.turtle.pos)
     assertNotInsideBlock(currentWorld)
@@ -26,6 +29,7 @@ function module.forward()
 end
 
 function module.back()
+    tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     currentWorld.turtle.pos = getPosBehind(currentWorld.turtle.pos)
     assertNotInsideBlock(currentWorld)
@@ -33,6 +37,7 @@ function module.back()
 end
 
 function module.turnLeft()
+    tick()
     local turtle = _G.mockComputerCraftApi._currentWorld.turtle
     if turtle.pos.face == 'N' then
         turtle.pos.face = 'W'
@@ -47,6 +52,7 @@ function module.turnLeft()
 end
 
 function module.turnRight()
+    tick()
     local turtle = _G.mockComputerCraftApi._currentWorld.turtle
     if turtle.pos.face == 'N' then
         turtle.pos.face = 'E'
@@ -109,6 +115,7 @@ end
 
 -- signText is optional
 function module.place(signText)
+    tick()
     if signText ~= nil then error('signText arg not supported') end
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local placePos = getPosInFront(currentWorld.turtle.pos)
@@ -116,6 +123,7 @@ function module.place(signText)
 end
 
 function module.placeUp()
+    tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
     local placePos = { x = turtle.pos.x, y = turtle.pos.y + 1, z = turtle.pos.z }
@@ -123,16 +131,16 @@ function module.placeUp()
 end
 
 function module.placeDown()
+    tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
     local placePos = { x = turtle.pos.x, y = turtle.pos.y - 1, z = turtle.pos.z }
     return placeAt(currentWorld, placePos)
 end
 
-local canPlace = { 'DIRT', 'LAVA_BUCKET', 'ICE' }
+local canPlace = { 'DIRT', 'LAVA_BUCKET', 'WATER_BUCKET', 'BUCKET', 'ICE' }
 function placeAt(currentWorld, placePos)
-    local targetCell = lookupInMap(currentWorld.map, placePos)
-    if targetCell ~= nil then return false end
+    local targetCell = lookupInMap(currentWorld.map, placePos) -- may be nil
 
     itemIdBeingPlaced, quantity = removeFrominventory(currentWorld.turtle, 1)
     if quantity == 0 then return false end
@@ -141,22 +149,86 @@ function placeAt(currentWorld, placePos)
         error('Can not place block '..itemIdBeingPlaced..' yet.')
     end
 
+    if targetCell ~= nil then
+        if targetCell.id == 'WATER' and itemIdBeingPlaced == 'BUCKET' then
+            setInMap(currentWorld.map, placePos, nil)
+            local success = addToInventory(currentWorld.turtle, 'WATER_BUCKET') == 1
+            if not success then error('UNREACHABLE') end
+            return true
+        elseif targetCell.id == 'LAVA' and itemIdBeingPlaced == 'BUCKET' then
+            setInMap(currentWorld.map, placePos, nil)
+            local success = addToInventory(currentWorld.turtle, 'LAVA_BUCKET') == 1
+            if not success then error('UNREACHABLE') end
+            return true
+        end
+        return false
+    end
+
     if itemIdBeingPlaced == 'LAVA_BUCKET' then
         itemIdBeingPlaced = 'LAVA'
         local success = addToInventory(currentWorld.turtle, 'BUCKET') == 1
         if not success then error('UNREACHABLE') end
+    elseif itemIdBeingPlaced == 'WATER_BUCKET' then
+        itemIdBeingPlaced = 'WATER'
+        local success = addToInventory(currentWorld.turtle, 'BUCKET') == 1
+        if not success then error('UNREACHABLE') end
+    elseif itemIdBeingPlaced == 'ICE' then
+        addTickListener(150, function()
+            local cell = lookupInMap(currentWorld.map, placePos)
+            if cell ~= nil and cell.id == 'ICE' then
+                setInMap(currentWorld.map, placePos, { id = 'WATER' })
+            end
+        end)
     end
     setInMap(currentWorld.map, placePos, { id = itemIdBeingPlaced })
     return true
 end
 
+function module.inspect()
+    local currentWorld = _G.mockComputerCraftApi._currentWorld
+    local inspectPos = getPosInFront(currentWorld.turtle.pos)
+    return inspectAt(currentWorld, inspectPos)
+end
+
+function module.inspectUp()
+    local currentWorld = _G.mockComputerCraftApi._currentWorld
+    local turtle = currentWorld.turtle
+    local inspectPos = { x = turtle.pos.x, y = turtle.pos.y + 1, z = turtle.pos.z }
+    return inspectAt(currentWorld, inspectPos)
+end
+
+function module.inspectDown()
+    local currentWorld = _G.mockComputerCraftApi._currentWorld
+    local turtle = currentWorld.turtle
+    local inspectPos = { x = turtle.pos.x, y = turtle.pos.y - 1, z = turtle.pos.z }
+    return inspectAt(currentWorld, inspectPos)
+end
+
+function inspectAt(currentWorld, inspectPos)
+    local targetCell = lookupInMap(currentWorld.map, inspectPos)
+
+    if targetCell == nil then
+        return false, 'no block to inspect'
+    end
+
+    local blockInfo = {
+        name = 'minecraft:'..string.lower(targetCell.id),
+        state = {},
+        metadata = 0
+    }
+
+    return true, blockInfo
+end
+
 function module.dig(toolSide)
+    tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local posBeingDug = getPosInFront(currentWorld.turtle.pos)
     return digAt(currentWorld, posBeingDug, toolSide)
 end
 
 function module.digUp(toolSide)
+    tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
     local posBeingDug = { x = turtle.pos.x, y = turtle.pos.y + 1, z = turtle.pos.z }
@@ -164,6 +236,7 @@ function module.digUp(toolSide)
 end
 
 function module.digDown(toolSide)
+    tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
     local posBeingDug = { x = turtle.pos.x, y = turtle.pos.y - 1, z = turtle.pos.z }
@@ -209,6 +282,7 @@ end
 
 -- amount is optional
 function module.suck(amount)
+    tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
     local posSuckingFrom = getPosInFront(turtle.pos)
@@ -216,6 +290,7 @@ function module.suck(amount)
 end
 
 function module.suckUp(amount)
+    tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
     local posSuckingFrom = { x = turtle.pos.x, y = turtle.pos.y + 1, z = turtle.pos.z, face = turtle.pos.face }
@@ -223,6 +298,7 @@ function module.suckUp(amount)
 end
 
 function module.suckDown(amount)
+    tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
     local posSuckingFrom = { x = turtle.pos.x, y = turtle.pos.y - 1, z = turtle.pos.z, face = turtle.pos.face }
@@ -302,6 +378,25 @@ function module.transferTo(destinationSlot, quantity)
 end
 
 ---- HELPERS ----
+
+local tickListeners = {}
+local currentTick = 0
+function tick()
+    currentTick = currentTick + 1
+    for i, entry in ipairs(tickListeners) do
+        if entry.at == currentTick then
+            entry.listener()
+        end
+    end
+    tickListeners = util.filterTable(tickListeners, function(value) return value.at > currentTick end)
+end
+
+function addTickListener(ticksLater, listener)
+    table.insert(tickListeners, {
+        at = currentTick + ticksLater,
+        listener = listener
+    })
+end
 
 -- quantity must be the size of a stack or less. Defaults to 1.
 -- Returns the quantity added successfuly.

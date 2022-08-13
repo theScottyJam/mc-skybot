@@ -90,14 +90,14 @@ end
 function module.face(shortTermPlaner, targetFace)
     local beforeFace = shortTermPlaner.turtlePos.face
 
-    commands = ({
+    turnCommands = ({
         N = {N={}, E={'R'}, S={'R','R'}, W={'L'}},
         E = {E={}, S={'R'}, W={'R','R'}, N={'L'}},
         S = {S={}, W={'R'}, N={'R','R'}, E={'L'}},
         W = {W={}, N={'R'}, E={'R','R'}, S={'L'}},
     })[beforeFace][targetFace]
 
-    for _, command in ipairs(commands) do
+    for _, command in ipairs(turnCommands) do
         if command == 'R' then _G.act.commands.turtle.turnRight(shortTermPlaner) end
         if command == 'L' then _G.act.commands.turtle.turnLeft(shortTermPlaner) end
     end
