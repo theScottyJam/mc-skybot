@@ -2,7 +2,7 @@
 -- The "strategy" module would be in charge of the big picture, while the "scheduler" would be in charge
 -- of working on a single active task and its interruptions.
 
-local util = require('util')
+local util = import('util.lua')
 
 local module = {}
 

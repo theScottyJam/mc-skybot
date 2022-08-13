@@ -81,8 +81,8 @@ function createStartingMap()
     map[ 4][67][-3] = {
         id = 'CHEST',
         contents = {
-            [1] = { id = 'LAVA_BUCKET' },
-            [2] = { id = 'ICE' }
+            [1] = { id = 'LAVA_BUCKET', quantity = 1 },
+            [2] = { id = 'ICE', quantity = 1 }
         }
     }
 

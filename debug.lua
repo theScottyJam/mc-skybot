@@ -1,4 +1,4 @@
-local util = require('util')
+local util = import('util.lua')
 
 local module = {}
 local debugModule = {}

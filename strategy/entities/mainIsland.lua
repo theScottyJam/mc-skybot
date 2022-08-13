@@ -124,7 +124,7 @@ function buildBasicCobblestoneGeneratorProject(opts)
 
             local shortTermPlaner = _G.act.shortTermPlaner.create({ absTurtlePos = state.turtlePos })
             location.travelToLocation(shortTermPlaner, absoluteHomeLoc)
-            local shortTermPlaner = _G.act.shortTermPlaner.withRelativePos(shortTermPlaner, absoluteHomeLoc)
+            local shortTermPlaner = _G.act.shortTermPlaner.withRelativePos(shortTermPlaner, space.locToPos(absoluteHomeLoc))
 
             local startPos = util.copyTable(shortTermPlaner.turtlePos)
 

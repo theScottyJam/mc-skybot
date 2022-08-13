@@ -3,7 +3,7 @@
     Some helpers related to locations are also found in space.lua
 --]]
 
-local util = require('util')
+local util = import('util.lua')
 
 local module = {}
 

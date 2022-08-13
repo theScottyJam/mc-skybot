@@ -3,7 +3,7 @@
     The state object is intended to be mutable - anyone with a reference can update it.
 --]]
 
-local util = require('util')
+local util = import('util.lua')
 
 local module = {}
 

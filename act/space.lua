@@ -6,7 +6,7 @@
     * location: A specific, known point in space that you often travel to. Mostly managed in location.lua.
 --]]
 
-local util = require('util')
+local util = import('util.lua')
 
 local module = {}
 
@@ -27,7 +27,7 @@ function module.compareCoord(coord1, coord2)
 end
 
 function module.comparePos(pos1, pos2)
-    return compareCoord(module.posToCoord(pos1), module.posToCoord(pos2)) and pos1.face == pos2.face
+    return module.compareCoord(module.posToCoord(pos1), module.posToCoord(pos2)) and pos1.face == pos2.face
 end
 
 function module.rotateFaceClockwise(face, amount)
