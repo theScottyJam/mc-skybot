@@ -1,0 +1,82 @@
+function parseTerminalArgs(tArgs)
+    local parsedArgs = {
+        basePath = nil,
+        showHelp = false,
+        useMockLib = false
+    }
+
+    local expectFlagValueFor = nil
+    for _, tArg in ipairs(tArgs) do
+        if expectFlagValueFor == '--base' then
+            expectFlagValueFor = nil
+            parsedArgs.basePath = tArg
+        elseif tArg == '-h' or tArg == '--help' then
+            parsedArgs.showHelp = true
+        elseif tArg == '--mock' then
+            parsedArgs.useMockLib = true
+            if parsedArgs.basePath == nil then
+                parsedArgs.basePath = './'
+            end
+        elseif tArg == '--base' then
+            expectFlagValueFor = tArg
+        end
+    end
+
+    if parsedArgs.basePath == nil then
+        parsedArgs.basePath = '/disk/computer-craft/'
+    end
+
+    return parsedArgs
+end
+
+local inputs = parseTerminalArgs({ ... })
+
+local BASE_PATH = inputs.basePath
+_G.import = function (path)
+    return dofile(BASE_PATH..path)
+end
+
+local base
+local world
+import('./debug.lua').registerGlobal() -- 'debug' is already a module, so must be imported via './debug'
+if inputs.showHelp then
+    print('USAGE: run [...flags]')
+    print('  --help/-h: This help')
+    print('  --mock: Load a mock library to')
+    print('          emulate the turtle library.')
+    print('          Useful for testing outside a')
+    print('          turtle enviornment.')
+    print('  --base <path>: Sets the base absolute')
+    print('          path to something other than')
+    print('          the default. Imports are done')
+    print('          relative to this path.')
+    print('          The provided path should end')
+    print('          with a "/".')
+    return
+elseif inputs.useMockLib then
+    import('mockComputerCraftApi/init.lua').registerGlobals('mockComputerCraftApi/')
+    world = mockComputerCraftApi.world.createDefault()
+    mockComputerCraftApi.setWorld(world)
+end
+
+function onStep()
+    -- _G.mockComputerCraftApi.present.displayMap(world, { minX = -5, maxX = 5, minY = 0, maxY = 999, minZ = -5, maxZ = 5 }, { showKey = false })
+    -- mockComputerCraftApi.present.showTurtlePosition(world)
+    -- debug.busySleep(0.2)
+end
+
+if turtle == nil then
+    print('Built-in APIs are missing. Did you intend to use --mock?')
+else
+    import('act/init.lua').registerGlobal('act/')
+    local strategyModule = import('strategy/init.lua')
+    strategyModule.registerGlobal('strategy/')
+    strategyModule.run(onStep)
+end
+
+if inputs.useMockLib then
+    -- mockComputerCraftApi.present.displayMap(world, { minX = -5, maxX = 5, minY = 0, maxY = 79, minZ = -5, maxZ = 5 })
+    mockComputerCraftApi.present.displayMap(world, { minX = -5, maxX = 5, minY = 65, maxY = 68, minZ = -5, maxZ = 5 })
+    mockComputerCraftApi.present.showTurtlePosition(world)
+    mockComputerCraftApi.present.inventory(world)
+end
