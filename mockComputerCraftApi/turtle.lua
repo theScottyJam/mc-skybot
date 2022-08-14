@@ -2,6 +2,8 @@ local util = import('util.lua')
 
 local module = {}
 
+local hookListeners = {}
+
 local MAX_INVENTORY_SIZE = 100
 
 function module.up()
@@ -243,7 +245,7 @@ function module.digDown(toolSide)
     return digAt(currentWorld, posBeingDug, toolSide)
 end
 
-local canDig = { 'DIRT', 'GRASS', 'LOG', 'LEAVES', 'ICE' }
+local canDig = { 'DIRT', 'COBBLESTONE', 'GRASS', 'LOG', 'LEAVES', 'ICE' }
 
 local leavesDug = 0
 function digAt(currentWorld, posBeingDug, toolSide)
@@ -377,6 +379,21 @@ function module.transferTo(destinationSlot, quantity)
     return true
 end
 
+---- HOOKS ----
+
+function hookListeners.registerCobblestoneRegenerationBlock(absCoord)
+    function regenerateCobblestone()
+        local currentWorld = _G.mockComputerCraftApi._currentWorld
+        local cell = lookupInMap(currentWorld.map, absCoord)
+        if cell ~= nil then return end
+        setInMap(currentWorld.map, absCoord, { id = 'COBBLESTONE' })
+
+        addTickListener(5, regenerateCobblestone)  
+    end
+
+    addTickListener(5, regenerateCobblestone)
+end
+
 ---- HELPERS ----
 
 local tickListeners = {}
@@ -388,7 +405,7 @@ function tick()
             entry.listener()
         end
     end
-    tickListeners = util.filterTable(tickListeners, function(value) return value.at > currentTick end)
+    tickListeners = util.filterArrayTable(tickListeners, function(value) return value.at > currentTick end)
 end
 
 function addTickListener(ticksLater, listener)
@@ -493,4 +510,4 @@ function posToCoord(pos)
     return { x = pos.x, y = pos.y, z = pos.z }
 end
 
-return module
+return module, hookListeners

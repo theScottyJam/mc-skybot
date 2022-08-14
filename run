@@ -38,6 +38,7 @@ end
 
 local base
 local world
+local hookListeners = {}
 import('./debug.lua').registerGlobal() -- 'debug' is already a module, so must be imported via './debug'
 if inputs.showHelp then
     print('USAGE: run [...flags]')
@@ -55,20 +56,23 @@ if inputs.showHelp then
     return
 elseif inputs.useMockLib then
     import('mockComputerCraftApi/init.lua').registerGlobals('mockComputerCraftApi/')
-    world = mockComputerCraftApi.world.createDefault()
-    mockComputerCraftApi.setWorld(world)
+    world = _G.mockComputerCraftApi.world.createDefault()
+    _G.mockComputerCraftApi.setWorld(world)
+    hookListeners = _G.mockComputerCraftApi.hookListeners
 end
 
 function onStep()
-    -- _G.mockComputerCraftApi.present.displayMap(world, { minX = -5, maxX = 5, minY = 0, maxY = 999, minZ = -5, maxZ = 5 }, { showKey = false })
-    -- mockComputerCraftApi.present.showTurtlePosition(world)
-    -- debug.busySleep(0.2)
+    if inputs.useMockLib then
+        -- _G.mockComputerCraftApi.present.displayMap(world, { minX = -5, maxX = 5, minY = 0, maxY = 999, minZ = -5, maxZ = 5 }, { showKey = false })
+        -- mockComputerCraftApi.present.showTurtlePosition(world)
+        -- debug.busySleep(0.2)
+    end
 end
 
 if turtle == nil then
     print('Built-in APIs are missing. Did you intend to use --mock?')
 else
-    import('act/init.lua').registerGlobal('act/')
+    import('act/init.lua').registerGlobal('act/', hookListeners)
     local strategyModule = import('strategy/init.lua')
     strategyModule.registerGlobal('strategy/')
     strategyModule.run(onStep)

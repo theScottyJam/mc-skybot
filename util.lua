@@ -30,12 +30,12 @@ function module.tableContains(table, entry)
     return false
 end
 
-function module.filterTable(table, filterFn)
+function module.filterArrayTable(curTable, filterFn)
     local newTable = {}
-    for key, value in pairs(table) do
+    for _, value in ipairs(curTable) do
         local keep = filterFn(value, key)
         if keep then
-            newTable[key] = value
+            table.insert(newTable, value)
         end
     end
     return newTable

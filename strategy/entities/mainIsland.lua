@@ -20,6 +20,7 @@ function entityBuilder(opts)
     local harvestInitialTree = harvestInitialTreeProject({ bedrockPos = bedrockPos, homeLoc = homeLoc })
     local prepareCobblestoneGenerator = prepareCobblestoneGeneratorProject({ bedrockPos = bedrockPos, homeLoc = homeLoc })
     local waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGeneratorProject({ bedrockPos = bedrockPos, homeLoc = homeLoc })
+    local harvestCobblestone = harvestCobblestoneProject({ bedrockPos = bedrockPos, homeLoc = homeLoc })
 
     return {
         init = function()
@@ -32,7 +33,8 @@ function entityBuilder(opts)
             homeLoc = homeLoc,
             harvestInitialTree = harvestInitialTree,
             prepareCobblestoneGenerator = prepareCobblestoneGenerator,
-            waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGenerator
+            waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGenerator,
+            harvestCobblestone = harvestCobblestone
         }
     }
 end
@@ -228,6 +230,47 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
 
             navigate.moveTo(shortTermPlaner, startPos)
             commands.turtle.digDown(shortTermPlaner, 'left')
+            commands.mockHooks.registerCobblestoneRegenerationBlock(shortTermPlaner, { x=0, y=-1, z=0 })
+
+            return { done = true }, shortTermPlaner.shortTermPlan
+        end
+    })
+end
+
+function harvestCobblestoneProject(opts)
+    local absoluteBedrockPos = opts.bedrockPos
+    local absoluteHomeLoc = opts.homeLoc
+
+    local location = _G.act.location
+    local navigate = _G.act.navigate
+    local commands = _G.act.commands
+    local highLevelCommands = _G.act.highLevelCommands
+    local space = _G.act.space
+
+    return _G.act.project.register('mainIsland:harvestCobblestoneProject', {
+        createProjectState = function()
+            return { done = false }
+        end,
+        nextShortTermPlan = function(state, projectState)
+            if projectState.done == true then
+                return nil, nil
+            end
+
+            local shortTermPlaner = _G.act.shortTermPlaner.create({ absTurtlePos = state.turtlePos })
+            location.travelToLocation(shortTermPlaner, absoluteHomeLoc)
+            local shortTermPlaner = _G.act.shortTermPlaner.withRelativePos(shortTermPlaner, space.locToPos(absoluteHomeLoc))
+
+            local startPos = util.copyTable(shortTermPlaner.turtlePos)
+
+            for i = 1, 32 do
+                highLevelCommands.waitUntilDetectBlock(shortTermPlaner, {
+                    expectedBlockId = 'COBBLESTONE',
+                    direction = 'down',
+                    endFacing = 'ANY'
+                })
+                commands.turtle.digDown(shortTermPlaner, 'left')
+            end
+            highLevelCommands.reorient(shortTermPlaner, startPos.face)
 
             return { done = true }, shortTermPlaner.shortTermPlan
         end

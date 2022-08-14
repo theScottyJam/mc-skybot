@@ -28,63 +28,67 @@ function module.init(registerCommand)
     -- opts.endFacing. Can be 'N', 'E', 'S', 'W', 'ANY', or 'CURRENT' (the default)
     --   If set to 'ANY', you MUST use highLevelCommands.reorient() to fix your facing
     --   when you're ready to depend on it again.
-    highLevelCommands.waitUntilDetectBlock = registerCommand('highLevelCommands:waitUntilDetectBlock', function(state, opts)
-        local space = _G.act.space
+    highLevelCommands.waitUntilDetectBlock = registerCommand(
+        'highLevelCommands:waitUntilDetectBlock',
+        function(state, setupState, opts)
+            local space = _G.act.space
 
-        local expectedBlockId = opts.expectedBlockId
-        local direction = opts.direction
-        local endFacing = opts.endFacing
-
-        if endFacing == 'CURRENT' or endFacing == nil then
-            endFacing = state.turtlePos.face
-        end
-
-        local inspectFn
-        if direction == 'up' then
-            inspectFn = turtle.inspectUp
-        elseif direction == 'down' then
-            inspectFn = turtle.inspectDown
-        else
-            error('Invalid direction')
-        end
-
-        -- TODO: Add detection logic
-        local success, blockInfo = inspectFn()
-        local minecraftBlockId = blockInfo.name
-        if not success then
-            minecraftBlockId = 'minecraft:air'
-        end
-
-        local blockId = string.upper(util.splitString(minecraftBlockId, ':')[2])
-        if blockId ~= expectedBlockId then
-            turtle.turnRight() -- Wait for a bit
-            state.turtlePos.face = space.rotateFaceClockwise(state.turtlePos.face)
-            -- If endFacing is 'CURRENT' (or nil), we need to swap it for a calculated direction,
-            -- so the next command that runs knows the original facing.
-            local newOpts = util.mergeTables(opts, { endFacing = endFacing })
-            table.insert(state.shortTermPlan, 1, { command = 'highLevelCommands:waitUntilDetectBlock', args = {newOpts} })
-        elseif endFacing ~= 'ANY' then
-            table.insert(state.shortTermPlan, 1, { command = 'highLevelCommands:reorient', args = {endFacing} })
-        end
-    end, {
-        onSetup = function(shortTermPlaner, opts)
+            local expectedBlockId = opts.expectedBlockId
+            local direction = opts.direction
             local endFacing = opts.endFacing
 
-            local turtlePos = shortTermPlaner.turtlePos
             if endFacing == 'CURRENT' or endFacing == nil then
-                -- Do nothing
-            elseif endFacing == 'ANY' then
-                turtlePos.face = 'W' -- 'W' is the "random" direction you end up facing
-            else
-                turtlePos.face = endFacing
+                endFacing = state.turtlePos.face
             end
-        end
-    })
+
+            local inspectFn
+            if direction == 'up' then
+                inspectFn = turtle.inspectUp
+            elseif direction == 'down' then
+                inspectFn = turtle.inspectDown
+            else
+                error('Invalid direction')
+            end
+
+            -- TODO: Add detection logic
+            local success, blockInfo = inspectFn()
+            local minecraftBlockId = blockInfo.name
+            if not success then
+                minecraftBlockId = 'minecraft:air'
+            end
+
+            local blockId = string.upper(util.splitString(minecraftBlockId, ':')[2])
+            if blockId ~= expectedBlockId then
+                turtle.turnRight() -- Wait for a bit
+                state.turtlePos.face = space.rotateFaceClockwise(state.turtlePos.face)
+                -- If endFacing is 'CURRENT' (or nil), we need to swap it for a calculated direction,
+                -- so the next command that runs knows the original facing.
+                local newOpts = util.mergeTables(opts, { endFacing = endFacing })
+                table.insert(state.shortTermPlan, 1, { command = 'highLevelCommands:waitUntilDetectBlock', args = {newOpts} })
+            elseif endFacing ~= 'ANY' then
+                table.insert(state.shortTermPlan, 1, { command = 'highLevelCommands:reorient', args = {endFacing} })
+            end
+        end,
+        {
+            onSetup = function(shortTermPlaner, opts)
+                local endFacing = opts.endFacing
+
+                local turtlePos = shortTermPlaner.turtlePos
+                if endFacing == 'CURRENT' or endFacing == nil then
+                    -- Do nothing
+                elseif endFacing == 'ANY' then
+                    turtlePos.face = 'W' -- 'W' is the "random" direction you end up facing
+                else
+                    turtlePos.face = endFacing
+                end
+            end
+        }
+    )
 
     -- Uses runtime facing information instead of the ahead-of-time planned facing to orient yourself a certain direction.
     -- This is important after doing a high-level command that could put you facing a random direction, and there's no way
     -- to plan a specific number of turn-lefts/rights to fix it in advance.
-    highLevelCommands.reorient = registerCommand('highLevelCommands:reorient', function(state, targetFace)
+    highLevelCommands.reorient = registerCommand('highLevelCommands:reorient', function(state, setupState, targetFace)
         local beforeFace = state.turtlePos.face
 
         turnCommands = ({

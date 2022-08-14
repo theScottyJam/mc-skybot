@@ -27,6 +27,7 @@ function initStrategy()
     plan.doProject(mainIsland.prepareCobblestoneGenerator)
     plan.doProject(mainIsland.harvestInitialTree)
     plan.doProject(mainIsland.waitForIceToMeltAndfinishCobblestoneGenerator)
+    plan.doProject(mainIsland.harvestCobblestone)
 
     return plan.build()
 end

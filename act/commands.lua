@@ -2,7 +2,8 @@ local util = import('util.lua')
 
 local turtleActions = {}
 local generalActions = {}
-local module = { turtle = turtleActions, general = generalActions }
+local mockHooksActions = {}
+local module = { turtle = turtleActions, general = generalActions, mockHooks = mockHooksActions }
 
 local commandListeners = {}
 
@@ -14,28 +15,30 @@ function module.registerCommand(id, execute, opts)
     local onSetup = opts.onSetup or nil
     local onExec = opts.onExec or nil
 
-    commandListeners[id] = function(state, ...)
-        if onExec ~= nil then onExec(state, table.unpack({...})) end
-        execute(state, table.unpack({...}))
+    commandListeners[id] = function(state, setupState, ...)
+        if onExec ~= nil then onExec(state, setupState, table.unpack({...})) end
+        execute(state, setupState, table.unpack({ ... }))
     end
     return function(shortTermPlaner, ...)
         -- A sanity check, because I mess this up a lot.
         if shortTermPlaner == nil or shortTermPlaner.shortTermPlan == nil then
             error('Forgot to pass in a proper shortTermPlaner object into a command')
         end
-        if onSetup ~= nil then onSetup(shortTermPlaner, table.unpack({...})) end
-        table.insert(shortTermPlaner.shortTermPlan, { command = id, args = {...} })
+        local setupState = nil
+        if onSetup ~= nil then setupState = onSetup(shortTermPlaner, table.unpack({...})) end
+        table.insert(shortTermPlaner.shortTermPlan, { command = id, args = {...}, setupState = setupState })
     end
 end
 
 -- A convinient shorthand function to take away some boilerplate.
-function registerDeterministicCommand(id, execute, updatePos)
+function registerDeterministicCommand(id, execute_, updatePos)
     if updatePos == nil then updatePos = function() end end
+    function execute(state, setupState, ...) return execute_(state, table.unpack({ ... })) end
     return module.registerCommand(id, execute, {
         onSetup = function(shortTermPlaner)
             updatePos(shortTermPlaner.turtlePos)
         end,
-        onExec = function(state)
+        onExec = function(state, setupState, setupState)
             updatePos(state.turtlePos)
         end
     })
@@ -133,6 +136,21 @@ turtleActions.transferTo = registerDeterministicCommand('turtle:transferTo', fun
     turtle.transferTo(destinationSlot, quantity)
 end)
 
+mockHooksActions.registerCobblestoneRegenerationBlock = module.registerCommand(
+    'mockHooks:registerCobblestoneRegenerationBlock',
+    function(state, setupState, coord)
+        local mockHooks = _G.act.mockHooks
+        local space = _G.act.space
+        local absCoord = space.resolveRelCoord(coord, setupState.relativeTo)
+        mockHooks.registerCobblestoneRegenerationBlock(absCoord)
+    end,
+    {
+        onSetup = function(shortTermPlaner)
+            return { relativeTo = shortTermPlaner.relativeTo }
+        end
+    }
+)
+
 generalActions.setState = registerDeterministicCommand('general:setState', function(state, updates)
     util.mergeTablesInPlace(state, updates)
 end)
@@ -145,8 +163,9 @@ end)
 function module.execCommand(state, cmd)
     local type = cmd.command
     local args = cmd.args or {}
+    local setupState = cmd.setupState -- could be nil
 
-    commandListeners[type](state, table.unpack(args))
+    commandListeners[type](state, setupState, table.unpack(args))
 end
 
 return module
