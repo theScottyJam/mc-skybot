@@ -93,12 +93,19 @@ function module.getItemCount(slotNum)
     end
 end
 
-function module.getItemSpace(slotNum)
-    error('Not Implemented')
-end
-
-function module.getItemDetails(slotNum)
-    error('Not Implemented')
+-- slotNum defaults to the selected slot
+function module.getItemDetail(slotNum)
+    local turtle = _G.mockComputerCraftApi._currentWorld.turtle
+    if slotNum == nil then slotNum = turtle.selectedSlot end
+    local slot = turtle.inventory[slotNum]
+    if slot == nil then
+        return nil
+    end
+    return {
+        name = 'minecraft:'..string.lower(slot.id),
+        count = slot.quantity,
+        damage = 0
+    }
 end
 
 function module.equipLeft()

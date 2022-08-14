@@ -5,23 +5,43 @@ local module = {}
 function module.init(registerCommand)
     local highLevelCommands = {}
 
-    highLevelCommands.transferToFirstEmptySlot = registerCommand('highLevelCommands:transferToFirstEmptySlot', function(state)
-        local firstEmptySlot = nil
-        for i = 1, 16 do
-            local count = turtle.getItemCount(i)
-            if count == 0 then
-                firstEmptySlot = i
-                break
+    highLevelCommands.transferToFirstEmptySlot = registerCommand(
+        'highLevelCommands:transferToFirstEmptySlot',
+        function(state, setupState)
+            local firstEmptySlot = nil
+            for i = 1, 16 do
+                local count = turtle.getItemCount(i)
+                if count == 0 then
+                    firstEmptySlot = i
+                    break
+                end
+            end
+            if firstEmptySlot == nil then
+                error('Failed to find an empty slot.')
+            end
+            local success = turtle.transferTo(firstEmptySlot)
+            if not success then
+                error('Failed to transfer to the first empty slot (was the source empty?)')
             end
         end
-        if firstEmptySlot == nil then
-            error('Failed to find an empty slot.')
+    )
+
+    highLevelCommands.findAndSelectSlotWithItem = registerCommand(
+        'highLevelCommands:findAndSelectSlotWithItem',
+        function(state, setupState, itemIdToFind)
+            for i = 1, 16 do
+                local slotInfo = turtle.getItemDetail(i)
+                if slotInfo ~= nil then
+                    local itemIdInSlot = string.upper(util.splitString(slotInfo.name, ':')[2])
+                    if itemIdInSlot == itemIdToFind then
+                        turtle.select(i)
+                        return
+                    end
+                end
+            end
+            error('Failed to find the specific item.')
         end
-        local success = turtle.transferTo(firstEmptySlot)
-        if not success then
-            error('Failed to transfer to the first empty slot (was the source empty?)')
-        end
-    end)
+    )
 
     -- opts.expectedBlockId is the blockId you're waiting for
     -- opts.direction is 'up' or 'down' ('front' is not yet supported).
@@ -88,26 +108,29 @@ function module.init(registerCommand)
     -- Uses runtime facing information instead of the ahead-of-time planned facing to orient yourself a certain direction.
     -- This is important after doing a high-level command that could put you facing a random direction, and there's no way
     -- to plan a specific number of turn-lefts/rights to fix it in advance.
-    highLevelCommands.reorient = registerCommand('highLevelCommands:reorient', function(state, setupState, targetFace)
-        local beforeFace = state.turtlePos.face
+    highLevelCommands.reorient = registerCommand(
+        'highLevelCommands:reorient',
+        function(state, setupState, targetFace)
+            local beforeFace = state.turtlePos.face
 
-        turnCommands = ({
-            N = {N={}, E={'R'}, S={'R','R'}, W={'L'}},
-            E = {E={}, S={'R'}, W={'R','R'}, N={'L'}},
-            S = {S={}, W={'R'}, N={'R','R'}, E={'L'}},
-            W = {W={}, N={'R'}, E={'R','R'}, S={'L'}},
-        })[beforeFace][targetFace]
+            turnCommands = ({
+                N = {N={}, E={'R'}, S={'R','R'}, W={'L'}},
+                E = {E={}, S={'R'}, W={'R','R'}, N={'L'}},
+                S = {S={}, W={'R'}, N={'R','R'}, E={'L'}},
+                W = {W={}, N={'R'}, E={'R','R'}, S={'L'}},
+            })[beforeFace][targetFace]
 
-        for _, command in ipairs(turnCommands) do
-            if command == 'R' then turtle.turnRight() end
-            if command == 'L' then turtle.turnLeft() end
-        end
-        state.turtlePos.face = targetFace
-    end, {
-        onSetup = function(shortTermPlaner, targetFace)
-            shortTermPlaner.turtlePos.face = targetFace
-        end
-    })
+            for _, command in ipairs(turnCommands) do
+                if command == 'R' then turtle.turnRight() end
+                if command == 'L' then turtle.turnLeft() end
+            end
+            state.turtlePos.face = targetFace
+        end, {
+            onSetup = function(shortTermPlaner, targetFace)
+                shortTermPlaner.turtlePos.face = targetFace
+            end
+        }
+    )
 
     return highLevelCommands
 end

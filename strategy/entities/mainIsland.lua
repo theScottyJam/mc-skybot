@@ -21,6 +21,7 @@ function entityBuilder(opts)
     local prepareCobblestoneGenerator = prepareCobblestoneGeneratorProject({ bedrockPos = bedrockPos, homeLoc = homeLoc })
     local waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGeneratorProject({ bedrockPos = bedrockPos, homeLoc = homeLoc })
     local harvestCobblestone = harvestCobblestoneProject({ bedrockPos = bedrockPos, homeLoc = homeLoc })
+    local prepareIslandTreeFarm = prepareIslandTreeFarmProject({ bedrockPos = bedrockPos, homeLoc = homeLoc })
 
     return {
         init = function()
@@ -34,7 +35,8 @@ function entityBuilder(opts)
             harvestInitialTree = harvestInitialTree,
             prepareCobblestoneGenerator = prepareCobblestoneGenerator,
             waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGenerator,
-            harvestCobblestone = harvestCobblestone
+            harvestCobblestone = harvestCobblestone,
+            prepareIslandTreeFarm = prepareIslandTreeFarm
         }
     }
 end
@@ -107,8 +109,7 @@ function harvestInitialTreeProject(opts)
     })
 end
 
--- End condition: An empty bucket will be left in slot 16.
---   (so you can't do any project that utilises slot 16)
+-- End condition: An empty bucket will be left in your inventory
 function prepareCobblestoneGeneratorProject(opts)
     local absoluteBedrockPos = opts.bedrockPos
     local absoluteHomeLoc = opts.homeLoc
@@ -155,7 +156,7 @@ function prepareCobblestoneGeneratorProject(opts)
             commands.turtle.select(shortTermPlaner, LAVA_BUCKET_SLOT)
             commands.turtle.placeDown(shortTermPlaner)
             -- Move the empty bucket to an earlier cell.
-            -- highLevelCommands.transferToFirstEmptySlot(shortTermPlaner, firstEmptySlot)
+            highLevelCommands.transferToFirstEmptySlot(shortTermPlaner)
             commands.turtle.select(shortTermPlaner, 1)
 
             -- Dig out west branch
@@ -185,7 +186,7 @@ function prepareCobblestoneGeneratorProject(opts)
     })
 end
 
--- Start condition: An empty bucket must be in slot 16.
+-- Start condition: An empty bucket must be in your inventory.
 function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
     local absoluteBedrockPos = opts.bedrockPos
     local absoluteHomeLoc = opts.homeLoc
@@ -220,12 +221,10 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
             })
 
             -- Move water
-            local BUCKET_SLOT = 16
-            commands.turtle.select(shortTermPlaner, BUCKET_SLOT)
+            highLevelCommands.findAndSelectSlotWithItem(shortTermPlaner, 'BUCKET')
             commands.turtle.placeDown(shortTermPlaner, 'left')
             commands.turtle.forward(shortTermPlaner)
             commands.turtle.placeDown(shortTermPlaner)
-            highLevelCommands.transferToFirstEmptySlot(shortTermPlaner)
             commands.turtle.select(shortTermPlaner, 1)
 
             navigate.moveTo(shortTermPlaner, startPos)
@@ -271,6 +270,38 @@ function harvestCobblestoneProject(opts)
                 commands.turtle.digDown(shortTermPlaner, 'left')
             end
             highLevelCommands.reorient(shortTermPlaner, startPos.face)
+
+            return { done = true }, shortTermPlaner.shortTermPlan
+        end
+    })
+end
+
+function prepareIslandTreeFarmProject(opts)
+    local absoluteBedrockPos = opts.bedrockPos
+    local absoluteHomeLoc = opts.homeLoc
+
+    local location = _G.act.location
+    local navigate = _G.act.navigate
+    local commands = _G.act.commands
+    local highLevelCommands = _G.act.highLevelCommands
+    local space = _G.act.space
+
+    return _G.act.project.register('mainIsland:prepareIslandTreeFarmProject', {
+        createProjectState = function()
+            return { done = false }
+        end,
+        nextShortTermPlan = function(state, projectState)
+            if projectState.done == true then
+                return nil, nil
+            end
+
+            local shortTermPlaner = _G.act.shortTermPlaner.create({ absTurtlePos = state.turtlePos })
+            location.travelToLocation(shortTermPlaner, absoluteHomeLoc)
+            local shortTermPlaner = _G.act.shortTermPlaner.withRelativePos(shortTermPlaner, space.locToPos(absoluteHomeLoc))
+
+            local startPos = util.copyTable(shortTermPlaner.turtlePos)
+
+            error('NOT IMPLEMENTED')
 
             return { done = true }, shortTermPlaner.shortTermPlan
         end
