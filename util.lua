@@ -1,33 +1,41 @@
 local module = {}
 
-function module.mergeTablesInPlace(table, ...)
+function module.mergeTablesInPlace(curTable, ...)
     for _, tableToMerge in ipairs({ ... }) do
         for key, value in pairs(tableToMerge) do
-            table[key] = value
+            curTable[key] = value
         end
     end
-    return table
+    return curTable
 end
 
 function module.mergeTables(...)
     return module.mergeTablesInPlace({}, table.unpack({...}))
 end
 
-function module.copyTable(table)
+function module.copyTable(curTable)
     local newTable = {}
-    for key, value in pairs(table) do
+    for key, value in pairs(curTable) do
         newTable[key] = value
     end
     return newTable
 end
 
-function module.tableContains(table, entry)
-    for key, value in pairs(table) do
+function module.tableContains(curTable, entry)
+    for key, value in pairs(curTable) do
         if entry == value then
             return true
         end
     end
     return false
+end
+
+function module.reverseTable(curTable)
+    local newTable = {}
+    for i = #curTable, 1, -1 do
+        table.insert(newTable, curTable[i])
+    end
+    return newTable
 end
 
 function module.filterArrayTable(curTable, filterFn)

@@ -15,28 +15,25 @@ function entityBuilder(opts)
 
     -- homeLoc is right above the bedrock
     local homeLoc = _G.act.location.register(space.resolveRelPos({ x=0, y=3, z=0, face='N' }, bedrockPos))
-    -- local nowhereInParticularLoc = _G.act.location.register(space.resolveRelPos({ x=5, y=8, z=5, face='E' }, bedrockPos))
+    -- initialLoc is in front of the chest
+    local initialLoc = _G.act.location.register(space.resolveRelPos({ x=3, face='W' }, homeLoc))
 
     local harvestInitialTree = harvestInitialTreeProject({ bedrockPos = bedrockPos, homeLoc = homeLoc })
-    local prepareCobblestoneGenerator = prepareCobblestoneGeneratorProject({ bedrockPos = bedrockPos, homeLoc = homeLoc })
-    local waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGeneratorProject({ bedrockPos = bedrockPos, homeLoc = homeLoc })
-    local harvestCobblestone = harvestCobblestoneProject({ bedrockPos = bedrockPos, homeLoc = homeLoc })
-    local prepareIslandTreeFarm = prepareIslandTreeFarmProject({ bedrockPos = bedrockPos, homeLoc = homeLoc })
+    local prepareCobblestoneGenerator = prepareCobblestoneGeneratorProject({ homeLoc = homeLoc })
+    local waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGeneratorProject({ homeLoc = homeLoc })
+    local harvestCobblestone = harvestCobblestoneProject({ homeLoc = homeLoc })
 
     return {
         init = function()
-            -- _G.act.location.registerPath(homeLoc, nowhereInParticularLoc, {
-            --     space.resolveRelCoord({ x=0, y=8, z=0 }, bedrockPos),
-            --     space.resolveRelCoord({ x=5, y=8, z=0 }, bedrockPos)
-            -- })
+            _G.act.location.registerPath(initialLoc, homeLoc)
         end,
         entity = {
+            initialLoc = initialLoc,
             homeLoc = homeLoc,
             harvestInitialTree = harvestInitialTree,
             prepareCobblestoneGenerator = prepareCobblestoneGenerator,
             waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGenerator,
-            harvestCobblestone = harvestCobblestone,
-            prepareIslandTreeFarm = prepareIslandTreeFarm
+            harvestCobblestone = harvestCobblestone
         }
     }
 end
@@ -111,7 +108,6 @@ end
 
 -- End condition: An empty bucket will be left in your inventory
 function prepareCobblestoneGeneratorProject(opts)
-    local absoluteBedrockPos = opts.bedrockPos
     local absoluteHomeLoc = opts.homeLoc
 
     local location = _G.act.location
@@ -188,7 +184,6 @@ end
 
 -- Start condition: An empty bucket must be in your inventory.
 function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
-    local absoluteBedrockPos = opts.bedrockPos
     local absoluteHomeLoc = opts.homeLoc
 
     local location = _G.act.location
@@ -237,7 +232,6 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
 end
 
 function harvestCobblestoneProject(opts)
-    local absoluteBedrockPos = opts.bedrockPos
     local absoluteHomeLoc = opts.homeLoc
 
     local location = _G.act.location
@@ -270,38 +264,6 @@ function harvestCobblestoneProject(opts)
                 commands.turtle.digDown(shortTermPlaner, 'left')
             end
             highLevelCommands.reorient(shortTermPlaner, startPos.face)
-
-            return { done = true }, shortTermPlaner.shortTermPlan
-        end
-    })
-end
-
-function prepareIslandTreeFarmProject(opts)
-    local absoluteBedrockPos = opts.bedrockPos
-    local absoluteHomeLoc = opts.homeLoc
-
-    local location = _G.act.location
-    local navigate = _G.act.navigate
-    local commands = _G.act.commands
-    local highLevelCommands = _G.act.highLevelCommands
-    local space = _G.act.space
-
-    return _G.act.project.register('mainIsland:prepareIslandTreeFarmProject', {
-        createProjectState = function()
-            return { done = false }
-        end,
-        nextShortTermPlan = function(state, projectState)
-            if projectState.done == true then
-                return nil, nil
-            end
-
-            local shortTermPlaner = _G.act.shortTermPlaner.create({ absTurtlePos = state.turtlePos })
-            location.travelToLocation(shortTermPlaner, absoluteHomeLoc)
-            local shortTermPlaner = _G.act.shortTermPlaner.withRelativePos(shortTermPlaner, space.locToPos(absoluteHomeLoc))
-
-            local startPos = util.copyTable(shortTermPlaner.turtlePos)
-
-            error('NOT IMPLEMENTED')
 
             return { done = true }, shortTermPlaner.shortTermPlan
         end

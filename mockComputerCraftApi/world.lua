@@ -7,7 +7,7 @@ local module = {}
 function module.createDefault()
     local world = {
         turtle = {
-            pos = { x=0, y=67, z=-3, face='N' },
+            pos = { x=3, y=67, z=-3, face='W' },
             selectedSlot = 1, -- Selected inventory slot
             inventory = {},
             equipedLeft = nil,
@@ -85,6 +85,8 @@ function createStartingMap()
             [2] = { id = 'ICE', quantity = 1 }
         }
     }
+    map[ 3][67] = {}
+    map[ 3][67][-2] = { id = 'DISK_DRIVE' }
 
     map[-1][67] = {}
     map[-1][67][ 1] = { id = 'LOG' }

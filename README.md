@@ -24,7 +24,9 @@ Use Skyblock 2.1 (Some downloads are for more recent versions of Minecraft. Make
 
 Start the turtle right above the bedrock, facing north.
 
-Put a disk drive next to the turtle with a disk in there (I normally put it right in front). You can make the disk persist across restarts by doing `label right/front/etc main` (or something like that). You'll find the data for this disk in the world save, in computer/. Do not just link your source code directory to there! If you ever delete the world through MineCraft's UI, it'll go into the source directory and delete those files.
+Start the tutle in front of the chest, facing away from it. Place its disk drive to the right of the tutle.
+
+You can make the disk persist across restarts by doing `label right/front/etc main` (or something like that). You'll find the data for this disk in the world save, in computer/. Do not just link your source code directory to there! If you ever delete the world through MineCraft's UI, it'll go into the source directory and delete those files.
 
 # Terms
 

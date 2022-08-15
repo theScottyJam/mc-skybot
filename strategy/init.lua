@@ -23,12 +23,11 @@ function initStrategy()
         bedrockCoord = { x = 0, y = 64, z = -3 }
     })
 
-    plan.setInitialTurtleLocation(mainIsland.homeLoc)
+    plan.setInitialTurtleLocation(mainIsland.initialLoc)
     plan.doProject(mainIsland.prepareCobblestoneGenerator)
     plan.doProject(mainIsland.harvestInitialTree)
     plan.doProject(mainIsland.waitForIceToMeltAndfinishCobblestoneGenerator)
     plan.doProject(mainIsland.harvestCobblestone)
-    -- plan.doProject(mainIsland.prepareIslandTreeFarm)
 
     return plan.build()
 end

@@ -9,6 +9,7 @@ local completeMapKey = {
     TURTLE_E = '>',
     TURTLE_S = 'V',
     TURTLE_W = '<',
+    DISK_DRIVE = '&',
     DIRT = 'd',
     GRASS = 'D',
     CHEST = 'C',

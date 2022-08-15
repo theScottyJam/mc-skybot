@@ -25,7 +25,15 @@ end
 
 -- midPoints is a list of coordinates
 function module.registerPath(loc1, loc2, midPoints)
-    local cost = calcPathCost(loc1, table.unpack(midPoints), loc2)
+    local space = _G.act.space
+
+    midPoints = midPoints or {}
+
+    local allCoordsInPath = util.copyTable(midPoints)
+    table.insert(allCoordsInPath, 1, space.locToCoord(loc1))
+    table.insert(allCoordsInPath, space.locToCoord(loc2))
+    local cost = calcPathCost(allCoordsInPath)
+
     table.insert(loc1.paths, {
         from = loc1,
         to = loc2,
@@ -70,7 +78,6 @@ function module.travelToLocation(shortTermPlaner, destLoc)
     local route = findBestRoute(turtleLoc, destLoc).route
     if route == nil then error('Failed to naviage to a particular location - there was no route to this location.') end
 
-    local shortTermPlaner = _G.act.shortTermPlaner.create({ absTurtlePos = shortTermPlaner.turtlePos })
     for _, path in ipairs(route) do
         for i, coord in ipairs(path.midPoints) do
             navigate.moveTo(shortTermPlaner, coord)
@@ -80,6 +87,9 @@ function module.travelToLocation(shortTermPlaner, destLoc)
     navigate.face(shortTermPlaner, destLoc.face)
 end
 
+-- May return nil
+-- Finds the best route by exploring all closets locations until it runs into the target.
+-- (this means it'll have to look at almost every registered location to find distant routes).
 function findBestRoute(loc1, loc2)
     if loc1 == loc2 then return {} end
     local toExplore = {{to=loc1, route={}, routeCost=0}}
