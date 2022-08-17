@@ -182,7 +182,7 @@ function placeAt(currentWorld, placePos)
         local success = addToInventory(currentWorld.turtle, 'BUCKET') == 1
         if not success then error('UNREACHABLE') end
     elseif itemIdBeingPlaced == 'ICE' then
-        addTickListener(150, function()
+        addTickListener(200, function()
             local cell = lookupInMap(currentWorld.map, placePos)
             if cell ~= nil and cell.id == 'ICE' then
                 setInMap(currentWorld.map, placePos, { id = 'WATER' })
@@ -388,12 +388,20 @@ end
 
 ---- HOOKS ----
 
-function hookListeners.registerCobblestoneRegenerationBlock(absCoord)
+function hookListeners.registerCobblestoneRegenerationBlock(deltaCoord)
+    if deltaCoord.from ~= 'ORIGIN' then
+        error('Cobblestone generators can only be registered with coordinates who\'s from value is set to "ORIGIN"')
+    end
+    local coord = {
+        x = deltaCoord.right,
+        y = deltaCoord.up,
+        z = -deltaCoord.forward
+    }
     function regenerateCobblestone()
         local currentWorld = _G.mockComputerCraftApi._currentWorld
-        local cell = lookupInMap(currentWorld.map, absCoord)
+        local cell = lookupInMap(currentWorld.map, coord)
         if cell ~= nil then return end
-        setInMap(currentWorld.map, absCoord, { id = 'COBBLESTONE' })
+        setInMap(currentWorld.map, coord, { id = 'COBBLESTONE' })
 
         addTickListener(5, regenerateCobblestone)  
     end

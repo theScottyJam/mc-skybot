@@ -20,7 +20,7 @@ function initStrategy()
     local plan = _G.act.strategy.createBuilder()
 
     local mainIsland = plan.initEntity(_G.strategy.entities.mainIsland, {
-        bedrockCoord = { x = 0, y = 64, z = -3 }
+        bedrockCoord = { forward = 3, right = 0, up = 64, from = 'ORIGIN' }
     })
 
     plan.setInitialTurtleLocation(mainIsland.initialLoc)

@@ -1,29 +1,48 @@
 --[[
     Utilities related to 3d space
     Terms:
-    * coordinate: An x, y, z coordinate
-    * position: A coordinate with a `face`ing.
-    * location: A specific, known point in space that you often travel to. Mostly managed in location.lua.
+    * facing: A record with a "face" and "from" field.
+    * coordinate: a forward,right,up coordinate which a `from` field.
+        `from` is either `ORIGIN` or another coordinate that's missing at least on field because its unknown.
+    * position: A coordinate and facing combined - it has the fields from both.
+    * location: A specific, known point in space that you often travel to. These are managed in location.lua.
+    * compass: A tool to generate coords/positions/facings from the compass's location. Often abreviated "cmps"
+
+    A "relative" coordinate/position/facing is considered to be a value without a `from` field. What they're relative
+    to depends on context. Generally, all fields in a relative coordinate/position/facing are optional, and default to
+    the position they're relative to.
+    (You could technically consider normal coordinates to be relative, since a non-origin "from" does not provide
+    enough information to pinpoint exactly where the coordinate is at, but for our purposes we'll think of these as
+    absolute).
 --]]
 
 local util = import('util.lua')
 
 local module = {}
 
-function module.locToPos(loc)
-    return { x = loc.x, y = loc.y, z = loc.z, face = loc.face }
+function module.posToFacing(pos)
+    return { face = pos.face, from = pos.from }
 end
 
 function module.posToCoord(pos)
-    return { x = pos.x, y = pos.y, z = pos.z }
+    return { forward = pos.forward, right = pos.right, up = pos.up, from = pos.from }
 end
 
-function module.locToCoord(loc)
-    return { x = loc.x, y = loc.y, z = loc.z }
+function module.relPosToRelCoord(pos)
+    return { forward = pos.forward, right = pos.right, up = pos.up }
+end
+
+function module.compareFacing(facing1, facing2)
+    return facing1.face == facing2.face and facing1.from == facing2.face
 end
 
 function module.compareCoord(coord1, coord2)
-    return coord1.x == coord2.x and coord1.y == coord2.y and coord1.z == coord2.z
+    return (
+        coord1.forward == coord2.forward and
+        coord1.right == coord2.right and
+        coord1.up == coord2.up and
+        coord1.from == coord2.from
+    )
 end
 
 function module.comparePos(pos1, pos2)
@@ -32,79 +51,91 @@ end
 
 -- `amount` is optional
 function module.rotateFaceClockwise(face, amount)
-    for i = 1, amount or 1 do
-        face = ({ N = 'E', E = 'S', S = 'W', W = 'N' })[face]
+    assertValidFace(face)
+    if amount == nil then amount = 1 end
+    for i = 1, amount do
+        face = ({ forward = 'right', right = 'backward', backward = 'left', left = 'forward' })[face]
     end
     return face
 end
 
 -- `amount` is optional
 function module.rotateFaceCounterClockwise(face, amount)
-    for i = 1, amount or 1 do
-        face = ({ N = 'W', W = 'S', S = 'E', E = 'N' })[face]
+    assertValidFace(face)
+    if amount == nil then amount = 1 end
+    for i = 1, amount do
+        face = ({ forward = 'left', left = 'backward', backward = 'right', right = 'forward' })[face]
+        if face == nil then error('Bad face value') end
     end
     return face
 end
 
--- Adds the coordinates, and also rotates the coordinate around the
--- base position, depending on which direction the basePos faces.
--- 'N' no rotation, 'E' 90 deg rotation, etc.
--- if basePos was { x=0, y=0, z=0, face='N' }, then relCoord would remain untouched.
--- If x, y, or z is missing from relCoord, they'll default to 0.
-function module.resolveRelCoord(relCoord_, basePos)
-    local relCoord = util.mergeTables({ x=0, y=0, z=0 }, relCoord_)
-    local rotatedCoord
-    if basePos.face == 'N' then
-        rotatedCoord = relCoord
-    elseif basePos.face == 'E' then
-        rotatedCoord = rotateCoordClockwiseAroundOrigin(relCoord, 1)
-    elseif basePos.face == 'S' then
-        rotatedCoord = rotateCoordClockwiseAroundOrigin(relCoord, 2)
-    elseif basePos.face == 'W' then
-        rotatedCoord = rotateCoordClockwiseAroundOrigin(relCoord, 3)
-    else
-        error('bad basePos.face value')
+-- To count counterclockwise rotations, just flip the parameters.
+function module.countClockwiseRotations(fromFace, toFace)
+    assertValidFace(fromFace)
+    assertValidFace(toFace)
+    local count = 0
+    local face = fromFace
+    while face ~= toFace do
+        count = count + 1
+        face = module.rotateFaceClockwise(face)
     end
+    return count
+end
 
+function module.resolveRelFacing(relFacing, basePos)
+    local rotations = module.countClockwiseRotations('forward', basePos.face)
     return {
-        x = basePos.x + rotatedCoord.x,
-        y = basePos.y + rotatedCoord.y,
-        z = basePos.z + rotatedCoord.z
+        face = module.rotateFaceClockwise(relFacing.face, rotations),
+        from = basePos.from
     }
 end
 
--- If x, y, or z is missing from relCoord, they'll default to 0.
-function module.resolveRelPos(relPos, basePos)
-    local rotations = ({ N = 0, E = 1, S = 2, W = 3 })[basePos.face]
+-- Adds the coordinates, and also rotates the coordinate around the
+-- base position, depending on which direction the basePos faces.
+-- 'forward' no rotation, 'right' 90 deg rotation, etc.
+-- if basePos was { forward=0, right=0, up=0, face='forward' }, then relCoord would remain untouched.
+-- If forward, right, or up is missing from relCoord, they'll default to 0.
+function module.resolveRelCoord(relCoord_, basePos)
+    local relCoord = util.mergeTables({ forward=0, right=0, up=0 }, relCoord_)
+    local rotations = module.countClockwiseRotations('forward', basePos.face)
+    local rotatedRelCoord = rotateRelCoordClockwiseAroundOrigin(relCoord, rotations)
+
+    return {
+        forward = basePos.forward + rotatedRelCoord.forward,
+        right = basePos.right + rotatedRelCoord.right,
+        up = basePos.up + rotatedRelCoord.up,
+        from = basePos.from
+    }
+end
+
+-- If forward, right, or up is missing from relCoord, they'll default to 0.
+-- relPos.face is also optional and defaults to `forward`
+function module.resolveRelPos(relPos_, basePos)
+    local relPos = util.mergeTables({ forward=0, right=0, up=0, face='forward' }, relPos_)
+    local rotations = module.countClockwiseRotations('forward', basePos.face)
 
     return util.mergeTables(
-        module.resolveRelCoord(module.posToCoord(relPos), basePos),
+        module.resolveRelCoord(module.relPosToRelCoord(relPos), basePos),
         { face = module.rotateFaceClockwise(relPos.face, rotations) }
     )
 end
 
 function module.relativeCoordTo(targetAbsCoord, basePos)
+    if targetAbsCoord.from ~= basePos.from then error('incompatible "from" fields') end
     local unrotatedRelCoord = {
-        x = targetAbsCoord.x - basePos.x,
-        y = targetAbsCoord.y - basePos.y,
-        z = targetAbsCoord.z - basePos.z
+        forward = targetAbsCoord.forward - basePos.forward,
+        right = targetAbsCoord.right - basePos.right,
+        up = targetAbsCoord.up - basePos.up
     }
 
-    if basePos.face == 'N' then
-        return unrotatedRelCoord
-    elseif basePos.face == 'W' then
-        return rotateCoordClockwiseAroundOrigin(unrotatedRelCoord, 1)
-    elseif basePos.face == 'S' then
-        return rotateCoordClockwiseAroundOrigin(unrotatedRelCoord, 2)
-    elseif basePos.face == 'E' then
-        return rotateCoordClockwiseAroundOrigin(unrotatedRelCoord, 3)
-    else
-        error('bad basePos.face value')
-    end
+    local rotations = module.countClockwiseRotations(basePos.face, 'forward')
+    return rotateRelCoordClockwiseAroundOrigin(unrotatedRelCoord, rotations)
 end
 
 function module.relativePosTo(targetAbsPos, basePos)
-    local rotations = ({ N = 0, W = 1, S = 2, E = 3 })[basePos.face]
+    if targetAbsPos.from ~= basePos.from then error('incompatible "from" fields') end
+    local rotations = module.countClockwiseRotations(basePos.face, 'forward')
 
     return util.mergeTables(
         module.relativeCoordTo(module.posToCoord(targetAbsPos), basePos),
@@ -112,12 +143,32 @@ function module.relativePosTo(targetAbsPos, basePos)
     )
 end
 
-function rotateCoordClockwiseAroundOrigin(coord, count)
+function rotateRelCoordClockwiseAroundOrigin(coord, count)
     if count == nil then count = 1 end
     for i = 1, count do
-        coord = { x = -coord.z, y = coord.y, z = coord.x }
+        coord = { right = coord.forward, forward = -coord.right, up = coord.up }
     end
     return coord
+end
+
+function assertValidFace(face)
+    local isValid = util.tableContains({'forward', 'right', 'backward', 'left'}, face)
+    if not isValid then
+        error('Bad face value')
+    end
+end
+
+-- Meant to provide quick access to some of the above functions
+function module.createCompass(pos)
+    return {
+        pos = pos,
+        coord = module.posToCoord(pos),
+        facing = module.posToFacing(pos),
+        facingAt = function(relFacing) return module.resolveRelFacing(relFacing, pos) end,
+        coordAt = function(relCoord) return module.resolveRelCoord(relCoord, pos) end,
+        posAt = function(relPos) return module.resolveRelPos(relPos, pos) end,
+        compassAt = function(relPos) return module.createCompass(module.resolveRelPos(relPos, pos)) end
+    }
 end
 
 return module

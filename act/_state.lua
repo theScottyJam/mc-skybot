@@ -13,10 +13,10 @@ local module = {}
 function module.createInitialState(opts)
     local space = _G.act.space
 
-    local startingLoc = opts.startingLoc
+    local startingPos = opts.startingPos
 
     return {
-        turtlePos = space.locToPos(opts.startingLoc),
+        turtlePos = opts.startingPos,
         shortTermPlan = {},
         -- Which step are you in in the overall strategy, so we can skip to that.
         strategyStepNumber = 1,

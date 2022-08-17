@@ -10,16 +10,18 @@ local module = {}
 local allLocations = {}
 
 function module.register(pos)
-    local loc = {}
-    loc.x = pos.x
-    loc.y = pos.y
-    loc.z = pos.z
-    loc.face = pos.face
-    loc.paths = {} -- List of paths that lead to and from this location
+    if pos.from ~= 'ORIGIN' then
+        error('A location\'s `from` must be set to "ORIGIN"')
+    end
 
-    if allLocations[loc.x] == nil then allLocations[loc.x] = {} end
-    if allLocations[loc.x][loc.y] == nil then allLocations[loc.x][loc.y] = {} end
-    allLocations[loc.x][loc.y][loc.z] = loc
+    local loc = {
+        pos = pos,
+        paths = {} -- List of paths that lead to and from this location
+    }
+
+    if allLocations[pos.forward] == nil then allLocations[pos.forward] = {} end
+    if allLocations[pos.forward][pos.right] == nil then allLocations[pos.forward][pos.right] = {} end
+    allLocations[pos.forward][pos.right][pos.up] = loc
     return loc
 end
 
@@ -30,8 +32,8 @@ function module.registerPath(loc1, loc2, midPoints)
     midPoints = midPoints or {}
 
     local allCoordsInPath = util.copyTable(midPoints)
-    table.insert(allCoordsInPath, 1, space.locToCoord(loc1))
-    table.insert(allCoordsInPath, space.locToCoord(loc2))
+    table.insert(allCoordsInPath, 1, space.posToCoord(loc1.pos))
+    table.insert(allCoordsInPath, space.posToCoord(loc2.pos))
     local cost = calcPathCost(allCoordsInPath)
 
     table.insert(loc1.paths, {
@@ -49,19 +51,27 @@ function module.registerPath(loc1, loc2, midPoints)
 end
 
 function lookupLoc(coord)
-    local loc = allLocations[coord.x] and allLocations[coord.x][coord.y] and allLocations[coord.x][coord.y][coord.z]
+    local loc = (
+        allLocations[coord.forward] and
+        allLocations[coord.forward][coord.right] and
+        allLocations[coord.forward][coord.right][coord.up]
+    )
+
     if loc == nil then
         error('Failed to look up a location at a given coordinate')
     end
+
     return loc
 end
 
 function calcPathCost(coords)
     local length = 0
     for i=1, #coords-1 do
-        length = length + math.abs(coords[i+1].x - coords[i].x)
-        length = length + math.abs(coords[i+1].y - coords[i].y)
-        length = length + math.abs(coords[i+1].z - coords[i].z)
+        length = length + (
+            math.abs(coords[i+1].forward - coords[i].forward) +
+            math.abs(coords[i+1].right - coords[i].right) +
+            math.abs(coords[i+1].up - coords[i].up)
+        )
     end
     return length
 end
@@ -69,22 +79,20 @@ end
 -- Finds the shortest route to a location among the registered paths and travels there.
 function module.travelToLocation(shortTermPlaner, destLoc)
     local space = _G.act.space
-    local commands = _G.act.commands
-    local location = _G.act.location
     local navigate = _G.act.navigate
 
-    if space.comparePos(shortTermPlaner.turtlePos, space.locToPos(destLoc)) then return end
-    local turtleLoc = lookupLoc(space.locToCoord(shortTermPlaner.turtlePos))
+    if space.comparePos(shortTermPlaner.turtlePos, destLoc.pos) then return end
+    local turtleLoc = lookupLoc(space.posToCoord(shortTermPlaner.turtlePos))
     local route = findBestRoute(turtleLoc, destLoc).route
     if route == nil then error('Failed to naviage to a particular location - there was no route to this location.') end
 
     for _, path in ipairs(route) do
         for i, coord in ipairs(path.midPoints) do
-            navigate.moveTo(shortTermPlaner, coord)
+            navigate.moveToCoord(shortTermPlaner, coord)
         end
-        navigate.moveTo(shortTermPlaner, space.locToCoord(path.to))
+        navigate.moveToCoord(shortTermPlaner, space.posToCoord(path.to.pos))
     end
-    navigate.face(shortTermPlaner, destLoc.face)
+    navigate.face(shortTermPlaner, space.posToFacing(destLoc.pos))
 end
 
 -- May return nil
@@ -125,7 +133,7 @@ function findBestRoute(loc1, loc2)
 end
 
 -- I can implement these when I need them
--- function module.destroyPath() end
--- function module.destroyLocation() end
+-- function module.unregisterPath() end
+-- function module.unregisterLocation() end
 
 return module

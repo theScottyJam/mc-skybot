@@ -15,9 +15,10 @@ function module.assertFace(shortTermPlaner, expectedFace)
 end
 
 function module.assertCoord(shortTermPlaner, expectedCoord)
-    local currentCoord = module.posToCoord(shortTermPlaner.turtlePos)
-    currentCoordStr = '('..currentCoord.x..','..currentCoord.y..','..currentCoord.z..')'
-    expectedCoordStr = '('..expectedCoord.x..','..expectedCoord.y..','..expectedCoord.z..')'
+    local space = _G.act.space
+    local currentCoord = space.posToCoord(shortTermPlaner.turtlePos)
+    currentCoordStr = '('..currentCoord.forward..','..currentCoord.right..','..currentCoord.up..')'
+    expectedCoordStr = '('..expectedCoord.forward..','..expectedCoord.right..','..expectedCoord.up..')'
     if currentCoordStr ~= expectedCoordStr then
         error('Expected current coord '..currentCoordStr..' to be expected coord '..expectedCoordStr)
     end
@@ -25,81 +26,74 @@ end
 
 function module.assertPos(shortTermPlaner, expectedPos)
     local currentCoord = shortTermPlaner.turtlePos
-    currentPosStr = '('..currentPos.x..','..currentPos.y..','..currentPos.z..','..currentPos.face..')'
-    expectedPosStr = '('..expectedPos.x..','..expectedPos.y..','..expectedPos.z..','..expectedPos.face..')'
+    currentPosStr = '('..currentPos.forward..','..currentPos.right..','..currentPos.up..','..currentPos.face..')'
+    expectedPosStr = '('..expectedPos.forward..','..expectedPos.right..','..expectedPos.up..','..expectedPos.face..')'
     if currentPosStr ~= expectedPosStr then
         error('Expected current pos '..currentPosStr..' to be expected pos '..expectedPosStr)
     end
 end
 
--- deltaCoord is a coordinate containing movement instructions.
--- (e.g. move along x by -2)
--- x, y, and z are optional in deltaCoord.
--- dimensionOrder is optional, and indicates which dimensions to travel first. e.g. {'x', 'y'}.
--- It defaults to { 'x', 'z', 'y' }. Dimensions can be omited to prevent movement in that direction.
-function module.move(shortTermPlaner, deltaCoord, dimensionOrder)
-    local space = _G.act.space
-
-    local destinationCoord = space.resolveRelCoord(deltaCoord, shortTermPlaner.turtlePos)
-    module.moveTo(shortTermPlaner, destinationCoord, dimensionOrder)
-end
-
--- x, y, z, and face are all optional in destinationPos,
--- and will default to not moving the turtle in those dimensions, or caring about where it ends up facing.
--- dimensionOrder is optional, and indicates which dimensions to travel first. e.g. {'x', 'y'}.
--- It defaults to { 'x', 'z', 'y' }. Dimensions can be omited to prevent movement in that direction.
-function module.moveTo(shortTermPlaner, destinationPos_, dimensionOrder)
+-- destinationCoord fields default to fields from the turtle's coordinate.
+-- The turtle will end, facing the direction of travel. (To pick a different facing or preserve facing, use moveToPos())
+-- dimensionOrder is optional, and indicates which dimensions to travel first. e.g. {'right', 'up'}.
+-- It defaults to { 'forward', 'right', 'up' }. Dimensions can be omited to prevent movement in that direction.
+function module.moveToCoord(shortTermPlaner, destinationCoord, dimensionOrder)
+    if shortTermPlaner.turtlePos.from ~= destinationCoord.from then error('incompatible "from" fields') end
     local commands = _G.act.commands
     local space = _G.act.space
-    local dimensionOrder = dimensionOrder or { 'x', 'z', 'y' }
-
-    local destinationCoord = util.mergeTables(space.posToCoord(shortTermPlaner.turtlePos), destinationPos_)
-    local destinationFace = destinationPos_.face or nil
+    local resolveFacing = space.resolveRelFacing
+    local dimensionOrder = dimensionOrder or { 'forward', 'right', 'up' }
 
     for _, dimension in ipairs(dimensionOrder) do
-        while dimension == 'y' and shortTermPlaner.turtlePos.y < destinationCoord.y do
+        while dimension == 'forward' and shortTermPlaner.turtlePos.forward < destinationCoord.forward do
+            module.face(shortTermPlaner, { face='forward', from=destinationCoord.from })
+            commands.turtle.forward(shortTermPlaner)
+        end
+        while dimension == 'forward' and shortTermPlaner.turtlePos.forward > destinationCoord.forward do
+            module.face(shortTermPlaner, { face='backward', from=destinationCoord.from })
+            commands.turtle.forward(shortTermPlaner)
+        end
+        while dimension == 'right' and shortTermPlaner.turtlePos.right < destinationCoord.right do
+            module.face(shortTermPlaner, { face='right', from=destinationCoord.from })
+            commands.turtle.forward(shortTermPlaner)
+        end
+        while dimension == 'right' and shortTermPlaner.turtlePos.right > destinationCoord.right do
+            module.face(shortTermPlaner, { face='left', from=destinationCoord.from })
+            commands.turtle.forward(shortTermPlaner)
+        end
+        while dimension == 'up' and shortTermPlaner.turtlePos.up < destinationCoord.up do
             commands.turtle.up(shortTermPlaner)
         end
-        while dimension == 'y' and shortTermPlaner.turtlePos.y > destinationCoord.y do
+        while dimension == 'up' and shortTermPlaner.turtlePos.up > destinationCoord.up do
             commands.turtle.down(shortTermPlaner)
         end
-        while dimension == 'z' and shortTermPlaner.turtlePos.z < destinationCoord.z do
-            module.face(shortTermPlaner, 'S')
-            commands.turtle.forward(shortTermPlaner)
-        end
-        while dimension == 'z' and shortTermPlaner.turtlePos.z > destinationCoord.z do
-            module.face(shortTermPlaner, 'N')
-            commands.turtle.forward(shortTermPlaner)
-        end
-        while dimension == 'x' and shortTermPlaner.turtlePos.x < destinationCoord.x do
-            module.face(shortTermPlaner, 'E')
-            commands.turtle.forward(shortTermPlaner)
-        end
-        while dimension == 'x' and shortTermPlaner.turtlePos.x > destinationCoord.x do
-            module.face(shortTermPlaner, 'W')
-            commands.turtle.forward(shortTermPlaner)
-        end
-    end
-
-    if destinationFace ~= nil then
-        module.face(shortTermPlaner, destinationFace)
     end
 end
 
--- targetFace should be a face direction (N/E/S/W)
-function module.face(shortTermPlaner, targetFace)
+-- Parameters are generally the same as module.moveToCoord().
+-- destinationPos has a "face" field, which decides the final direction the turtle will face.
+function module.moveToPos(shortTermPlaner, destinationPos, dimensionOrder)
+    local space = _G.act.space
+
+    module.moveToCoord(shortTermPlaner, space.posToCoord(destinationPos), dimensionOrder)
+    module.face(shortTermPlaner, space.posToFacing(destinationPos))
+end
+
+function module.face(shortTermPlaner, targetFacing)
+    if shortTermPlaner.turtlePos.from ~= targetFacing.from then error('incompatible "from" fields') end
+    local space = _G.act.space
+    local commands = _G.act.commands
+
     local beforeFace = shortTermPlaner.turtlePos.face
+    local rotations = space.countClockwiseRotations(beforeFace, targetFacing.face)
 
-    turnCommands = ({
-        N = {N={}, E={'R'}, S={'R','R'}, W={'L'}},
-        E = {E={}, S={'R'}, W={'R','R'}, N={'L'}},
-        S = {S={}, W={'R'}, N={'R','R'}, E={'L'}},
-        W = {W={}, N={'R'}, E={'R','R'}, S={'L'}},
-    })[beforeFace][targetFace]
-
-    for _, command in ipairs(turnCommands) do
-        if command == 'R' then _G.act.commands.turtle.turnRight(shortTermPlaner) end
-        if command == 'L' then _G.act.commands.turtle.turnLeft(shortTermPlaner) end
+    if rotations == 1 then
+        commands.turtle.turnRight(shortTermPlaner)
+    elseif rotations == 2 then
+        commands.turtle.turnRight(shortTermPlaner)
+        commands.turtle.turnRight(shortTermPlaner)
+    elseif rotations == 3 then
+        commands.turtle.turnLeft(shortTermPlaner)
     end
 end
 

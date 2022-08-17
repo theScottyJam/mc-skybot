@@ -6,17 +6,18 @@ function module.init()
     return _G.act.entity.createEntityFactory(entityBuilder)
 end
 
+-- opts.bedrockCoord - the coordinate of the bedrock block
 function entityBuilder(opts)
+    local location = _G.act.location
     local space = _G.act.space
-    -- The bedrockCoord should always be set to { x = 0, y = 64, z = -3 }
-    local bedrockCoord = opts.bedrockCoord
 
-    local bedrockPos = util.mergeTables(bedrockCoord, { face = 'N' })
+    -- The bedrockCoord should always be at (0, 64, -3}
+    local bedrockPos = util.mergeTables(opts.bedrockCoord, { face = 'forward' })
 
     -- homeLoc is right above the bedrock
-    local homeLoc = _G.act.location.register(space.resolveRelPos({ x=0, y=3, z=0, face='N' }, bedrockPos))
+    local homeLoc = location.register(space.resolveRelPos({ up=3 }, bedrockPos))
     -- initialLoc is in front of the chest
-    local initialLoc = _G.act.location.register(space.resolveRelPos({ x=3, face='W' }, homeLoc))
+    local initialLoc = location.register(space.resolveRelPos({ right=3, face='left' }, homeLoc.pos))
 
     local harvestInitialTree = harvestInitialTreeProject({ bedrockPos = bedrockPos, homeLoc = homeLoc })
     local prepareCobblestoneGenerator = prepareCobblestoneGeneratorProject({ homeLoc = homeLoc })
@@ -25,7 +26,7 @@ function entityBuilder(opts)
 
     return {
         init = function()
-            _G.act.location.registerPath(initialLoc, homeLoc)
+            location.registerPath(initialLoc, homeLoc)
         end,
         entity = {
             initialLoc = initialLoc,
@@ -33,20 +34,21 @@ function entityBuilder(opts)
             harvestInitialTree = harvestInitialTree,
             prepareCobblestoneGenerator = prepareCobblestoneGenerator,
             waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGenerator,
-            harvestCobblestone = harvestCobblestone
+            harvestCobblestone = harvestCobblestone,
         }
     }
 end
 
 function harvestInitialTreeProject(opts)
-    local absoluteBedrockPos = opts.bedrockPos
-    local absoluteHomeLoc = opts.homeLoc
+    local bedrockPos = opts.bedrockPos
+    local homeLoc = opts.homeLoc
 
     local location = _G.act.location
     local navigate = _G.act.navigate
     local commands = _G.act.commands
     local space = _G.act.space
 
+    local bedrockCmps = space.createCompass(bedrockPos)
     return _G.act.project.register('mainIsland:harvestInitialTree', {
         createProjectState = function()
             return { done = false }
@@ -56,18 +58,17 @@ function harvestInitialTreeProject(opts)
                 return nil, nil
             end
 
-            local absoluteBottomLogPos = space.resolveRelPos({ x=-1, y=3, z=4, face='N' }, absoluteBedrockPos)
-            local aboveTreeCoord = { x=0, y=7, z=0 }
-
-            local shortTermPlaner = _G.act.shortTermPlaner.create({ absTurtlePos = state.turtlePos })
-            location.travelToLocation(shortTermPlaner, absoluteHomeLoc)
-            local shortTermPlaner = _G.act.shortTermPlaner.withRelativePos(shortTermPlaner, absoluteBottomLogPos)
-
+            local shortTermPlaner = _G.act.shortTermPlaner.create({ turtlePos = state.turtlePos })
+            location.travelToLocation(shortTermPlaner, homeLoc)
             local startPos = util.copyTable(shortTermPlaner.turtlePos)
-            navigate.moveTo(shortTermPlaner, aboveTreeCoord, { 'y', 'z', 'x' })
+
+            local bottomLogCmps = bedrockCmps.compassAt({ forward=-4, right=-1, up=3 })
+            local aboveTreeCoord = bottomLogCmps.coordAt({ up=7 })
+
+            navigate.moveToCoord(shortTermPlaner, aboveTreeCoord, { 'up', 'forward', 'right' })
+            navigate.assertFace(shortTermPlaner, 'left')
 
             -- Harvest plus-sign shape of leaves on top
-            navigate.assertFace(shortTermPlaner, 'W')
             for i = 1, 2 do
                 commands.turtle.digDown(shortTermPlaner, 'left')
                 commands.turtle.down(shortTermPlaner)
@@ -78,13 +79,16 @@ function harvestInitialTreeProject(opts)
             end
 
             -- Get a stray leaf block
-            navigate.moveTo(shortTermPlaner, { z = -1, face = 'E' })
+            navigate.face(shortTermPlaner, bottomLogCmps.facingAt({ face='forward' }))
+            local levelTwoCenterCmps = bottomLogCmps.compassAt({ up=5 })
+            navigate.assertCoord(shortTermPlaner, levelTwoCenterCmps.coord)
+            navigate.moveToPos(shortTermPlaner, levelTwoCenterCmps.posAt({ forward=1, face='right' }))
             commands.turtle.dig(shortTermPlaner, 'left')
             
             -- Harvest bottom-half of leaves
             for y = 5, 4, -1 do
-                navigate.moveTo(shortTermPlaner, { x = 2, y = y, z = -2 }, { 'x', 'z', 'y' })
-                navigate.face(shortTermPlaner, 'S')
+                local cornerPos = bottomLogCmps.posAt({ forward = 2, right = 2, up = y, face='backward' })
+                navigate.moveToPos(shortTermPlaner, cornerPos, { 'right', 'forward', 'up' })
                 spiralInwards(shortTermPlaner, {
                     sideLength = 5,
                     onVisit = function()
@@ -94,12 +98,13 @@ function harvestInitialTreeProject(opts)
             end
 
             -- Harvest trunk
-            for y = 3, 0, -1 do
+            navigate.assertCoord(shortTermPlaner, bottomLogCmps.coordAt({ up=4 }))
+            for i = 1, 4 do
                 commands.turtle.digDown(shortTermPlaner, 'left')
-                navigate.moveTo(shortTermPlaner, { y = y })
+                commands.turtle.down(shortTermPlaner)
             end
 
-            navigate.moveTo(shortTermPlaner, startPos, { 'y', 'z', 'x' })
+            navigate.moveToPos(shortTermPlaner, startPos, { 'up', 'forward', 'right' })
 
             return { done = true }, shortTermPlaner.shortTermPlan
         end
@@ -108,7 +113,7 @@ end
 
 -- End condition: An empty bucket will be left in your inventory
 function prepareCobblestoneGeneratorProject(opts)
-    local absoluteHomeLoc = opts.homeLoc
+    local homeLoc = opts.homeLoc
 
     local location = _G.act.location
     local navigate = _G.act.navigate
@@ -116,6 +121,7 @@ function prepareCobblestoneGeneratorProject(opts)
     local highLevelCommands = _G.act.highLevelCommands
     local space = _G.act.space
 
+    local homeCmps = space.createCompass(homeLoc.pos)
     return _G.act.project.register('mainIsland:prepareCobblestoneGenerator', {
         createProjectState = function()
             return { done = false }
@@ -125,14 +131,12 @@ function prepareCobblestoneGeneratorProject(opts)
                 return nil, nil
             end
 
-            local shortTermPlaner = _G.act.shortTermPlaner.create({ absTurtlePos = state.turtlePos })
-            location.travelToLocation(shortTermPlaner, absoluteHomeLoc)
-            local shortTermPlaner = _G.act.shortTermPlaner.withRelativePos(shortTermPlaner, space.locToPos(absoluteHomeLoc))
-
+            local shortTermPlaner = _G.act.shortTermPlaner.create({ turtlePos = state.turtlePos })
+            location.travelToLocation(shortTermPlaner, homeLoc)
             local startPos = util.copyTable(shortTermPlaner.turtlePos)
 
             -- Dig out east branch
-            navigate.face(shortTermPlaner, 'E')
+            navigate.face(shortTermPlaner, homeCmps.facingAt({ face='right' }))
             for i = 1, 2 do
                 commands.turtle.forward(shortTermPlaner)
                 commands.turtle.digDown(shortTermPlaner, 'left')
@@ -148,7 +152,7 @@ function prepareCobblestoneGeneratorProject(opts)
             commands.turtle.suck(shortTermPlaner, 1)
 
             -- Place lava down
-            navigate.moveTo(shortTermPlaner, { x=2, y=0, z=0 })
+            navigate.moveToCoord(shortTermPlaner, homeCmps.coordAt({ right=2 }))
             commands.turtle.select(shortTermPlaner, LAVA_BUCKET_SLOT)
             commands.turtle.placeDown(shortTermPlaner)
             -- Move the empty bucket to an earlier cell.
@@ -156,7 +160,7 @@ function prepareCobblestoneGeneratorProject(opts)
             commands.turtle.select(shortTermPlaner, 1)
 
             -- Dig out west branch
-            navigate.moveTo(shortTermPlaner, { x=0, y=0, z=0, face='S' })
+            navigate.moveToPos(shortTermPlaner, homeCmps.posAt({ face='backward' }))
             commands.turtle.forward(shortTermPlaner)
             commands.turtle.digDown(shortTermPlaner, 'left')
             commands.turtle.down(shortTermPlaner)
@@ -172,10 +176,10 @@ function prepareCobblestoneGeneratorProject(opts)
             commands.turtle.select(shortTermPlaner, 1)
 
             -- Dig out place for player to stand
-            navigate.moveTo(shortTermPlaner, { x=-1, y=0, z=0 })
+            navigate.moveToCoord(shortTermPlaner, homeCmps.coordAt({ x=-1, y=0, z=0 }))
             commands.turtle.digDown(shortTermPlaner, 'left')
 
-            navigate.moveTo(shortTermPlaner, startPos)
+            navigate.moveToPos(shortTermPlaner, startPos)
 
             return { done = true }, shortTermPlaner.shortTermPlan
         end
@@ -184,7 +188,7 @@ end
 
 -- Start condition: An empty bucket must be in your inventory.
 function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
-    local absoluteHomeLoc = opts.homeLoc
+    local homeLoc = opts.homeLoc
 
     local location = _G.act.location
     local navigate = _G.act.navigate
@@ -192,6 +196,7 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
     local highLevelCommands = _G.act.highLevelCommands
     local space = _G.act.space
 
+    local homeCmps = space.createCompass(homeLoc.pos)
     return _G.act.project.register('mainIsland:waitForIceToMeltAndfinishCobblestoneGenerator', {
         createProjectState = function()
             return { done = false }
@@ -201,20 +206,19 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
                 return nil, nil
             end
 
-            local shortTermPlaner = _G.act.shortTermPlaner.create({ absTurtlePos = state.turtlePos })
-            location.travelToLocation(shortTermPlaner, absoluteHomeLoc)
-            local shortTermPlaner = _G.act.shortTermPlaner.withRelativePos(shortTermPlaner, space.locToPos(absoluteHomeLoc))
+            local shortTermPlaner = _G.act.shortTermPlaner.create({ turtlePos = state.turtlePos })
+            location.travelToLocation(shortTermPlaner, homeLoc)
 
             local startPos = util.copyTable(shortTermPlaner.turtlePos)
 
             -- Wait for ice to melt
-            navigate.moveTo(shortTermPlaner, { x=0, y=0, z=1 })
+            navigate.moveToCoord(shortTermPlaner, homeCmps.coordAt({ forward=-1 }))
             highLevelCommands.waitUntilDetectBlock(shortTermPlaner, {
                 expectedBlockId = 'WATER',
                 direction = 'down',
-                endFacing = 'S'
+                endFacing = homeCmps.facingAt({ face='backward' }),
             })
-
+            
             -- Move water
             highLevelCommands.findAndSelectSlotWithItem(shortTermPlaner, 'BUCKET')
             commands.turtle.placeDown(shortTermPlaner, 'left')
@@ -222,9 +226,9 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
             commands.turtle.placeDown(shortTermPlaner)
             commands.turtle.select(shortTermPlaner, 1)
 
-            navigate.moveTo(shortTermPlaner, startPos)
+            navigate.moveToPos(shortTermPlaner, startPos)
             commands.turtle.digDown(shortTermPlaner, 'left')
-            commands.mockHooks.registerCobblestoneRegenerationBlock(shortTermPlaner, { x=0, y=-1, z=0 })
+            commands.mockHooks.registerCobblestoneRegenerationBlock(shortTermPlaner, homeCmps.coordAt({ up=-1 }))
 
             return { done = true }, shortTermPlaner.shortTermPlan
         end
@@ -232,7 +236,7 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
 end
 
 function harvestCobblestoneProject(opts)
-    local absoluteHomeLoc = opts.homeLoc
+    local homeLoc = opts.homeLoc
 
     local location = _G.act.location
     local navigate = _G.act.navigate
@@ -240,6 +244,7 @@ function harvestCobblestoneProject(opts)
     local highLevelCommands = _G.act.highLevelCommands
     local space = _G.act.space
 
+    local homeCmps = space.createCompass(homeLoc.pos)
     return _G.act.project.register('mainIsland:harvestCobblestoneProject', {
         createProjectState = function()
             return { done = false }
@@ -249,9 +254,8 @@ function harvestCobblestoneProject(opts)
                 return nil, nil
             end
 
-            local shortTermPlaner = _G.act.shortTermPlaner.create({ absTurtlePos = state.turtlePos })
-            location.travelToLocation(shortTermPlaner, absoluteHomeLoc)
-            local shortTermPlaner = _G.act.shortTermPlaner.withRelativePos(shortTermPlaner, space.locToPos(absoluteHomeLoc))
+            local shortTermPlaner = _G.act.shortTermPlaner.create({ turtlePos = state.turtlePos })
+            location.travelToLocation(shortTermPlaner, homeLoc)
 
             local startPos = util.copyTable(shortTermPlaner.turtlePos)
 
@@ -259,11 +263,11 @@ function harvestCobblestoneProject(opts)
                 highLevelCommands.waitUntilDetectBlock(shortTermPlaner, {
                     expectedBlockId = 'COBBLESTONE',
                     direction = 'down',
-                    endFacing = 'ANY'
+                    endFacing = 'ANY',
                 })
                 commands.turtle.digDown(shortTermPlaner, 'left')
             end
-            highLevelCommands.reorient(shortTermPlaner, startPos.face)
+            highLevelCommands.reorient(shortTermPlaner, space.posToFacing(startPos))
 
             return { done = true }, shortTermPlaner.shortTermPlan
         end

@@ -8,7 +8,7 @@ local module = {}
 
 -- onStep is optional
 function module.exec(strategy, onStep)
-    local state = _G.act._state.createInitialState({ startingLoc = strategy.initialTurtleLoc })
+    local state = _G.act._state.createInitialState({ startingPos = strategy.initialTurtleLoc.pos })
     while true do
         -- Go through strategy until you find a primary task to do
         while true do
@@ -81,7 +81,7 @@ end
 function module.createBuilder()
     local plan = {}
 
-    local initialTurtleLoc = { x = 0, y = 0, z = 0, face = 'N' }
+    local initialTurtleLoc = { forward = 0, right = 0, up = 0, face = 'forward' }
     local instructions = {}
 
     function plan.setInitialTurtleLocation(loc)

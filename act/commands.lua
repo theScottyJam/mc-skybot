@@ -47,22 +47,22 @@ end
 turtleActions.up = registerDeterministicCommand('turtle:up', function(state)
     turtle.up()
 end, function(turtlePos)
-    turtlePos.y = turtlePos.y + 1
+    turtlePos.up = turtlePos.up + 1
 end)
 
 turtleActions.down = registerDeterministicCommand('turtle:down', function(state)
     turtle.down()
 end, function(turtlePos)
-    turtlePos.y = turtlePos.y - 1
+    turtlePos.up = turtlePos.up - 1
 end)
 
 turtleActions.forward = registerDeterministicCommand('turtle:forward', function(state)
     turtle.forward()
 end, function(turtlePos)
-    if turtlePos.face == 'N' then turtlePos.z = turtlePos.z - 1
-    elseif turtlePos.face == 'S' then turtlePos.z = turtlePos.z + 1
-    elseif turtlePos.face == 'E' then turtlePos.x = turtlePos.x + 1
-    elseif turtlePos.face == 'W' then turtlePos.x = turtlePos.x - 1
+    if turtlePos.face == 'forward' then turtlePos.forward = turtlePos.forward + 1
+    elseif turtlePos.face == 'backward' then turtlePos.forward = turtlePos.forward - 1
+    elseif turtlePos.face == 'right' then turtlePos.right = turtlePos.right + 1
+    elseif turtlePos.face == 'left' then turtlePos.right = turtlePos.right - 1
     else error('Invalid face')
     end
 end)
@@ -70,10 +70,10 @@ end)
 turtleActions.backward = registerDeterministicCommand('turtle:backward', function(state)
     turtle.backward()
 end, function(turtlePos)
-    if turtlePos.face == 'N' then turtlePos.z = turtlePos.z + 1
-    elseif turtlePos.face == 'S' then turtlePos.z = turtlePos.z - 1
-    elseif turtlePos.face == 'E' then turtlePos.x = turtlePos.x - 1
-    elseif turtlePos.face == 'W' then turtlePos.x = turtlePos.x + 1
+    if turtlePos.face == 'forward' then turtlePos.forward = turtlePos.forward - 1
+    elseif turtlePos.face == 'backward' then turtlePos.forward = turtlePos.forward + 1
+    elseif turtlePos.face == 'right' then turtlePos.right = turtlePos.right - 1
+    elseif turtlePos.face == 'left' then turtlePos.right = turtlePos.right + 1
     else error('Invalid face')
     end
 end)
@@ -141,14 +141,8 @@ mockHooksActions.registerCobblestoneRegenerationBlock = module.registerCommand(
     function(state, setupState, coord)
         local mockHooks = _G.act.mockHooks
         local space = _G.act.space
-        local absCoord = space.resolveRelCoord(coord, setupState.relativeTo)
-        mockHooks.registerCobblestoneRegenerationBlock(absCoord)
-    end,
-    {
-        onSetup = function(shortTermPlaner)
-            return { relativeTo = shortTermPlaner.relativeTo }
-        end
-    }
+        mockHooks.registerCobblestoneRegenerationBlock(coord)
+    end
 )
 
 generalActions.setState = registerDeterministicCommand('general:setState', function(state, updates)
@@ -156,8 +150,7 @@ generalActions.setState = registerDeterministicCommand('general:setState', funct
 end)
 
 generalActions.debug = registerDeterministicCommand('general:debug', function(state, opts)
-    local world = _G.mockComputerCraftApi._currentWorld
-    _G.mockComputerCraftApi.present.displayMap(world, { minX = -5, maxX = 5, minZ = -5, maxZ = 5 })
+    debug.onDebugCommand(state, opts)
 end)
 
 function module.execCommand(state, cmd)

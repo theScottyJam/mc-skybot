@@ -45,7 +45,7 @@ function module.init(registerCommand)
 
     -- opts.expectedBlockId is the blockId you're waiting for
     -- opts.direction is 'up' or 'down' ('front' is not yet supported).
-    -- opts.endFacing. Can be 'N', 'E', 'S', 'W', 'ANY', or 'CURRENT' (the default)
+    -- opts.endFacing. Can be a facing or 'ANY', or 'CURRENT' (the default)
     --   If set to 'ANY', you MUST use highLevelCommands.reorient() to fix your facing
     --   when you're ready to depend on it again.
     highLevelCommands.waitUntilDetectBlock = registerCommand(
@@ -58,7 +58,7 @@ function module.init(registerCommand)
             local endFacing = opts.endFacing
 
             if endFacing == 'CURRENT' or endFacing == nil then
-                endFacing = state.turtlePos.face
+                endFacing = space.posToFace(state.turtlePos)
             end
 
             local inspectFn
@@ -70,7 +70,6 @@ function module.init(registerCommand)
                 error('Invalid direction')
             end
 
-            -- TODO: Add detection logic
             local success, blockInfo = inspectFn()
             local minecraftBlockId = blockInfo.name
             if not success then
@@ -97,9 +96,9 @@ function module.init(registerCommand)
                 if endFacing == 'CURRENT' or endFacing == nil then
                     -- Do nothing
                 elseif endFacing == 'ANY' then
-                    turtlePos.face = 'W' -- 'W' is the "random" direction you end up facing
+                    turtlePos.face = 'left' -- 'left' is the "random" direction you end up facing
                 else
-                    turtlePos.face = endFacing
+                    turtlePos.face = endFacing.face
                 end
             end
         }
@@ -110,24 +109,26 @@ function module.init(registerCommand)
     -- to plan a specific number of turn-lefts/rights to fix it in advance.
     highLevelCommands.reorient = registerCommand(
         'highLevelCommands:reorient',
-        function(state, setupState, targetFace)
+        function(state, setupState, targetFacing)
+            if state.turtlePos.from ~= targetFacing.from then error('incompatible "from" fields') end
+            local space = _G.act.space
+        
             local beforeFace = state.turtlePos.face
-
-            turnCommands = ({
-                N = {N={}, E={'R'}, S={'R','R'}, W={'L'}},
-                E = {E={}, S={'R'}, W={'R','R'}, N={'L'}},
-                S = {S={}, W={'R'}, N={'R','R'}, E={'L'}},
-                W = {W={}, N={'R'}, E={'R','R'}, S={'L'}},
-            })[beforeFace][targetFace]
-
-            for _, command in ipairs(turnCommands) do
-                if command == 'R' then turtle.turnRight() end
-                if command == 'L' then turtle.turnLeft() end
+            local rotations = space.countClockwiseRotations(beforeFace, targetFacing.face)
+        
+            if rotations == 1 then
+                turtle.turnRight()
+            elseif rotations == 2 then
+                turtle.turnRight()
+                turtle.turnRight()
+            elseif rotations == 3 then
+                turtle.turnLeft()
             end
-            state.turtlePos.face = targetFace
+            state.turtlePos.face = targetFacing.face
         end, {
-            onSetup = function(shortTermPlaner, targetFace)
-                shortTermPlaner.turtlePos.face = targetFace
+            onSetup = function(shortTermPlaner, targetFacing)
+                if shortTermPlaner.turtlePos.from ~= targetFacing.from then error('incompatible "from" fields') end
+                shortTermPlaner.turtlePos.face = targetFacing.face
             end
         }
     )
