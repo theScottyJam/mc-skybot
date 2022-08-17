@@ -1,5 +1,5 @@
 --[[
-    Everything in shortTermPlaner is mutable.
+    Everything in shortTermPlanner is mutable.
     If you want to pluck a property off, clone it first.
 --]]
 

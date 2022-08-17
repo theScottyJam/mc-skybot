@@ -11,7 +11,7 @@ function module.registerGlobal(base, hookListeners)
   act.navigate = import(base..'navigate.lua')
   act._state = import(base..'_state.lua')
   act.project = import(base..'project.lua')
-  act.shortTermPlaner = import(base..'shortTermPlaner.lua')
+  act.shortTermPlanner = import(base..'shortTermPlanner.lua')
   act.space = import(base..'space.lua')
   act.strategy = import(base..'strategy.lua')
 

@@ -19,14 +19,14 @@ function module.registerCommand(id, execute, opts)
         if onExec ~= nil then onExec(state, setupState, table.unpack({...})) end
         execute(state, setupState, table.unpack({ ... }))
     end
-    return function(shortTermPlaner, ...)
+    return function(shortTermPlanner, ...)
         -- A sanity check, because I mess this up a lot.
-        if shortTermPlaner == nil or shortTermPlaner.shortTermPlan == nil then
-            error('Forgot to pass in a proper shortTermPlaner object into a command')
+        if shortTermPlanner == nil or shortTermPlanner.shortTermPlan == nil then
+            error('Forgot to pass in a proper shortTermPlanner object into a command')
         end
         local setupState = nil
-        if onSetup ~= nil then setupState = onSetup(shortTermPlaner, table.unpack({...})) end
-        table.insert(shortTermPlaner.shortTermPlan, { command = id, args = {...}, setupState = setupState })
+        if onSetup ~= nil then setupState = onSetup(shortTermPlanner, table.unpack({...})) end
+        table.insert(shortTermPlanner.shortTermPlan, { command = id, args = {...}, setupState = setupState })
     end
 end
 
@@ -35,8 +35,8 @@ function registerDeterministicCommand(id, execute_, updatePos)
     if updatePos == nil then updatePos = function() end end
     function execute(state, setupState, ...) return execute_(state, table.unpack({ ... })) end
     return module.registerCommand(id, execute, {
-        onSetup = function(shortTermPlaner)
-            updatePos(shortTermPlaner.turtlePos)
+        onSetup = function(shortTermPlanner)
+            updatePos(shortTermPlanner.turtlePos)
         end,
         onExec = function(state, setupState, setupState)
             updatePos(state.turtlePos)

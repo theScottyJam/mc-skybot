@@ -89,10 +89,10 @@ function module.init(registerCommand)
             end
         end,
         {
-            onSetup = function(shortTermPlaner, opts)
+            onSetup = function(shortTermPlanner, opts)
                 local endFacing = opts.endFacing
 
-                local turtlePos = shortTermPlaner.turtlePos
+                local turtlePos = shortTermPlanner.turtlePos
                 if endFacing == 'CURRENT' or endFacing == nil then
                     -- Do nothing
                 elseif endFacing == 'ANY' then
@@ -126,9 +126,9 @@ function module.init(registerCommand)
             end
             state.turtlePos.face = targetFacing.face
         end, {
-            onSetup = function(shortTermPlaner, targetFacing)
-                if shortTermPlaner.turtlePos.from ~= targetFacing.from then error('incompatible "from" fields') end
-                shortTermPlaner.turtlePos.face = targetFacing.face
+            onSetup = function(shortTermPlanner, targetFacing)
+                if shortTermPlanner.turtlePos.from ~= targetFacing.from then error('incompatible "from" fields') end
+                shortTermPlanner.turtlePos.face = targetFacing.face
             end
         }
     )

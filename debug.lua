@@ -18,8 +18,8 @@ function debugModule.busySleep(seconds)
     end 
 end
 
-function debugModule.debugCommand(shortTermPlaner, ...)
-    table.insert(shortTermPlaner.shortTermPlan, { command = 'general:debug', args = {...} })
+function debugModule.debugCommand(shortTermPlanner, ...)
+    table.insert(shortTermPlanner.shortTermPlan, { command = 'general:debug', args = {...} })
 end
 
 -- Arbitrary code that gets used when the debug command is hit.
