@@ -15,30 +15,29 @@ function module.registerCommand(id, execute, opts)
     local onSetup = opts.onSetup or nil
     local onExec = opts.onExec or nil
 
-    commandListeners[id] = function(state, setupState, ...)
-        if onExec ~= nil then onExec(state, setupState, table.unpack({...})) end
-        execute(state, setupState, table.unpack({ ... }))
+    commandListeners[id] = function(state, ...)
+        if onExec ~= nil then onExec(state, table.unpack({...})) end
+        execute(state, table.unpack({ ... }))
     end
     return function(shortTermPlanner, ...)
         -- A sanity check, because I mess this up a lot.
         if shortTermPlanner == nil or shortTermPlanner.shortTermPlan == nil then
             error('Forgot to pass in a proper shortTermPlanner object into a command')
         end
-        local setupState = nil
-        if onSetup ~= nil then setupState = onSetup(shortTermPlanner, table.unpack({...})) end
-        table.insert(shortTermPlanner.shortTermPlan, { command = id, args = {...}, setupState = setupState })
+        if onSetup ~= nil then onSetup(shortTermPlanner, table.unpack({...})) end
+        table.insert(shortTermPlanner.shortTermPlan, { command = id, args = {...} })
     end
 end
 
 -- A convinient shorthand function to take away some boilerplate.
 function registerDeterministicCommand(id, execute_, updatePos)
     if updatePos == nil then updatePos = function() end end
-    function execute(state, setupState, ...) return execute_(state, table.unpack({ ... })) end
+    function execute(state, ...) return execute_(state, table.unpack({ ... })) end
     return module.registerCommand(id, execute, {
         onSetup = function(shortTermPlanner)
             updatePos(shortTermPlanner.turtlePos)
         end,
-        onExec = function(state, setupState, setupState)
+        onExec = function(state)
             updatePos(state.turtlePos)
         end
     })
@@ -138,7 +137,7 @@ end)
 
 mockHooksActions.registerCobblestoneRegenerationBlock = module.registerCommand(
     'mockHooks:registerCobblestoneRegenerationBlock',
-    function(state, setupState, coord)
+    function(state, coord)
         local mockHooks = _G.act.mockHooks
         local space = _G.act.space
         mockHooks.registerCobblestoneRegenerationBlock(coord)
@@ -156,9 +155,8 @@ end)
 function module.execCommand(state, cmd)
     local type = cmd.command
     local args = cmd.args or {}
-    local setupState = cmd.setupState -- could be nil
 
-    commandListeners[type](state, setupState, table.unpack(args))
+    commandListeners[type](state, table.unpack(args))
 end
 
 return module

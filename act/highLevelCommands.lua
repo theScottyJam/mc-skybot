@@ -7,7 +7,7 @@ function module.init(registerCommand)
 
     highLevelCommands.transferToFirstEmptySlot = registerCommand(
         'highLevelCommands:transferToFirstEmptySlot',
-        function(state, setupState)
+        function(state)
             local firstEmptySlot = nil
             for i = 1, 16 do
                 local count = turtle.getItemCount(i)
@@ -28,7 +28,7 @@ function module.init(registerCommand)
 
     highLevelCommands.findAndSelectSlotWithItem = registerCommand(
         'highLevelCommands:findAndSelectSlotWithItem',
-        function(state, setupState, itemIdToFind)
+        function(state, itemIdToFind)
             for i = 1, 16 do
                 local slotInfo = turtle.getItemDetail(i)
                 if slotInfo ~= nil then
@@ -50,7 +50,7 @@ function module.init(registerCommand)
     --   when you're ready to depend on it again.
     highLevelCommands.waitUntilDetectBlock = registerCommand(
         'highLevelCommands:waitUntilDetectBlock',
-        function(state, setupState, opts)
+        function(state, opts)
             local space = _G.act.space
 
             local expectedBlockId = opts.expectedBlockId
@@ -109,7 +109,7 @@ function module.init(registerCommand)
     -- to plan a specific number of turn-lefts/rights to fix it in advance.
     highLevelCommands.reorient = registerCommand(
         'highLevelCommands:reorient',
-        function(state, setupState, targetFacing)
+        function(state, targetFacing)
             if state.turtlePos.from ~= targetFacing.from then error('incompatible "from" fields') end
             local space = _G.act.space
         
