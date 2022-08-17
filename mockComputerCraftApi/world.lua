@@ -21,7 +21,7 @@ end
 function createStartingMap()
     local map = {}
 
-    local createLeaves = function() return { id = 'LEAVES' } end
+    local createLeaves = function() return { id = 'minecraft:leaves' } end
 
     map[-3] = {}
     map[-2] = {}
@@ -36,9 +36,9 @@ function createStartingMap()
     for y = 64, 66 do
         local createGround = function()
             if y == 66 then
-                return { id = 'GRASS' }
+                return { id = 'minecraft:grass' }
             else
-                return { id = 'DIRT' }
+                return { id = 'minecraft:dirt' }
             end
         end
         map[-1][y] = {}
@@ -76,24 +76,24 @@ function createStartingMap()
         map[ 4][y][-2] = createGround()
     end
 
-    map[ 0][64][-3] = { id = 'BEDROCK' } -- overriding previous dirt value
+    map[ 0][64][-3] = { id = 'minecraft:bedrock' } -- overriding previous dirt value
     map[ 4][67] = {}
     map[ 4][67][-3] = {
-        id = 'CHEST',
+        id = 'minecraft:chest',
         contents = {
-            [1] = { id = 'LAVA_BUCKET', quantity = 1 },
-            [2] = { id = 'ICE', quantity = 1 }
+            [1] = { id = 'minecraft:lava_bucket', quantity = 1 },
+            [2] = { id = 'minecraft:ice', quantity = 1 }
         }
     }
     map[ 3][67] = {}
-    map[ 3][67][-2] = { id = 'DISK_DRIVE' }
+    map[ 3][67][-2] = { id = 'computercraft:disk_drive' } -- Not sure what the real ID for this is.
 
     map[-1][67] = {}
-    map[-1][67][ 1] = { id = 'LOG' }
+    map[-1][67][ 1] = { id = 'minecraft:log' }
     map[-1][68] = {}
-    map[-1][68][ 1] = { id = 'LOG' }
+    map[-1][68][ 1] = { id = 'minecraft:log' }
     map[-1][69] = {}
-    map[-1][69][ 1] = { id = 'LOG' }
+    map[-1][69][ 1] = { id = 'minecraft:log' }
 
     -- Creating 5x5 block of leaves with logs down the center
     for y = 70, 71 do
@@ -112,7 +112,7 @@ function createStartingMap()
         map[-1][y] = {}
         map[-1][y][-1] = createLeaves()
         map[-1][y][ 0] = createLeaves()
-        map[-1][y][ 1] = { id = 'LOG' }
+        map[-1][y][ 1] = { id = 'minecraft:log' }
         map[-1][y][ 2] = createLeaves()
         map[-1][y][ 3] = createLeaves()
         map[ 0][y] = {}
@@ -142,7 +142,7 @@ function createStartingMap()
     map[-2][72][ 1] = createLeaves()
     map[-1][72] = {}
     map[-1][72][ 0] = createLeaves()
-    map[-1][72][ 1] = { id = 'LOG' }
+    map[-1][72][ 1] = { id = 'minecraft:log' }
     map[-1][72][ 2] = createLeaves()
     map[ 0][72] = {}
     map[ 0][72][ 1] = createLeaves()

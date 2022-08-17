@@ -2,22 +2,24 @@
     Used to display information about the a mock world
 --]]
 
+local util = import('util.lua')
+
 local module = {}
 
 local completeMapKey = {
-    TURTLE_N = '^',
-    TURTLE_E = '>',
-    TURTLE_S = 'V',
-    TURTLE_W = '<',
-    DISK_DRIVE = '&',
-    DIRT = 'd',
-    GRASS = 'D',
-    CHEST = 'C',
-    LEAVES = 'l',
-    LOG = 'L',
-    WATER = '~',
-    LAVA = '=',
-    ICE = 'I'
+    ['computercraft:turtle_n'] = '^',
+    ['computercraft:turtle_e'] = '>',
+    ['computercraft:turtle_s'] = 'V',
+    ['computercraft:turtle_w'] = '<',
+    ['computercraft:disk_drive'] = '&',
+    ['minecraft:dirt'] = 'd',
+    ['minecraft:grass'] = 'D',
+    ['minecraft:chest'] = 'C',
+    ['minecraft:leaves'] = 'l',
+    ['minecraft:log'] = 'L',
+    ['minecraft:water'] = '~',
+    ['minecraft:lava'] = '=',
+    ['minecraft:ice'] = 'I',
 }
 
 -- bounds is of the shape { minX = ..., maxX = ..., minY? = ..., maxY? = ..., minZ = ..., maxZ = ...}
@@ -25,6 +27,7 @@ local completeMapKey = {
 -- opts is optional
 function module.displayMap(world, bounds, opts)
     local showKey = (opts or {}).showKey
+    if showKey == nil then showKey = true end
 
     local map = world.map
     local view = {}
@@ -53,7 +56,8 @@ function module.displayMap(world, bounds, opts)
     end
 
     local turtlePos = world.turtle.pos
-    insertCellIntoViewIfAble(turtlePos.x, turtlePos.y, turtlePos.z, view, { id = 'TURTLE_'..turtlePos.face })
+    local turtleId = 'computercraft:turtle_'..string.lower(turtlePos.face)
+    insertCellIntoViewIfAble(turtlePos.x, turtlePos.y, turtlePos.z, view, { id = turtleId })
 
     -- Turns the 2d view into a string
     local result = ''
@@ -77,7 +81,8 @@ function module.displayMap(world, bounds, opts)
         -- Tacks on a key onto the end of the string
         result = result .. '\n' .. '-- key --\n'
         for id, char in pairs(neededInKey) do
-            result = result .. char .. ': ' .. id .. '\n'
+            local parts = util.splitString(id, ':')
+            result = result .. char .. ': ' .. parts[2] .. '\n'
         end
     end
 
@@ -91,7 +96,8 @@ function module.inventory(world)
         local slot = world.turtle.inventory[i]
         if slot ~= nil then
             found = true
-            print('  '..i..': '..slot.id..' ('..slot.quantity..')')
+            local parts = util.splitString(slot.id, ':')
+            print('  '..i..': '..parts[2]..' ('..slot.quantity..')')
         end
     end
     if found == false then

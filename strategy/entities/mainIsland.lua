@@ -231,13 +231,13 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
             -- Wait for ice to melt
             navigate.moveToCoord(shortTermPlanner, homeCmps.coordAt({ forward=-1 }))
             highLevelCommands.waitUntilDetectBlock(shortTermPlanner, {
-                expectedBlockId = 'WATER',
+                expectedBlockId = 'minecraft:water',
                 direction = 'down',
                 endFacing = homeCmps.facingAt({ face='backward' }),
             })
             
             -- Move water
-            highLevelCommands.findAndSelectSlotWithItem(shortTermPlanner, 'BUCKET')
+            highLevelCommands.findAndSelectSlotWithItem(shortTermPlanner, 'minecraft:bucket')
             commands.turtle.placeDown(shortTermPlanner, 'left')
             commands.turtle.forward(shortTermPlanner)
             commands.turtle.placeDown(shortTermPlanner)
@@ -278,7 +278,7 @@ function harvestCobblestoneProject(opts)
 
             for i = 1, 32 do
                 highLevelCommands.waitUntilDetectBlock(shortTermPlanner, {
-                    expectedBlockId = 'COBBLESTONE',
+                    expectedBlockId = 'minecraft:cobblestone',
                     direction = 'down',
                     endFacing = 'ANY',
                 })

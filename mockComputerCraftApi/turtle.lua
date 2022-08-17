@@ -102,7 +102,7 @@ function module.getItemDetail(slotNum)
         return nil
     end
     return {
-        name = 'minecraft:'..string.lower(slot.id),
+        name = slot.id,
         count = slot.quantity,
         damage = 0
     }
@@ -147,7 +147,14 @@ function module.placeDown()
     return placeAt(currentWorld, placePos)
 end
 
-local canPlace = { 'DIRT', 'LAVA_BUCKET', 'WATER_BUCKET', 'BUCKET', 'ICE' }
+local canPlace = {
+    'minecraft:dirt',
+    'minecraft:lava_bucket',
+    'minecraft:water_bucket',
+    'minecraft:bucket',
+    'minecraft:ice',
+}
+
 function placeAt(currentWorld, placePos)
     local targetCell = lookupInMap(currentWorld.map, placePos) -- may be nil
 
@@ -159,33 +166,33 @@ function placeAt(currentWorld, placePos)
     end
 
     if targetCell ~= nil then
-        if targetCell.id == 'WATER' and itemIdBeingPlaced == 'BUCKET' then
+        if targetCell.id == 'minecraft:water' and itemIdBeingPlaced == 'minecraft:bucket' then
             setInMap(currentWorld.map, placePos, nil)
-            local success = addToInventory(currentWorld.turtle, 'WATER_BUCKET') == 1
+            local success = addToInventory(currentWorld.turtle, 'minecraft:water_bucket') == 1
             if not success then error('UNREACHABLE') end
             return true
-        elseif targetCell.id == 'LAVA' and itemIdBeingPlaced == 'BUCKET' then
+        elseif targetCell.id == 'minecraft:lava' and itemIdBeingPlaced == 'minecraft:bucket' then
             setInMap(currentWorld.map, placePos, nil)
-            local success = addToInventory(currentWorld.turtle, 'LAVA_BUCKET') == 1
+            local success = addToInventory(currentWorld.turtle, 'minecraft:lava_bucket') == 1
             if not success then error('UNREACHABLE') end
             return true
         end
         return false
     end
 
-    if itemIdBeingPlaced == 'LAVA_BUCKET' then
-        itemIdBeingPlaced = 'LAVA'
-        local success = addToInventory(currentWorld.turtle, 'BUCKET') == 1
+    if itemIdBeingPlaced == 'minecraft:lava_bucket' then
+        itemIdBeingPlaced = 'minecraft:lava'
+        local success = addToInventory(currentWorld.turtle, 'minecraft:bucket') == 1
         if not success then error('UNREACHABLE') end
-    elseif itemIdBeingPlaced == 'WATER_BUCKET' then
-        itemIdBeingPlaced = 'WATER'
-        local success = addToInventory(currentWorld.turtle, 'BUCKET') == 1
+    elseif itemIdBeingPlaced == 'minecraft:water_bucket' then
+        itemIdBeingPlaced = 'minecraft:water'
+        local success = addToInventory(currentWorld.turtle, 'minecraft:bucket') == 1
         if not success then error('UNREACHABLE') end
-    elseif itemIdBeingPlaced == 'ICE' then
+    elseif itemIdBeingPlaced == 'minecraft:ice' then
         addTickListener(200, function()
             local cell = lookupInMap(currentWorld.map, placePos)
-            if cell ~= nil and cell.id == 'ICE' then
-                setInMap(currentWorld.map, placePos, { id = 'WATER' })
+            if cell ~= nil and cell.id == 'minecraft:ice' then
+                setInMap(currentWorld.map, placePos, { id = 'minecraft:water' })
             end
         end)
     end
@@ -221,7 +228,7 @@ function inspectAt(currentWorld, inspectPos)
     end
 
     local blockInfo = {
-        name = 'minecraft:'..string.lower(targetCell.id),
+        name = targetCell.id,
         state = {},
         metadata = 0
     }
@@ -252,7 +259,14 @@ function module.digDown(toolSide)
     return digAt(currentWorld, posBeingDug, toolSide)
 end
 
-local canDig = { 'DIRT', 'COBBLESTONE', 'GRASS', 'LOG', 'LEAVES', 'ICE' }
+local canDig = {
+    'minecraft:dirt',
+    'minecraft:cobblestone',
+    'minecraft:grass',
+    'minecraft:log',
+    'minecraft:leaves',
+    'minecraft:ice',
+}
 
 local leavesDug = 0
 function digAt(currentWorld, posBeingDug, toolSide)
@@ -266,22 +280,22 @@ function digAt(currentWorld, posBeingDug, toolSide)
 
     setInMap(currentWorld.map, posBeingDug, nil)
     local success
-    if dugCell.id == 'LEAVES' then
+    if dugCell.id == 'minecraft:leaves' then
         leavesDug = leavesDug + 1
         if leavesDug % 4 == 0 then
-            success = addToInventory(currentWorld.turtle, 'STICK') == 1
+            success = addToInventory(currentWorld.turtle, 'minecraft:stick') == 1
         elseif leavesDug % 7 == 0 then
-            success = addToInventory(currentWorld.turtle, 'SAPLING') == 1
+            success = addToInventory(currentWorld.turtle, 'minecraft:sapling') == 1
         elseif leavesDug % 15 == 0 then
-            success = addToInventory(currentWorld.turtle, 'APPLE') == 1
+            success = addToInventory(currentWorld.turtle, 'minecraft:apple') == 1
         else
             success = true
         end
-    elseif dugCell.id == 'ICE' then
+    elseif dugCell.id == 'minecraft:ice' then
         -- The turtle breaks ice without turning it into water
         success = true
-    elseif dugCell.id == 'GRASS' then
-        success = addToInventory(currentWorld.turtle, 'DIRT') == 1
+    elseif dugCell.id == 'minecraft:grass' then
+        success = addToInventory(currentWorld.turtle, 'minecraft:dirt') == 1
     else
         success = addToInventory(currentWorld.turtle, dugCell.id) == 1
     end
@@ -314,7 +328,7 @@ function module.suckDown(amount)
     return suckAt(currentWorld, posSuckingFrom, amount)
 end
 
-local canSuckFrom = { 'CHEST' }
+local canSuckFrom = { 'minecraft:chest' }
 
 function suckAt(currentWorld, posSuckingFrom, amount)
     if amount == nil then
@@ -401,7 +415,7 @@ function hookListeners.registerCobblestoneRegenerationBlock(deltaCoord)
         local currentWorld = _G.mockComputerCraftApi._currentWorld
         local cell = lookupInMap(currentWorld.map, coord)
         if cell ~= nil then return end
-        setInMap(currentWorld.map, coord, { id = 'COBBLESTONE' })
+        setInMap(currentWorld.map, coord, { id = 'minecraft:cobblestone' })
 
         addTickListener(5, regenerateCobblestone)  
     end

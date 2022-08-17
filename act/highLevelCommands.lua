@@ -32,7 +32,7 @@ function module.init(registerCommand)
             for i = 1, 16 do
                 local slotInfo = turtle.getItemDetail(i)
                 if slotInfo ~= nil then
-                    local itemIdInSlot = string.upper(util.splitString(slotInfo.name, ':')[2])
+                    local itemIdInSlot = slotInfo.name
                     if itemIdInSlot == itemIdToFind then
                         turtle.select(i)
                         return
@@ -71,12 +71,11 @@ function module.init(registerCommand)
             end
 
             local success, blockInfo = inspectFn()
-            local minecraftBlockId = blockInfo.name
+            local blockId = blockInfo.name
             if not success then
                 minecraftBlockId = 'minecraft:air'
             end
 
-            local blockId = string.upper(util.splitString(minecraftBlockId, ':')[2])
             if blockId ~= expectedBlockId then
                 turtle.turnRight() -- Wait for a bit
                 state.turtlePos.face = space.rotateFaceClockwise(state.turtlePos.face)
