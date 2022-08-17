@@ -24,10 +24,10 @@ function initStrategy()
     })
 
     plan.setInitialTurtleLocation(mainIsland.initialLoc)
-    plan.doProject(mainIsland.prepareCobblestoneGenerator)
+    -- plan.doProject(mainIsland.prepareCobblestoneGenerator)
     plan.doProject(mainIsland.harvestInitialTree)
-    plan.doProject(mainIsland.waitForIceToMeltAndfinishCobblestoneGenerator)
-    plan.doProject(mainIsland.harvestCobblestone)
+    -- plan.doProject(mainIsland.waitForIceToMeltAndfinishCobblestoneGenerator)
+    -- plan.doProject(mainIsland.harvestCobblestone)
 
     return plan.build()
 end

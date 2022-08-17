@@ -17,8 +17,8 @@ end
 function module.assertCoord(shortTermPlanner, expectedCoord)
     local space = _G.act.space
     local currentCoord = space.posToCoord(shortTermPlanner.turtlePos)
-    currentCoordStr = '('..currentCoord.forward..','..currentCoord.right..','..currentCoord.up..')'
-    expectedCoordStr = '('..expectedCoord.forward..','..expectedCoord.right..','..expectedCoord.up..')'
+    currentCoordStr = '(f='..currentCoord.forward..',r='..currentCoord.right..',u='..currentCoord.up..')'
+    expectedCoordStr = '(f='..expectedCoord.forward..',r='..expectedCoord.right..',u='..expectedCoord.up..')'
     if currentCoordStr ~= expectedCoordStr then
         error('Expected current coord '..currentCoordStr..' to be expected coord '..expectedCoordStr)
     end
@@ -26,8 +26,8 @@ end
 
 function module.assertPos(shortTermPlanner, expectedPos)
     local currentCoord = shortTermPlanner.turtlePos
-    currentPosStr = '('..currentPos.forward..','..currentPos.right..','..currentPos.up..','..currentPos.face..')'
-    expectedPosStr = '('..expectedPos.forward..','..expectedPos.right..','..expectedPos.up..','..expectedPos.face..')'
+    currentPosStr = '(f='..currentPos.forward..',r='..currentPos.right..',u='..currentPos.up..',f='..currentPos.face..')'
+    expectedPosStr = '(f='..expectedPos.forward..',r='..expectedPos.right..',u='..expectedPos.up..',f='..expectedPos.face..')'
     if currentPosStr ~= expectedPosStr then
         error('Expected current pos '..currentPosStr..' to be expected pos '..expectedPosStr)
     end
