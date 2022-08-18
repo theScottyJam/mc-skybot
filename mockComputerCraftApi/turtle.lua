@@ -381,6 +381,11 @@ function suckAt(currentWorld, posSuckingFrom, amount)
 end
 
 -- quantity is optional
+function module.refuel(quantity)
+    -- TODO
+end
+
+-- quantity is optional
 function module.transferTo(destinationSlot, quantity)
     if quantity == nil then quantity = 64 end
     local currentWorld = _G.mockComputerCraftApi._currentWorld

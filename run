@@ -75,6 +75,7 @@ else
     import('act/init.lua').registerGlobal('act/', hookListeners)
     local strategyModule = import('strategy/init.lua')
     strategyModule.registerGlobal('strategy/')
+    turtle.refuel(16)
     strategyModule.run(onStep)
 end
 
