@@ -137,21 +137,21 @@ function harvestTreeFromAbove(shortTermPlanner, opts)
     spiralInwards(shortTermPlanner, {
         sideLength = 3,
         onVisit = function()
-            commands.turtle.dig(shortTermPlanner, 'left')
-            commands.turtle.digDown(shortTermPlanner, 'left')
+            commands.turtle.dig(shortTermPlanner)
+            commands.turtle.digDown(shortTermPlanner)
         end
     })
 
     -- Harvest bottom-half of leaves
     local aboveCornerPos = topLeafCmps.posAt({ forward = 2, right = 2, up = -1, face='backward' })
     navigate.moveToPos(shortTermPlanner, aboveCornerPos, { 'right', 'forward', 'up' })
-    commands.turtle.digDown(shortTermPlanner, 'left')
+    commands.turtle.digDown(shortTermPlanner)
     commands.turtle.down(shortTermPlanner)
     spiralInwards(shortTermPlanner, {
         sideLength = 5,
         onVisit = function()
-            commands.turtle.dig(shortTermPlanner, 'left')
-            commands.turtle.digDown(shortTermPlanner, 'left')
+            commands.turtle.dig(shortTermPlanner)
+            commands.turtle.digDown(shortTermPlanner)
         end
     })
     navigate.face(shortTermPlanner, topLeafCmps.facingAt({ face='forward' }))
@@ -159,7 +159,7 @@ function harvestTreeFromAbove(shortTermPlanner, opts)
     -- Harvest trunk
     local logIsBelow = commands.futures.set(shortTermPlanner, { out=genId('logIsBelow'), value=true })
     commands.futures.while_(shortTermPlanner, { continueIf = logIsBelow }, function(shortTermPlanner)
-        commands.turtle.digDown(shortTermPlanner, 'left')
+        commands.turtle.digDown(shortTermPlanner)
         commands.turtle.down(shortTermPlanner)
         local blockBelow = commands.turtle.inspectDown(shortTermPlanner, { out = genId('blockBelow') })
         logIsBelow = harvestTreeFromAboveTransformers.isBlockALog(shortTermPlanner, { in_=blockBelow, out=logIsBelow })
@@ -228,7 +228,7 @@ function prepareCobblestoneGeneratorProject(opts)
             navigate.face(shortTermPlanner, homeCmps.facingAt({ face='right' }))
             for i = 1, 2 do
                 commands.turtle.forward(shortTermPlanner)
-                commands.turtle.digDown(shortTermPlanner, 'left')
+                commands.turtle.digDown(shortTermPlanner)
             end
 
             -- Grab stuff from chest
@@ -251,10 +251,10 @@ function prepareCobblestoneGeneratorProject(opts)
             -- Dig out west branch
             navigate.moveToPos(shortTermPlanner, homeCmps.posAt({ face='backward' }))
             commands.turtle.forward(shortTermPlanner)
-            commands.turtle.digDown(shortTermPlanner, 'left')
+            commands.turtle.digDown(shortTermPlanner)
             commands.turtle.down(shortTermPlanner)
-            commands.turtle.digDown(shortTermPlanner, 'left')
-            commands.turtle.dig(shortTermPlanner, 'left')
+            commands.turtle.digDown(shortTermPlanner)
+            commands.turtle.dig(shortTermPlanner)
             commands.turtle.up(shortTermPlanner)
 
             -- Place ice down
@@ -266,7 +266,7 @@ function prepareCobblestoneGeneratorProject(opts)
 
             -- Dig out place for player to stand
             navigate.moveToCoord(shortTermPlanner, homeCmps.coordAt({ x=-1, y=0, z=0 }))
-            commands.turtle.digDown(shortTermPlanner, 'left')
+            commands.turtle.digDown(shortTermPlanner)
 
             navigate.moveToPos(shortTermPlanner, startPos)
 
@@ -310,13 +310,13 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
             
             -- Move water
             highLevelCommands.findAndSelectSlotWithItem(shortTermPlanner, 'minecraft:bucket')
-            commands.turtle.placeDown(shortTermPlanner, 'left')
+            commands.turtle.placeDown(shortTermPlanner)
             commands.turtle.forward(shortTermPlanner)
             commands.turtle.placeDown(shortTermPlanner)
             commands.turtle.select(shortTermPlanner, 1)
 
             navigate.moveToPos(shortTermPlanner, startPos)
-            commands.turtle.digDown(shortTermPlanner, 'left')
+            commands.turtle.digDown(shortTermPlanner)
             commands.mockHooks.registerCobblestoneRegenerationBlock(shortTermPlanner, homeCmps.coordAt({ up=-1 }))
 
             return { done = true }, shortTermPlanner.shortTermPlan
@@ -354,7 +354,7 @@ function harvestCobblestoneProject(opts)
                     direction = 'down',
                     endFacing = 'ANY',
                 })
-                commands.turtle.digDown(shortTermPlanner, 'left')
+                commands.turtle.digDown(shortTermPlanner)
             end
             highLevelCommands.reorient(shortTermPlanner, space.posToFacing(startPos))
 
