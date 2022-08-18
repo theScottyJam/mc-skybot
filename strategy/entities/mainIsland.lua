@@ -22,7 +22,7 @@ function entityBuilder(opts)
     -- initialLoc is in front of the chest
     local initialLoc = location.register(space.resolveRelPos({ right=3, face='left' }, homeLoc.pos))
 
-    local harvestInitialTree = harvestInitialTreeProject({ bedrockPos = bedrockPos, homeLoc = homeLoc })
+    local harvestInitialTreeAndPrepareTreeFarm = harvestInitialTreeAndPrepareTreeFarmProject({ bedrockPos = bedrockPos, homeLoc = homeLoc })
     local prepareCobblestoneGenerator = prepareCobblestoneGeneratorProject({ homeLoc = homeLoc })
     local waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGeneratorProject({ homeLoc = homeLoc })
     local harvestCobblestone = harvestCobblestoneProject({ homeLoc = homeLoc })
@@ -34,7 +34,7 @@ function entityBuilder(opts)
         entity = {
             initialLoc = initialLoc,
             homeLoc = homeLoc,
-            harvestInitialTree = harvestInitialTree,
+            harvestInitialTreeAndPrepareTreeFarm = harvestInitialTreeAndPrepareTreeFarm,
             prepareCobblestoneGenerator = prepareCobblestoneGenerator,
             waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGenerator,
             harvestCobblestone = harvestCobblestone,
@@ -42,17 +42,19 @@ function entityBuilder(opts)
     }
 end
 
-function harvestInitialTreeProject(opts)
+-- Pre-condition: Must have two dirt in inventory
+function harvestInitialTreeAndPrepareTreeFarmProject(opts)
     local bedrockPos = opts.bedrockPos
     local homeLoc = opts.homeLoc
 
     local location = _G.act.location
     local navigate = _G.act.navigate
     local commands = _G.act.commands
+    local highLevelCommands = _G.act.highLevelCommands
     local space = _G.act.space
 
     local bedrockCmps = space.createCompass(bedrockPos)
-    return _G.act.project.register('mainIsland:harvestInitialTree', {
+    return _G.act.project.register('mainIsland:harvestInitialTreeAndPrepareTreeFarm', {
         createProjectState = function()
             return { done = false }
         end,
@@ -66,9 +68,16 @@ function harvestInitialTreeProject(opts)
             local startPos = util.copyTable(shortTermPlanner.turtlePos)
 
             local bottomLogCmps = bedrockCmps.compassAt({ forward=-4, right=-1, up=3 })
-            local aboveTreeCoord = bottomLogCmps.coordAt({ up=9 })
+            local aboveTree1Cmps = bottomLogCmps.compassAt({ up=9 })
+            local aboveTree2Cmps = aboveTree1Cmps.compassAt({ right=2 })
 
-            navigate.moveToCoord(shortTermPlanner, aboveTreeCoord, { 'up', 'forward', 'right' })
+            highLevelCommands.findAndSelectSlotWithItem(shortTermPlanner, 'minecraft:dirt')
+            navigate.moveToCoord(shortTermPlanner, aboveTree2Cmps.coord, { 'up', 'forward', 'right' })
+            commands.turtle.placeDown(shortTermPlanner)
+            highLevelCommands.findAndSelectSlotWithItem(shortTermPlanner, 'minecraft:dirt')
+            navigate.moveToCoord(shortTermPlanner, aboveTree1Cmps.coord, { 'up', 'forward', 'right' })
+            commands.turtle.placeDown(shortTermPlanner)
+            commands.turtle.select(shortTermPlanner, 1)
 
             harvestTreeFromAbove(shortTermPlanner, { bottomLogPos = bottomLogCmps.pos })
 

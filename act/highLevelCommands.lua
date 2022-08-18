@@ -95,6 +95,7 @@ function module.init(registerCommand)
                 if endFacing == 'CURRENT' or endFacing == nil then
                     -- Do nothing
                 elseif endFacing == 'ANY' then
+                    -- TODO: I have ways now to actually state that the turtle's facing direction is unknown
                     turtlePos.face = 'left' -- 'left' is the "random" direction you end up facing
                 else
                     turtlePos.face = endFacing.face
