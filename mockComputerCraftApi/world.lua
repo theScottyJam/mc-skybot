@@ -86,7 +86,7 @@ function createStartingMap()
         }
     }
     map[ 3][67] = {}
-    map[ 3][67][-2] = { id = 'computercraft:disk_drive' } -- Not sure what the real ID for this is.
+    map[ 3][67][-4] = { id = 'computercraft:disk_drive' } -- Not sure what the real ID for this is.
 
     map[-1][67] = {}
     map[-1][67][ 1] = { id = 'minecraft:log' }
