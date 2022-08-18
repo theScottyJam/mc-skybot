@@ -265,7 +265,7 @@ function prepareCobblestoneGeneratorProject(opts)
             commands.turtle.select(shortTermPlanner, 1)
 
             -- Dig out place for player to stand
-            navigate.moveToCoord(shortTermPlanner, homeCmps.coordAt({ x=-1, y=0, z=0 }))
+            navigate.moveToCoord(shortTermPlanner, homeCmps.coordAt({ right=-1 }))
             commands.turtle.digDown(shortTermPlanner)
 
             navigate.moveToPos(shortTermPlanner, startPos)
