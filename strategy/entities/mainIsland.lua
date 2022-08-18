@@ -2,6 +2,9 @@ local util = import('util.lua')
 
 local module = {}
 
+local moduleId = 'entity:mainIsland'
+local genId = _G.act.commands.createIdGenerator(moduleId)
+
 function module.init()
     return _G.act.entity.createEntityFactory(entityBuilder)
 end
@@ -76,6 +79,22 @@ function harvestInitialTreeProject(opts)
     })
 end
 
+local harvestTreeFromAboveTransformers = _G.act.commands.registerFutureTransformers(
+    moduleId..':harvestTreeFromAbove',
+    {
+        isNotBlockOfLeaves = function(blockInfoTuple)
+            local success = blockInfoTuple[1]
+            local blockInfo = blockInfoTuple[2]
+            return not success or blockInfo.name ~= 'minecraft:leaves'
+        end,
+        isBlockALog = function(blockInfoTuple)
+            local success = blockInfoTuple[1]
+            local blockInfo = blockInfoTuple[2]
+            return success and blockInfo.name == 'minecraft:log'
+        end,
+    }
+)
+
 function harvestTreeFromAbove(shortTermPlanner, opts)
     local bottomLogPos = opts.bottomLogPos
 
@@ -88,10 +107,17 @@ function harvestTreeFromAbove(shortTermPlanner, opts)
 
     -- Brings the turtle two blocks above the top leaf (the block right above will eventually have a dirt block)
     navigate.assertCoord(shortTermPlanner, bottomLogCmps.coordAt({ up=9 }))
-    navigate.face(shortTermPlanner, bottomLogCmps.facingAt({ face='left' }))
+    navigate.face(shortTermPlanner, bottomLogCmps.facingAt({ face='forward' }))
 
-    commands.turtle.down(shortTermPlanner)
-    commands.turtle.down(shortTermPlanner)
+    local leavesNotFound = commands.futures.set(shortTermPlanner, { out=genId('leavesNotFound'), value=true })
+    commands.futures.while_(shortTermPlanner, { continueIf = leavesNotFound }, function(shortTermPlanner)
+        commands.turtle.down(shortTermPlanner)
+        local blockBelow = commands.turtle.inspectDown(shortTermPlanner, { out = genId('blockBelow') })
+        leavesNotFound = harvestTreeFromAboveTransformers.isNotBlockOfLeaves(shortTermPlanner, { in_=blockBelow, out=leavesNotFound })
+        commands.futures.delete(shortTermPlanner, { in_ = blockBelow })
+    end)
+
+    local topLeafCmps = space.createCompass(shortTermPlanner.turtlePos).compassAt({ up=-1 })
     for i = 1, 2 do
         commands.turtle.digDown(shortTermPlanner, 'left')
         commands.turtle.down(shortTermPlanner)
@@ -102,15 +128,15 @@ function harvestTreeFromAbove(shortTermPlanner, opts)
     end
 
     -- Get a stray leaf block
-    navigate.face(shortTermPlanner, bottomLogCmps.facingAt({ face='forward' }))
-    local levelTwoCenterCmps = bottomLogCmps.compassAt({ up=5 })
+    navigate.face(shortTermPlanner, topLeafCmps.facingAt({ face='forward' }))
+    local levelTwoCenterCmps = topLeafCmps.compassAt({ up=-1 })
     navigate.assertCoord(shortTermPlanner, levelTwoCenterCmps.coord)
     navigate.moveToPos(shortTermPlanner, levelTwoCenterCmps.posAt({ forward=1, face='right' }))
     commands.turtle.dig(shortTermPlanner, 'left')
     
     -- Harvest bottom-half of leaves
-    for y = 5, 4, -1 do
-        local cornerPos = bottomLogCmps.posAt({ forward = 2, right = 2, up = y, face='backward' })
+    for y = -1, -2, -1 do
+        local cornerPos = topLeafCmps.posAt({ forward = 2, right = 2, up = y, face='backward' })
         navigate.moveToPos(shortTermPlanner, cornerPos, { 'right', 'forward', 'up' })
         spiralInwards(shortTermPlanner, {
             sideLength = 5,
@@ -119,13 +145,19 @@ function harvestTreeFromAbove(shortTermPlanner, opts)
             end
         })
     end
+    navigate.face(shortTermPlanner, topLeafCmps.facingAt({ face='forward' }))
 
     -- Harvest trunk
-    navigate.assertCoord(shortTermPlanner, bottomLogCmps.coordAt({ up=4 }))
-    for i = 1, 4 do
+    local logIsBelow = commands.futures.set(shortTermPlanner, { out=genId('logIsBelow'), value=true })
+    commands.futures.while_(shortTermPlanner, { continueIf = logIsBelow }, function(shortTermPlanner)
         commands.turtle.digDown(shortTermPlanner, 'left')
         commands.turtle.down(shortTermPlanner)
-    end
+        local blockBelow = commands.turtle.inspectDown(shortTermPlanner, { out = genId('blockBelow') })
+        logIsBelow = harvestTreeFromAboveTransformers.isBlockALog(shortTermPlanner, { in_=blockBelow, out=logIsBelow })
+        commands.futures.delete(shortTermPlanner, { in_ = blockBelow })
+    end)
+
+    shortTermPlanner.turtlePos = util.copyTable(bottomLogCmps.pos)
 end
 
 -- End condition: An empty bucket will be left in your inventory

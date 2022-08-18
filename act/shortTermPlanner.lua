@@ -16,4 +16,11 @@ function module.create(opts)
     }
 end
 
+function module.copy(shortTermPlanner)
+    return {
+        turtlePos = util.copyTable(shortTermPlanner.turtlePos),
+        shortTermPlan = util.copyTable(shortTermPlanner.shortTermPlan)
+    }
+end
+
 return module

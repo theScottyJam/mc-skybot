@@ -3,7 +3,7 @@
     Terms:
     * facing: A record with a "face" and "from" field.
     * coordinate: a forward,right,up coordinate which a `from` field.
-        `from` is either `ORIGIN` or another coordinate that's missing at least on field because its unknown.
+        `from` is either `ORIGIN` or another coordinate where at least one of its fields is set to 'UNKNOWN'.
     * position: A coordinate and facing combined - it has the fields from both.
     * location: A specific, known point in space that you often travel to. These are managed in location.lua.
     * compass: A tool to generate coords/positions/facings from the compass's location. Often abreviated "cmps"

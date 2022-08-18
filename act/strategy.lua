@@ -60,7 +60,8 @@ function doStrategyStep(state, step)
     if step.type == 'DO_PROJECT' then
         state.primaryTask = {
             projectId = step.value,
-            projectState = act.project.lookup(step.value).createProjectState()
+            projectState = act.project.lookup(step.value).createProjectState(),
+            projectVars = {},
         }
     elseif step.type == 'INIT_ENTITY' then
         step.value.init()
