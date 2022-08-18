@@ -105,10 +105,11 @@ function harvestTreeFromAbove(shortTermPlanner, opts)
 
     local bottomLogCmps = space.createCompass(bottomLogPos)
 
-    -- Brings the turtle two blocks above the top leaf (the block right above will eventually have a dirt block)
     navigate.assertCoord(shortTermPlanner, bottomLogCmps.coordAt({ up=9 }))
     navigate.face(shortTermPlanner, bottomLogCmps.facingAt({ face='forward' }))
+    commands.turtle.forward(shortTermPlanner)
 
+    -- Move down until you hit leaves
     local leavesNotFound = commands.futures.set(shortTermPlanner, { out=genId('leavesNotFound'), value=true })
     commands.futures.while_(shortTermPlanner, { continueIf = leavesNotFound }, function(shortTermPlanner)
         commands.turtle.down(shortTermPlanner)
@@ -117,34 +118,30 @@ function harvestTreeFromAbove(shortTermPlanner, opts)
         commands.futures.delete(shortTermPlanner, { in_ = blockBelow })
     end)
 
-    local topLeafCmps = space.createCompass(shortTermPlanner.turtlePos).compassAt({ up=-1 })
-    for i = 1, 2 do
-        commands.turtle.digDown(shortTermPlanner, 'left')
-        commands.turtle.down(shortTermPlanner)
-        for j = 1, 4 do
+    -- Harvest top-half of leaves
+    local topLeafCmps = space.createCompass(shortTermPlanner.turtlePos).compassAt({ forward=-1, up=-1 })
+    local cornerPos = topLeafCmps.posAt({ forward = 1, right = 1, face='backward' })
+    navigate.moveToPos(shortTermPlanner, cornerPos, { 'right', 'forward', 'up' })
+    spiralInwards(shortTermPlanner, {
+        sideLength = 3,
+        onVisit = function()
             commands.turtle.dig(shortTermPlanner, 'left')
-            commands.turtle.turnRight(shortTermPlanner)
+            commands.turtle.digDown(shortTermPlanner, 'left')
         end
-    end
+    })
 
-    -- Get a stray leaf block
-    navigate.face(shortTermPlanner, topLeafCmps.facingAt({ face='forward' }))
-    local levelTwoCenterCmps = topLeafCmps.compassAt({ up=-1 })
-    navigate.assertCoord(shortTermPlanner, levelTwoCenterCmps.coord)
-    navigate.moveToPos(shortTermPlanner, levelTwoCenterCmps.posAt({ forward=1, face='right' }))
-    commands.turtle.dig(shortTermPlanner, 'left')
-    
     -- Harvest bottom-half of leaves
-    for y = -1, -2, -1 do
-        local cornerPos = topLeafCmps.posAt({ forward = 2, right = 2, up = y, face='backward' })
-        navigate.moveToPos(shortTermPlanner, cornerPos, { 'right', 'forward', 'up' })
-        spiralInwards(shortTermPlanner, {
-            sideLength = 5,
-            onVisit = function()
-                commands.turtle.digDown(shortTermPlanner, 'left')
-            end
-        })
-    end
+    local aboveCornerPos = topLeafCmps.posAt({ forward = 2, right = 2, up = -1, face='backward' })
+    navigate.moveToPos(shortTermPlanner, aboveCornerPos, { 'right', 'forward', 'up' })
+    commands.turtle.digDown(shortTermPlanner, 'left')
+    commands.turtle.down(shortTermPlanner)
+    spiralInwards(shortTermPlanner, {
+        sideLength = 5,
+        onVisit = function()
+            commands.turtle.dig(shortTermPlanner, 'left')
+            commands.turtle.digDown(shortTermPlanner, 'left')
+        end
+    })
     navigate.face(shortTermPlanner, topLeafCmps.facingAt({ face='forward' }))
 
     -- Harvest trunk
