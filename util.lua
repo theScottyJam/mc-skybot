@@ -71,4 +71,20 @@ function module.splitString (inputstr, sep)
     return newTable
 end
 
+function module.minNumber (first, ...)
+    local min = first
+    for _, value in pairs({ ... }) do
+        if min > value then min = value end
+    end
+    return min
+end
+
+function module.maxNumber (first, ...)
+    local max = first
+    for _, value in pairs({ ... }) do
+        if max < value then max = value end
+    end
+    return max
+end
+
 return module

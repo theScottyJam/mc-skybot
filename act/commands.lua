@@ -51,18 +51,25 @@ function registerMovementCommand(id, execute, updatePos)
 end
 
 -- A convinient shorthand to cause the command to return a future
-function registerCommandWithFuture(id, execute, extractFutureId)
-    if updatePos == nil then updatePos = function() end end
+function module.registerCommandWithFuture(id, execute_, extractFutureId)
+    function execute(state, ...)
+        local futureId = extractFutureId(table.unpack({ ... }))
+        local result = execute_(state, table.unpack({ ... }))
+        if futureId ~= nil then
+            state.primaryTask.projectVars[futureId] = result
+        end
+    end
     return registerCommand(id, execute, {
         onSetup = function(shortTermPlanner, ...)
             local futureId = extractFutureId(table.unpack({ ... }))
-            if type(futureId) ~= 'string' then
-                error('Expected id to be a string')
+            if futureId ~= nil and type(futureId) ~= 'string' then
+                error('Expected id to be a string or nil')
             end
             return futureId
         end
     })
 end
+local registerCommandWithFuture = module.registerCommandWithFuture
 
 -- Convinient function to bulk-register lots of transformers at once.
 function module.registerFutureTransformers(baseId, transformers)
@@ -74,7 +81,7 @@ function module.registerFutureTransformers(baseId, transformers)
             local outId = opts.out
 
             local inValue = state.primaryTask.projectVars[inId]
-            state.primaryTask.projectVars[outId] = transformer(inValue)
+            return transformer(inValue)
         end, function(opts) return opts.out end)
     end
     return processedTransformers
@@ -159,19 +166,22 @@ turtleActions.placeDown = registerCommand('turtle:placeDown', function(state)
     turtle.placeDown()
 end)
 
+-- opts looks like { out=... }
 turtleActions.inspect = registerCommandWithFuture('turtle:inspect', function(state, opts)
     local success, blockInfo = turtle.inspect()
-    state.primaryTask.projectVars[opts.out] = { success, blockInfo }
+    return { success, blockInfo }
 end, function (opts) return opts.out end)
 
+-- opts looks like { out=... }
 turtleActions.inspectUp = registerCommandWithFuture('turtle:inspectUp', function(state, opts)
     local success, blockInfo = turtle.inspectUp()
-    state.primaryTask.projectVars[opts.out] = { success, blockInfo }
+    return { success, blockInfo }
 end, function (opts) return opts.out end)
 
+-- opts looks like { out=... }
 turtleActions.inspectDown = registerCommandWithFuture('turtle:inspectDown', function(state, opts)
     local success, blockInfo = turtle.inspectDown()
-    state.primaryTask.projectVars[opts.out] = { success, blockInfo }
+    return { success, blockInfo }
 end, function (opts) return opts.out end)
 
 turtleActions.dig = registerCommand('turtle:dig', function(state, toolSide)
@@ -203,10 +213,9 @@ turtleActions.transferTo = registerCommand('turtle:transferTo', function(state, 
     turtle.transferTo(destinationSlot, quantity)
 end)
 
+-- opts looks like { value=..., out=... }
 futuresActions.set = registerCommandWithFuture('futures:set', function(state, opts)
-    local outId = opts.out
-    local value = opts.value
-    state.primaryTask.projectVars[outId] = value
+    return opts.value
 end, function(opts) return opts.out end)
 
 futuresActions.delete = registerCommand('futures:delete', function(state, opts)
@@ -254,26 +263,10 @@ futuresActions.while_ = function(shortTermPlanner, opts, block)
     block(innerPlanner)
 
     if originalShortTermPlanLength < #shortTermPlanner.shortTermPlan then
-        error(
-            'The outer shortTermPlan got updated during a block. '..
-            'Did you accidentally pass in an outer shortTernPlanner instead of an inner one?'
-        )
+        error('The outer shortTermPlan got updated during a block. Only the passed-in shortTermPlan should be modified. ')
     end
 
-    local newStemPos = { from = 'ORIGIN' }
-    local allStemFieldsKnown = true
-    for _, field in ipairs({ 'forward', 'right', 'up', 'face' }) do
-        if shortTermPlanner.turtlePos[field] == innerPlanner.turtlePos[field] then
-            newStemPos[field] = shortTermPlanner.turtlePos[field]
-        else
-            allStemFieldsKnown = false
-            newStemPos[field] = 'UNKNOWN'
-        end
-    end
-
-    if not allStemFieldsKnown then
-        shortTermPlanner.turtlePos = { forward = 0, right = 0, up = 0, face = 'forward', from = newStemPos }
-    end
+    shortTermPlanner.turtlePos = createPosInterprettingDifferencesAsUnknowns(shortTermPlanner.turtlePos, innerPlanner.turtlePos)
 
     -- Second run of block() is used to determin the actual list of block commands to record.
     -- This time around, the turtlePos has been updated to have UNKNOWN positions where appropriate.
@@ -285,6 +278,62 @@ futuresActions.while_ = function(shortTermPlanner, opts, block)
         subCommands = innerPlanner2.shortTermPlan,
         continueIfFuture = continueIfFuture,
     })
+end
+
+local if_ = registerCommand('futures:if', function(state, opts)
+    local subCommands = opts.subCommands
+    local enterIfFuture = opts.enterIfFuture
+
+    if #subCommands == 0 then error('The block must register at least one command') end
+
+    if state.primaryTask.projectVars[enterIfFuture] then
+        for i = #subCommands, 1, -1 do
+            table.insert(state.shortTermPlan, 1, subCommands[i])
+        end
+    end
+end)
+
+-- Don't do branching logic and what-not inside the passed-in block.
+-- it needs to be possible to run the block in advance to learn about the behavior of the block.
+futuresActions.if_ = function(shortTermPlanner, enterIfFuture, block)
+    -- First run of block() is used to determin how the turtle moves
+    local originalShortTermPlanLength = #shortTermPlanner.shortTermPlan
+    local innerPlanner = _G.act.shortTermPlanner.copy(shortTermPlanner)
+    innerPlanner.shortTermPlan = {}
+    block(innerPlanner)
+
+    if originalShortTermPlanLength < #shortTermPlanner.shortTermPlan then
+        error('The outer shortTermPlan got updated during a block. Only the passed-in shortTermPlan should be modified. ')
+    end
+
+    shortTermPlanner.turtlePos = createPosInterprettingDifferencesAsUnknowns(shortTermPlanner.turtlePos, innerPlanner.turtlePos)
+
+    return if_(shortTermPlanner, {
+        subCommands = innerPlanner.shortTermPlan,
+        enterIfFuture = enterIfFuture,
+    })
+end
+
+function createPosInterprettingDifferencesAsUnknowns(pos1, pos2)
+    local space = _G.act.space
+    if space.comparePos(pos1, pos2) then
+        return pos1
+    end
+
+    local commonFromField = space.findCommonFromField(pos1, pos2)
+    local pos1Squashed = space.squashFromFields(pos1, { limit = commonFromField })
+    local pos2Squashed = space.squashFromFields(pos2, { limit = commonFromField })
+
+    local newStemPos = { from = commonFromField }
+    for _, field in ipairs({ 'forward', 'right', 'up', 'face' }) do
+        if pos1Squashed[field] == pos2Squashed[field] then
+            newStemPos[field] = pos1Squashed[field]
+        else
+            newStemPos[field] = 'UNKNOWN'
+        end
+    end
+
+    return { forward = 0, right = 0, up = 0, face = 'forward', from = newStemPos }
 end
 
 mockHooksActions.registerCobblestoneRegenerationBlock = registerCommand(

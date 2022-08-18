@@ -67,8 +67,8 @@ function harvestInitialTreeAndPrepareTreeFarmProject(opts)
             location.travelToLocation(shortTermPlanner, homeLoc)
             local startPos = util.copyTable(shortTermPlanner.turtlePos)
 
-            local bottomLogCmps = bedrockCmps.compassAt({ forward=-4, right=-1, up=3 })
-            local aboveTree1Cmps = bottomLogCmps.compassAt({ up=9 })
+            local bottomTree1LogCmps = bedrockCmps.compassAt({ forward=-4, right=-1, up=3 })
+            local aboveTree1Cmps = bottomTree1LogCmps.compassAt({ up=9 })
             local aboveTree2Cmps = aboveTree1Cmps.compassAt({ right=2 })
 
             highLevelCommands.findAndSelectSlotWithItem(shortTermPlanner, 'minecraft:dirt')
@@ -79,7 +79,10 @@ function harvestInitialTreeAndPrepareTreeFarmProject(opts)
             commands.turtle.placeDown(shortTermPlanner)
             commands.turtle.select(shortTermPlanner, 1)
 
-            harvestTreeFromAbove(shortTermPlanner, { bottomLogPos = bottomLogCmps.pos })
+            harvestTreeFromAbove(shortTermPlanner, { bottomLogPos = bottomTree1LogCmps.pos })
+
+            navigate.moveToPos(shortTermPlanner, bottomTree1LogCmps.posAt({ right=1 }))
+            plantSaplingsFromBetweenTrees(shortTermPlanner, { bedrockCmps = bedrockCmps })
 
             navigate.moveToPos(shortTermPlanner, startPos, { 'up', 'forward', 'right' })
 
@@ -164,6 +167,37 @@ function harvestTreeFromAbove(shortTermPlanner, opts)
     end)
 
     shortTermPlanner.turtlePos = util.copyTable(bottomLogCmps.pos)
+end
+
+function plantSaplingsFromBetweenTrees(shortTermPlanner, opts)
+    local navigate = _G.act.navigate
+    local commands = _G.act.commands
+    local highLevelCommands = _G.act.highLevelCommands
+
+    local bedrockCmps = opts.bedrockCmps
+
+    local betweenTreesCmps = bedrockCmps.compassAt({ forward=-4, up=3 })
+    navigate.assertPos(shortTermPlanner, betweenTreesCmps.pos)
+
+    local saplingFound = highLevelCommands.findAndSelectSlotWithItem(shortTermPlanner, 'minecraft:sapling', {
+        allowMissing = true,
+        out=genId('saplingFound'),
+    })
+    commands.futures.if_(shortTermPlanner, saplingFound, function(shortTermPlanner)
+        navigate.face(shortTermPlanner, betweenTreesCmps.facingAt({ face='left' }))
+        commands.turtle.place(shortTermPlanner)
+
+        saplingFound = highLevelCommands.findAndSelectSlotWithItem(shortTermPlanner, 'minecraft:sapling', {
+            allowMissing = true,
+            out=saplingFound,
+        })
+        commands.futures.if_(shortTermPlanner, saplingFound, function(shortTermPlanner)
+            navigate.face(shortTermPlanner, betweenTreesCmps.facingAt({ face='right' }))
+            commands.turtle.place(shortTermPlanner)
+        end)
+    end)
+
+    highLevelCommands.reorient(shortTermPlanner, betweenTreesCmps.facingAt({ face='forward' }))
 end
 
 -- End condition: An empty bucket will be left in your inventory

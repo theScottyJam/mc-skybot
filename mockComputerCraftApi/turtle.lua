@@ -153,6 +153,7 @@ local canPlace = {
     'minecraft:water_bucket',
     'minecraft:bucket',
     'minecraft:ice',
+    'minecraft:sapling',
 }
 
 function placeAt(currentWorld, placePos)

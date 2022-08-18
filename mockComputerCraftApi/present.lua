@@ -16,6 +16,7 @@ local completeMapKey = {
     ['minecraft:grass'] = 'D',
     ['minecraft:chest'] = 'C',
     ['minecraft:leaves'] = 'l',
+    ['minecraft:sapling'] = 's',
     ['minecraft:log'] = 'L',
     ['minecraft:water'] = '~',
     ['minecraft:lava'] = '=',

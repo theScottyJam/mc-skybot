@@ -151,6 +151,74 @@ function rotateRelCoordClockwiseAroundOrigin(coord, count)
     return coord
 end
 
+-- A "navUnit" is a position, coordinate, or facing.
+-- Returns the "from" field that's common between the two.
+function module.findCommonFromField(navUnit1, navUnit2)
+    fromChain1 = util.reverseTable(listFromFieldChain(navUnit1))
+    fromChain2 = util.reverseTable(listFromFieldChain(navUnit2))
+    if fromChain1[1] ~= 'ORIGIN' or fromChain2[1] ~= 'ORIGIN' then
+        listFromFieldChain(navUnit1)
+        error('UNREACHABLE: The from chain is missing the ORIGIN point')
+    end
+
+    local shortestChain = util.minNumber(#fromChain1, #fromChain2)
+    for i = 1, shortestChain do
+        if fromChain1[i] ~= fromChain2[i] then
+            return fromChain1[i - 1]
+        end
+    end
+    return fromChain1[shortestChain]
+end
+
+-- Go through all "from" fields to find an absolute position.
+-- The returned object will have fields set to "unknown" if a "from" field set it as such.
+-- opts.endAt can be supplied to tell it to squash up to and excluding that point.
+function module.squashFromFields(pos, opts)
+    local limit = (opts or {}).endAt or 'ORIGIN'
+
+    local result = { from = limit }
+
+    for _, field in pairs({ 'forward', 'right', 'up' }) do
+        result[field] = 0
+        for _, iterPos in ipairs(listFromFieldChain(pos, { limit = limit })) do
+            if iterPos[field] == 'UNKNOWN' then
+                result[field] = 'UNKNOWN'
+                break
+            else
+                result[field] = result[field] + iterPos[field]
+            end
+        end
+    end
+
+    result.face = 'forward'
+    for _, iterPos in ipairs(listFromFieldChain(pos, { limit = limit })) do
+        if iterPos.face == 'UNKNOWN' then
+            result.face = 'UNKNOWN'
+            break
+        else
+            result.face = module.resolveRelFacing({ face=result.face }, module.posToFacing(iterPos)).face
+        end
+    end
+
+    return result
+end
+
+-- A "navUnit" is a position, coordinate, or facing.
+-- Returns a list, where the first item is the passed-in pos/coord/facing,
+-- the second it that value's "from" field, the third is the "from"'s "from" field,
+-- and so on. Useful to make iteration easier.
+-- opts.limit can be provided to have it return all fields up to and excluding the limit
+function listFromFieldChain(navUnit, opts)
+    local limit = (opts or {}).limit -- may be nil
+    local result = { navUnit }
+    repeat
+        navUnit = navUnit.from
+        if navUnit == limit then break end
+        table.insert(result, navUnit)
+    until navUnit == 'ORIGIN'
+    return result
+end
+
 function assertValidFace(face)
     local isValid = util.tableContains({'forward', 'right', 'backward', 'left'}, face)
     if not isValid then

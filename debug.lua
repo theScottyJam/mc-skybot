@@ -28,6 +28,7 @@ function debugModule.onDebugCommand(state, opts)
     local world = _G.mockComputerCraftApi._currentWorld
     -- present.inventory(world)
     present.displayMap(world, { minX = -5, maxX = 5, minZ = -5, maxZ = 5 })
+    -- debugModule.printTable(state.primaryTask.projectVars)
 end
 
 function module.registerGlobal()

@@ -2,7 +2,10 @@ local util = import('util.lua')
 
 local module = {}
 
-function module.init(registerCommand)
+function module.init(commands)
+    local registerCommand = commands.registerCommand
+    local registerCommandWithFuture = commands.registerCommandWithFuture
+
     local highLevelCommands = {}
 
     highLevelCommands.transferToFirstEmptySlot = registerCommand(
@@ -26,20 +29,28 @@ function module.init(registerCommand)
         end
     )
 
-    highLevelCommands.findAndSelectSlotWithItem = registerCommand(
+    highLevelCommands.findAndSelectSlotWithItem = registerCommandWithFuture(
         'highLevelCommands:findAndSelectSlotWithItem',
-        function(state, itemIdToFind)
+        function(state, itemIdToFind, opts)
+            if opts == nil then opts = {} end
+            local allowMissing = opts.allowMissing or false
             for i = 1, 16 do
                 local slotInfo = turtle.getItemDetail(i)
                 if slotInfo ~= nil then
                     local itemIdInSlot = slotInfo.name
                     if itemIdInSlot == itemIdToFind then
                         turtle.select(i)
-                        return
+                        return true
                     end
                 end
             end
+            if allowMissing then
+                return false
+            end
             error('Failed to find the specific item.')
+        end,
+        function(itemIdToFind, opts)
+            return opts and opts.out
         end
     )
 
@@ -104,13 +115,16 @@ function module.init(registerCommand)
         }
     )
 
-    -- Uses runtime facing information instead of the ahead-of-time planned facing to orient yourself a certain direction.
+    -- Uses runtime facing information instead of the ahead-of-time planned facing to orient yourself a certain direction
+    -- relative to the origin.
     -- This is important after doing a high-level command that could put you facing a random direction, and there's no way
     -- to plan a specific number of turn-lefts/rights to fix it in advance.
     highLevelCommands.reorient = registerCommand(
         'highLevelCommands:reorient',
         function(state, targetFacing)
-            if state.turtlePos.from ~= targetFacing.from then error('incompatible "from" fields') end
+            if state.turtlePos.from ~= 'ORIGIN' then
+                error('UNREACHABLE: A state.turtlePos.from value should always be "ORIGIN"')
+            end
             local space = _G.act.space
         
             local beforeFace = state.turtlePos.face
@@ -127,8 +141,25 @@ function module.init(registerCommand)
             state.turtlePos.face = targetFacing.face
         end, {
             onSetup = function(shortTermPlanner, targetFacing)
-                if shortTermPlanner.turtlePos.from ~= targetFacing.from then error('incompatible "from" fields') end
-                shortTermPlanner.turtlePos.face = targetFacing.face
+                local space = _G.act.space
+                if targetFacing.from ~= 'ORIGIN' then
+                    error('The targetFacing "from" field must be set to "ORIGIN"')
+                end
+                if shortTermPlanner.turtlePos.from == 'ORIGIN' then
+                    error("There is no need to use reorient(), if the turtle's positition is completely known.")
+                end
+
+                local squashedPos = space.squashFromFields(shortTermPlanner.turtlePos)
+                local unsupportedMovement = (
+                    squashedPos.forward == 'UNKNOWN' or
+                    squashedPos.right == 'UNKNOWN' or
+                    squashedPos.up == 'UNKNOWN'
+                )
+                if unsupportedMovement then
+                    error('The reoirient command currently only knows how to fix the "from" field when "face" is the only field set to "UNKNOWN" in the "from" chain.')
+                end
+                squashedPos.face = targetFacing.face
+                shortTermPlanner.turtlePos = squashedPos
             end
         }
     )

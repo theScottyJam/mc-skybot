@@ -25,7 +25,7 @@ function module.assertCoord(shortTermPlanner, expectedCoord)
 end
 
 function module.assertPos(shortTermPlanner, expectedPos)
-    local currentCoord = shortTermPlanner.turtlePos
+    local currentPos = shortTermPlanner.turtlePos
     currentPosStr = '(f='..currentPos.forward..',r='..currentPos.right..',u='..currentPos.up..',f='..currentPos.face..')'
     expectedPosStr = '(f='..expectedPos.forward..',r='..expectedPos.right..',u='..expectedPos.up..',f='..expectedPos.face..')'
     if currentPosStr ~= expectedPosStr then
@@ -38,6 +38,7 @@ end
 -- dimensionOrder is optional, and indicates which dimensions to travel first. e.g. {'right', 'up'}.
 -- It defaults to { 'forward', 'right', 'up' }. Dimensions can be omited to prevent movement in that direction.
 function module.moveToCoord(shortTermPlanner, destinationCoord, dimensionOrder)
+    if shortTermPlanner.shortTermPlan == nil then error('Failed to provide a valid shortTermPlanner') end
     if shortTermPlanner.turtlePos.from ~= destinationCoord.from then error('incompatible "from" fields') end
     local commands = _G.act.commands
     local space = _G.act.space
@@ -73,6 +74,7 @@ end
 -- Parameters are generally the same as module.moveToCoord().
 -- destinationPos has a "face" field, which decides the final direction the turtle will face.
 function module.moveToPos(shortTermPlanner, destinationPos, dimensionOrder)
+    if shortTermPlanner.shortTermPlan == nil then error('Failed to provide a valid shortTermPlanner') end
     local space = _G.act.space
 
     module.moveToCoord(shortTermPlanner, space.posToCoord(destinationPos), dimensionOrder)
