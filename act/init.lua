@@ -14,6 +14,7 @@ function module.registerGlobal(base, hookListeners)
   act.planner = import(base..'planner.lua')
   act.space = import(base..'space.lua')
   act.strategy = import(base..'strategy.lua')
+  act.task = import(base..'task.lua')
 
   _G.act = act
 end

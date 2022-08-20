@@ -19,31 +19,22 @@ end
 function initStrategy()
     local project = _G.act.project
 
-    local steps = {}
-    local currentConditions = {}
-    function doProject(projectId)
-        local projectToAdd = project.lookup(projectId)
-        if not projectToAdd.preConditions(currentConditions) then
-            error('Project '..projectId..' did not have its pre-conditions satisfied.')
-        end
-
-        table.insert(steps, projectId)
-        projectToAdd.postConditions(currentConditions)
-    end
+    local initialTaskList = {}
 
     local mainIsland = _G.strategy.entities.mainIsland.initEntity({
         bedrockCoord = { forward = 3, right = 0, up = 64, from = 'ORIGIN' }
     })
 
-    doProject(mainIsland.init)
-    doProject(mainIsland.prepareCobblestoneGenerator)
-    doProject(mainIsland.harvestInitialTreeAndPrepareTreeFarm)
-    doProject(mainIsland.waitForIceToMeltAndfinishCobblestoneGenerator)
-    doProject(mainIsland.createCobbleTower)
+    local currentConditions = {}
+    mainIsland.init.addToInitialTaskList(initialTaskList, currentConditions)
+    mainIsland.startBuildingCobblestoneGenerator.addToInitialTaskList(initialTaskList, currentConditions)
+    mainIsland.harvestInitialTreeAndPrepareTreeFarm.addToInitialTaskList(initialTaskList, currentConditions)
+    mainIsland.waitForIceToMeltAndfinishCobblestoneGenerator.addToInitialTaskList(initialTaskList, currentConditions)
+    mainIsland.createCobbleTower.addToInitialTaskList(initialTaskList, currentConditions)
 
     return {
         initialTurtlePos = mainIsland.initialLoc.pos,
-        steps = steps,
+        taskList = initialTaskList,
     }
 end
 

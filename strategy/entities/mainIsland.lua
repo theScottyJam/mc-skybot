@@ -26,7 +26,7 @@ function initEntity(opts)
 
     local init = initProject({ initialLoc = initialLoc, homeLoc = homeLoc })
     local harvestInitialTreeAndPrepareTreeFarm = harvestInitialTreeAndPrepareTreeFarmProject({ bedrockPos = bedrockPos, homeLoc = homeLoc })
-    local prepareCobblestoneGenerator = prepareCobblestoneGeneratorProject({ homeLoc = homeLoc })
+    local startBuildingCobblestoneGenerator = startBuildingCobblestoneGeneratorProject({ homeLoc = homeLoc })
     local waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGeneratorProject({ homeLoc = homeLoc })
     local createCobbleTower = createCobbleTowerProject({ homeLoc = homeLoc })
 
@@ -35,7 +35,7 @@ function initEntity(opts)
         homeLoc = homeLoc,
         init = init,
         harvestInitialTreeAndPrepareTreeFarm = harvestInitialTreeAndPrepareTreeFarm,
-        prepareCobblestoneGenerator = prepareCobblestoneGenerator,
+        startBuildingCobblestoneGenerator = startBuildingCobblestoneGenerator,
         waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGenerator,
         harvestCobblestone = harvestCobblestone,
         createCobbleTower = createCobbleTower,
@@ -48,24 +48,24 @@ function initProject(opts)
 
     local location = _G.act.location
     local commands = _G.act.commands
-    return _G.act.project.register('mainIsland:init', {
+
+    local taskId = 'project:mainIsland:init'
+    _G.act.task.registerTaskRunner(taskId, {
+        nextExecutionPlan = function(state, taskState)
+            local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
+
+            commands.general.registerLocPath(planner, initialLoc, homeLoc)
+
+            return nil, planner.plan
+        end,
+    })
+    return _G.act.project.create(taskId, {
         postConditions = function(currentConditions)
             currentConditions.mainIsland = {
                 emptyBucketInInventory = false,
                 someDirtInInventory = false,
                 startedCobblestoneGeneratorConstruction = false,
             }
-        end,
-        nextExecutionPlan = function(state, projectState)
-            if projectState.done == true then
-                return nil, nil
-            end
-
-            local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
-
-            commands.general.registerLocPath(planner, initialLoc, homeLoc)
-
-            return nil, planner.plan
         end,
     })
 end
@@ -82,18 +82,9 @@ function harvestInitialTreeAndPrepareTreeFarmProject(opts)
     local space = _G.act.space
 
     local bedrockCmps = space.createCompass(bedrockPos)
-    return _G.act.project.register('mainIsland:harvestInitialTreeAndPrepareTreeFarm', {
-        preConditions = function(currentConditions)
-            return (
-                currentConditions.mainIsland and
-                currentConditions.mainIsland.someDirtInInventory
-            )
-        end,
-        nextExecutionPlan = function(state, projectState)
-            if projectState.done == true then
-                return nil, nil
-            end
-
+    local taskId = 'project:mainIsland:harvestInitialTreeAndPrepareTreeFarm'
+    _G.act.task.registerTaskRunner(taskId, {
+        nextExecutionPlan = function(state, taskState)
             local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
             location.travelToLocation(planner, homeLoc)
             local startPos = util.copyTable(planner.turtlePos)
@@ -118,6 +109,14 @@ function harvestInitialTreeAndPrepareTreeFarmProject(opts)
             navigate.moveToPos(planner, startPos, { 'up', 'forward', 'right' })
 
             return nil, planner.plan
+        end,
+    })
+    return _G.act.project.create(taskId, {
+        preConditions = function(currentConditions)
+            return (
+                currentConditions.mainIsland and
+                currentConditions.mainIsland.someDirtInInventory
+            )
         end,
     })
 end
@@ -231,8 +230,7 @@ function plantSaplingsFromBetweenTrees(planner, opts)
     highLevelCommands.reorient(planner, betweenTreesCmps.facingAt({ face='forward' }))
 end
 
--- Doesn't finish the cobblestone generator
-function prepareCobblestoneGeneratorProject(opts)
+function startBuildingCobblestoneGeneratorProject(opts)
     local homeLoc = opts.homeLoc
 
     local location = _G.act.location
@@ -242,20 +240,9 @@ function prepareCobblestoneGeneratorProject(opts)
     local space = _G.act.space
 
     local homeCmps = space.createCompass(homeLoc.pos)
-    return _G.act.project.register('mainIsland:prepareCobblestoneGenerator', {
-        preConditions = function(currentConditions)
-            return currentConditions.mainIsland
-        end,
-        postConditions = function(currentConditions)
-            currentConditions.mainIsland.emptyBucketInInventory = true
-            currentConditions.mainIsland.someDirtInInventory = true
-            currentConditions.mainIsland.startedCobblestoneGeneratorConstruction = true
-        end,
-        nextExecutionPlan = function(state, projectState)
-            if projectState.done == true then
-                return nil, nil
-            end
-
+    local taskId = 'project:mainIsland:startBuildingCobblestoneGenerator'
+    _G.act.task.registerTaskRunner(taskId, {
+        nextExecutionPlan = function(state, taskState)
             local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
             location.travelToLocation(planner, homeLoc)
             local startPos = util.copyTable(planner.turtlePos)
@@ -309,6 +296,16 @@ function prepareCobblestoneGeneratorProject(opts)
             return nil, planner.plan
         end,
     })
+    return _G.act.project.create(taskId, {
+        preConditions = function(currentConditions)
+            return currentConditions.mainIsland
+        end,
+        postConditions = function(currentConditions)
+            currentConditions.mainIsland.emptyBucketInInventory = true
+            currentConditions.mainIsland.someDirtInInventory = true
+            currentConditions.mainIsland.startedCobblestoneGeneratorConstruction = true
+        end,
+    })
 end
 
 function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
@@ -321,19 +318,9 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
     local space = _G.act.space
 
     local homeCmps = space.createCompass(homeLoc.pos)
-    return _G.act.project.register('mainIsland:waitForIceToMeltAndfinishCobblestoneGenerator', {
-        preConditions = function(currentConditions)
-            return (
-                currentConditions.mainIsland and
-                currentConditions.mainIsland.emptyBucketInInventory and
-                currentConditions.mainIsland.startedCobblestoneGeneratorConstruction
-            )
-        end,
-        nextExecutionPlan = function(state, projectState)
-            if projectState.done == true then
-                return nil, nil
-            end
-
+    local taskId = 'project:mainIsland:waitForIceToMeltAndfinishCobblestoneGenerator'
+    _G.act.task.registerTaskRunner(taskId, {
+        nextExecutionPlan = function(state, taskState)
             local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
             location.travelToLocation(planner, homeLoc)
 
@@ -358,9 +345,18 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
             commands.turtle.digDown(planner)
 
             commands.mockHooks.registerCobblestoneRegenerationBlock(planner, homeCmps.coordAt({ up=-1 }))
-            commands.general.activateMill(planner, 'mainIsland:cobblestoneGenerator')
+            commands.general.activateMill(planner, 'mill:mainIsland:cobblestoneGenerator')
 
             return nil, planner.plan
+        end,
+    })
+    return _G.act.project.create(taskId, {
+        preConditions = function(currentConditions)
+            return (
+                currentConditions.mainIsland and
+                currentConditions.mainIsland.emptyBucketInInventory and
+                currentConditions.mainIsland.startedCobblestoneGeneratorConstruction
+            )
         end,
     })
 end
@@ -375,7 +371,7 @@ function cobblestoneGeneratorMill(opts)
     local space = _G.act.space
 
     local homeCmps = space.createCompass(homeLoc.pos)
-    return _G.act.mill.register('mainIsland:cobblestoneGenerator', {
+    return _G.act.mill.register('mill:mainIsland:cobblestoneGenerator', {
         supplies = { 'minecraft:cobblestone' },
         harvest = function(state, resourceRequests)
             local quantity = resourceRequests['minecraft:cobblestone']
@@ -413,15 +409,11 @@ function createCobbleTowerProject(opts)
     local space = _G.act.space
 
     local homeCmps = space.createCompass(homeLoc.pos)
-    return _G.act.project.register('mainIsland:createCobbleTower', {
+    local taskId = _G.act.task.registerTaskRunner('project:mainIsland:createCobbleTower', {
         requiredResources = {
             ['minecraft:cobblestone'] = 8
         },
-        nextExecutionPlan = function(state, projectState)
-            if projectState.done == true then
-                return nil, nil
-            end
-
+        nextExecutionPlan = function(state, taskState)
             local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
             location.travelToLocation(planner, homeLoc)
             local startPos = util.copyTable(planner.turtlePos)
@@ -439,6 +431,11 @@ function createCobbleTowerProject(opts)
             navigate.moveToPos(planner, startPos, { 'right', 'forward', 'up' })
 
             return nil, planner.plan
+        end,
+    })
+    return _G.act.project.create(taskId, {
+        preConditions = function(currentConditions)
+            return currentConditions.mainIsland
         end,
     })
 end
