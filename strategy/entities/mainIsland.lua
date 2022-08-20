@@ -56,7 +56,7 @@ function initProject(opts)
                 startedCobblestoneGeneratorConstruction = false,
             }
         end,
-        nextPlan = function(state, projectState)
+        nextExecutionPlan = function(state, projectState)
             if projectState.done == true then
                 return nil, nil
             end
@@ -89,7 +89,7 @@ function harvestInitialTreeAndPrepareTreeFarmProject(opts)
                 currentConditions.mainIsland.someDirtInInventory
             )
         end,
-        nextPlan = function(state, projectState)
+        nextExecutionPlan = function(state, projectState)
             if projectState.done == true then
                 return nil, nil
             end
@@ -251,7 +251,7 @@ function prepareCobblestoneGeneratorProject(opts)
             currentConditions.mainIsland.someDirtInInventory = true
             currentConditions.mainIsland.startedCobblestoneGeneratorConstruction = true
         end,
-        nextPlan = function(state, projectState)
+        nextExecutionPlan = function(state, projectState)
             if projectState.done == true then
                 return nil, nil
             end
@@ -329,7 +329,7 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
                 currentConditions.mainIsland.startedCobblestoneGeneratorConstruction
             )
         end,
-        nextPlan = function(state, projectState)
+        nextExecutionPlan = function(state, projectState)
             if projectState.done == true then
                 return nil, nil
             end
@@ -417,7 +417,7 @@ function createCobbleTowerProject(opts)
         requiredResources = {
             ['minecraft:cobblestone'] = 8
         },
-        nextPlan = function(state, projectState)
+        nextExecutionPlan = function(state, projectState)
             if projectState.done == true then
                 return nil, nil
             end

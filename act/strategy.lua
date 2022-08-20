@@ -17,7 +17,7 @@ function module.exec(strategy, onStep)
         -- Go through primary task
         local currentProject = _G.act.project.lookup(state.primaryTask.projectId)
         while not currentProject.isExhausted(state.primaryTask) do
-            state.plan = currentProject.nextStep(state, state.primaryTask)
+            state.plan = currentProject.nextPlan(state, state.primaryTask)
 
             -- for each command in state.plan
             while #state.plan > 0 do
