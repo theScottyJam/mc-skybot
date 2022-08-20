@@ -154,6 +154,7 @@ local canPlace = {
     'minecraft:bucket',
     'minecraft:ice',
     'minecraft:sapling',
+    'minecraft:cobblestone',
 }
 
 function placeAt(currentWorld, placePos)
@@ -283,11 +284,11 @@ function digAt(currentWorld, posBeingDug, toolSide)
     local success
     if dugCell.id == 'minecraft:leaves' then
         leavesDug = leavesDug + 1
-        if leavesDug % 4 == 0 then
+        if leavesDug % 19 == 0 then
             success = addToInventory(currentWorld.turtle, 'minecraft:stick') == 1
-        elseif leavesDug % 7 == 0 then
+        elseif leavesDug % 14 == 0 then
             success = addToInventory(currentWorld.turtle, 'minecraft:sapling') == 1
-        elseif leavesDug % 15 == 0 then
+        elseif leavesDug % 30 == 0 then
             success = addToInventory(currentWorld.turtle, 'minecraft:apple') == 1
         else
             success = true

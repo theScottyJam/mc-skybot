@@ -20,7 +20,8 @@ function module.createInitialState(opts)
         shortTermPlan = {},
         -- Which step are you in in the overall strategy, so we can skip to that.
         strategyStepNumber = 1,
-        primaryTask = nil
+        primaryTask = nil,
+        resourceSuppliers = {},
     }
 end
 

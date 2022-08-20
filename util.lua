@@ -87,4 +87,10 @@ function module.maxNumber (first, ...)
     return max
 end
 
+function module.assert (condition, message)
+    local message = message or 'Assertion failed'
+    if not condition then error(message) end
+    return condition
+end
+
 return module

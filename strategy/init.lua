@@ -17,19 +17,25 @@ function module.run(onStep)
 end
 
 function initStrategy()
-    local plan = _G.act.strategy.createBuilder()
+    local steps = {}
+    function doProject(projectId)
+        table.insert(steps, projectId)
+    end
 
-    local mainIsland = plan.initEntity(_G.strategy.entities.mainIsland, {
+    local mainIsland = _G.strategy.entities.mainIsland.initEntity({
         bedrockCoord = { forward = 3, right = 0, up = 64, from = 'ORIGIN' }
     })
 
-    plan.setInitialTurtleLocation(mainIsland.initialLoc)
-    plan.doProject(mainIsland.prepareCobblestoneGenerator)
-    plan.doProject(mainIsland.harvestInitialTreeAndPrepareTreeFarm)
-    plan.doProject(mainIsland.waitForIceToMeltAndfinishCobblestoneGenerator)
-    plan.doProject(mainIsland.harvestCobblestone)
+    doProject(mainIsland.init)
+    doProject(mainIsland.prepareCobblestoneGenerator)
+    doProject(mainIsland.harvestInitialTreeAndPrepareTreeFarm)
+    doProject(mainIsland.waitForIceToMeltAndfinishCobblestoneGenerator)
+    doProject(mainIsland.createCobbleTower)
 
-    return plan.build()
+    return {
+        initialTurtlePos = mainIsland.initialLoc.pos,
+        steps = steps,
+    }
 end
 
 return module

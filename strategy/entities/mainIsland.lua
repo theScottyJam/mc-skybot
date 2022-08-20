@@ -6,11 +6,11 @@ local moduleId = 'entity:mainIsland'
 local genId = _G.act.commands.createIdGenerator(moduleId)
 
 function module.init()
-    return _G.act.entity.createEntityFactory(entityBuilder)
+    return { initEntity = initEntity }
 end
 
 -- opts.bedrockCoord - the coordinate of the bedrock block
-function entityBuilder(opts)
+function initEntity(opts)
     local location = _G.act.location
     local space = _G.act.space
 
@@ -22,24 +22,45 @@ function entityBuilder(opts)
     -- initialLoc is in front of the chest
     local initialLoc = location.register(space.resolveRelPos({ right=3, face='left' }, homeLoc.pos))
 
+    cobblestoneGeneratorMill({ homeLoc = homeLoc })
+
+    local init = initProject({ initialLoc = initialLoc, homeLoc = homeLoc })
     local harvestInitialTreeAndPrepareTreeFarm = harvestInitialTreeAndPrepareTreeFarmProject({ bedrockPos = bedrockPos, homeLoc = homeLoc })
     local prepareCobblestoneGenerator = prepareCobblestoneGeneratorProject({ homeLoc = homeLoc })
     local waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGeneratorProject({ homeLoc = homeLoc })
-    local harvestCobblestone = harvestCobblestoneProject({ homeLoc = homeLoc })
+    local createCobbleTower = createCobbleTowerProject({ homeLoc = homeLoc })
 
     return {
-        init = function()
-            location.registerPath(initialLoc, homeLoc)
-        end,
-        entity = {
-            initialLoc = initialLoc,
-            homeLoc = homeLoc,
-            harvestInitialTreeAndPrepareTreeFarm = harvestInitialTreeAndPrepareTreeFarm,
-            prepareCobblestoneGenerator = prepareCobblestoneGenerator,
-            waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGenerator,
-            harvestCobblestone = harvestCobblestone,
-        }
+        initialLoc = initialLoc,
+        homeLoc = homeLoc,
+        init = init,
+        harvestInitialTreeAndPrepareTreeFarm = harvestInitialTreeAndPrepareTreeFarm,
+        prepareCobblestoneGenerator = prepareCobblestoneGenerator,
+        waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGenerator,
+        harvestCobblestone = harvestCobblestone,
+        createCobbleTower = createCobbleTower,
     }
+end
+
+function initProject(opts)
+    local initialLoc = opts.initialLoc
+    local homeLoc = opts.homeLoc
+
+    local location = _G.act.location
+    local commands = _G.act.commands
+    return _G.act.project.register('mainIsland:init', {
+        nextShortTermPlan = function(state, projectState)
+            if projectState.done == true then
+                return nil, nil
+            end
+
+            local shortTermPlanner = _G.act.shortTermPlanner.create({ turtlePos = state.turtlePos })
+
+            commands.general.registerLocPath(shortTermPlanner, initialLoc, homeLoc)
+
+            return nil, shortTermPlanner.shortTermPlan
+        end,
+    })
 end
 
 -- Pre-condition: Must have two dirt in inventory
@@ -55,9 +76,6 @@ function harvestInitialTreeAndPrepareTreeFarmProject(opts)
 
     local bedrockCmps = space.createCompass(bedrockPos)
     return _G.act.project.register('mainIsland:harvestInitialTreeAndPrepareTreeFarm', {
-        createProjectState = function()
-            return { done = false }
-        end,
         nextShortTermPlan = function(state, projectState)
             if projectState.done == true then
                 return nil, nil
@@ -86,8 +104,8 @@ function harvestInitialTreeAndPrepareTreeFarmProject(opts)
 
             navigate.moveToPos(shortTermPlanner, startPos, { 'up', 'forward', 'right' })
 
-            return { done = true }, shortTermPlanner.shortTermPlan
-        end
+            return nil, shortTermPlanner.shortTermPlan
+        end,
     })
 end
 
@@ -212,9 +230,6 @@ function prepareCobblestoneGeneratorProject(opts)
 
     local homeCmps = space.createCompass(homeLoc.pos)
     return _G.act.project.register('mainIsland:prepareCobblestoneGenerator', {
-        createProjectState = function()
-            return { done = false }
-        end,
         nextShortTermPlan = function(state, projectState)
             if projectState.done == true then
                 return nil, nil
@@ -270,8 +285,8 @@ function prepareCobblestoneGeneratorProject(opts)
 
             navigate.moveToPos(shortTermPlanner, startPos)
 
-            return { done = true }, shortTermPlanner.shortTermPlan
-        end
+            return nil, shortTermPlanner.shortTermPlan
+        end,
     })
 end
 
@@ -287,9 +302,6 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
 
     local homeCmps = space.createCompass(homeLoc.pos)
     return _G.act.project.register('mainIsland:waitForIceToMeltAndfinishCobblestoneGenerator', {
-        createProjectState = function()
-            return { done = false }
-        end,
         nextShortTermPlan = function(state, projectState)
             if projectState.done == true then
                 return nil, nil
@@ -317,14 +329,16 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
 
             navigate.moveToPos(shortTermPlanner, startPos)
             commands.turtle.digDown(shortTermPlanner)
-            commands.mockHooks.registerCobblestoneRegenerationBlock(shortTermPlanner, homeCmps.coordAt({ up=-1 }))
 
-            return { done = true }, shortTermPlanner.shortTermPlan
-        end
+            commands.mockHooks.registerCobblestoneRegenerationBlock(shortTermPlanner, homeCmps.coordAt({ up=-1 }))
+            commands.general.activateMill(shortTermPlanner, 'mainIsland:cobblestoneGenerator')
+
+            return nil, shortTermPlanner.shortTermPlan
+        end,
     })
 end
 
-function harvestCobblestoneProject(opts)
+function cobblestoneGeneratorMill(opts)
     local homeLoc = opts.homeLoc
 
     local location = _G.act.location
@@ -334,21 +348,20 @@ function harvestCobblestoneProject(opts)
     local space = _G.act.space
 
     local homeCmps = space.createCompass(homeLoc.pos)
-    return _G.act.project.register('mainIsland:harvestCobblestoneProject', {
-        createProjectState = function()
-            return { done = false }
-        end,
-        nextShortTermPlan = function(state, projectState)
-            if projectState.done == true then
-                return nil, nil
-            end
+    return _G.act.mill.register('mainIsland:cobblestoneGenerator', {
+        supplies = { 'minecraft:cobblestone' },
+        harvest = function(state, resourceRequests)
+            local quantity = resourceRequests['minecraft:cobblestone']
+            if quantity == nil then error('Must supply a request for cobblestone to use this mill') end
+            -- I don't have inventory management techniques in place to handle a larger quantity
+            if quantity > 64 * 8 then error('Can not handle that large of a quantity yet') end
 
             local shortTermPlanner = _G.act.shortTermPlanner.create({ turtlePos = state.turtlePos })
             location.travelToLocation(shortTermPlanner, homeLoc)
 
             local startPos = util.copyTable(shortTermPlanner.turtlePos)
 
-            for i = 1, 32 do
+            for i = 1, quantity do
                 highLevelCommands.waitUntilDetectBlock(shortTermPlanner, {
                     expectedBlockId = 'minecraft:cobblestone',
                     direction = 'down',
@@ -358,8 +371,48 @@ function harvestCobblestoneProject(opts)
             end
             highLevelCommands.reorient(shortTermPlanner, space.posToFacing(startPos))
 
-            return { done = true }, shortTermPlanner.shortTermPlan
+            return shortTermPlanner.shortTermPlan
         end
+    })
+end
+
+function createCobbleTowerProject(opts)
+    local homeLoc = opts.homeLoc
+
+    local location = _G.act.location
+    local navigate = _G.act.navigate
+    local commands = _G.act.commands
+    local highLevelCommands = _G.act.highLevelCommands
+    local space = _G.act.space
+
+    local homeCmps = space.createCompass(homeLoc.pos)
+    return _G.act.project.register('mainIsland:createCobbleTower', {
+        requiredResources = {
+            ['minecraft:cobblestone'] = 8
+        },
+        nextShortTermPlan = function(state, projectState)
+            if projectState.done == true then
+                return nil, nil
+            end
+
+            local shortTermPlanner = _G.act.shortTermPlanner.create({ turtlePos = state.turtlePos })
+            location.travelToLocation(shortTermPlanner, homeLoc)
+            local startPos = util.copyTable(shortTermPlanner.turtlePos)
+
+            local towerBaseCmps = homeCmps.compassAt({ right=-3 })
+            navigate.moveToCoord(shortTermPlanner, towerBaseCmps.coord)
+
+            for i = 1, 8 do
+                highLevelCommands.findAndSelectSlotWithItem(shortTermPlanner, 'minecraft:cobblestone')
+                commands.turtle.placeDown(shortTermPlanner)
+                commands.turtle.up(shortTermPlanner)
+            end
+            commands.turtle.select(shortTermPlanner, 1)
+
+            navigate.moveToPos(shortTermPlanner, startPos, { 'right', 'forward', 'up' })
+
+            return nil, shortTermPlanner.shortTermPlan
+        end,
     })
 end
 

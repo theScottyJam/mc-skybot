@@ -87,6 +87,8 @@ function module.registerFutureTransformers(baseId, transformers)
     return processedTransformers
 end
 
+-------- TURTLE COMMANDS --------
+
 -- Convinient helper tool, as unique IDs are needed for some commands
 function module.createIdGenerator(baseId)
     local lastId = 0
@@ -218,6 +220,8 @@ futuresActions.set = registerCommandWithFuture('futures:set', function(state, op
     return opts.value
 end, function(opts) return opts.out end)
 
+-------- FUTURE COMMANDS --------
+
 futuresActions.delete = registerCommand('futures:delete', function(state, opts)
     local inId = opts.in_
     -- The variable might not exist if it is only registered during a branch that never runs
@@ -336,6 +340,8 @@ function createPosInterprettingDifferencesAsUnknowns(pos1, pos2)
     return { forward = 0, right = 0, up = 0, face = 'forward', from = newStemPos }
 end
 
+-------- MOCK-HOOKS COMMANDS --------
+
 mockHooksActions.registerCobblestoneRegenerationBlock = registerCommand(
     'mockHooks:registerCobblestoneRegenerationBlock',
     function(state, coord)
@@ -345,9 +351,28 @@ mockHooksActions.registerCobblestoneRegenerationBlock = registerCommand(
     end
 )
 
-generalActions.setState = registerCommand('general:setState', function(state, updates)
-    util.mergeTablesInPlace(state, updates)
+-------- GENERAL COMMANDS --------
+
+-- path is optional
+generalActions.registerLocPath = registerCommand('general:registerLocPath', function(state, loc1, loc2, path)
+    local location = _G.act.location
+    location.registerPath(loc1, loc2, path)
 end)
+
+generalActions.activateMill = registerCommand(
+    'general:activateMill',
+    function(state, millId)
+        local millInfo = _G.act.mill.lookup(millId)
+
+        for _, resourceName in ipairs(millInfo.supplies) do
+            if state.resourceSuppliers[resourceName] == nil then
+                state.resourceSuppliers[resourceName] = {}
+            end
+
+            table.insert(state.resourceSuppliers[resourceName], 1, { type='mill', millId = millId })
+        end
+    end
+)
 
 generalActions.debug = registerCommand('general:debug', function(state, opts)
     debug.onDebugCommand(state, opts)

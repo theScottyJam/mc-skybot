@@ -7,103 +7,40 @@ local util = import('util.lua')
 local module = {}
 
 -- onStep is optional
+-- A strategy is of the shape { initialTurtlePos=..., steps=<list of projectIds> }
 function module.exec(strategy, onStep)
-    local state = _G.act._state.createInitialState({ startingPos = strategy.initialTurtleLoc.pos })
-    while true do
-        -- Go through strategy until you find a primary task to do
-        while true do
-            local step = strategy.steps[state.strategyStepNumber]
-            if step == nil then break end
-            doStrategyStep(state, step)
-            if state.primaryTask == nil then
-                state.strategyStepNumber = state.strategyStepNumber + 1
-            else
-                break
-            end
-        end
-
-        -- Reached the end without finding a task to do
-        if state.primaryTask == nil then break end
+    local state = _G.act._state.createInitialState({ startingPos = strategy.initialTurtlePos })
+    for i, projectId in ipairs(strategy.steps) do
+        state.strategyStepNumber = i
+        state.primaryTask = initTask(projectId)
 
         -- Go through primary task
-        while true do
-            local newProjectState, newShortTermPlan = _G.act.project
-                .lookup(state.primaryTask.projectId)
-                .nextShortTermPlan(state, state.primaryTask.projectState)
-
-            if newShortTermPlan == nil then
-                state.primaryTask = nil
-                state.strategyStepNumber = state.strategyStepNumber + 1
-                break
-            end
-            state.primaryTask.projectState = newProjectState
-            state.shortTermPlan = newShortTermPlan
+        local currentProject = _G.act.project.lookup(state.primaryTask.projectId)
+        while not currentProject.isExhausted(state.primaryTask) do
+            state.shortTermPlan = currentProject.nextStep(state, state.primaryTask)
 
             -- for each command in state.shortTermPlan
-            while true do
+            while #state.shortTermPlan > 0 do
                 -- TODO: I need to actually save the state off to a file between each step, and
                 -- make it so it can automatically load where it's at from a file if it got interrupted.
                 local command = table.remove(state.shortTermPlan, 1)
-                if command == nil then
-                    break
-                end
                 -- Executing a command can put more commands into the shortTermPlan
                 _G.act.commands.execCommand(state, command)
 
                 if onStep ~= nil then onStep() end
             end
         end
+        state.primaryTask = nil
     end
 end
 
-function doStrategyStep(state, step)
-    if step.type == 'DO_PROJECT' then
-        state.primaryTask = {
-            projectId = step.value,
-            projectState = act.project.lookup(step.value).createProjectState(),
-            projectVars = {},
-        }
-    elseif step.type == 'INIT_ENTITY' then
-        step.value.init()
-    else
-        error('Invalid step.type')
-    end
-end
-
---[[
-    (Not all of these methods are implemented yet)
-    initEntity() - Does things like register initial locations.
-    updateEntity() - Adds or removes locations from an entity
-    provide() - Registers a resource that can always be retrieved when needed
-        (might need to be harvested, but there's a plan in place to wait and harvest if needed)
-    schedule() - A resource that needs constant attendance to accumulate
-    doProject() - Start working on a project
---]]
-function module.createBuilder()
-    local plan = {}
-
-    local initialTurtleLoc = { forward = 0, right = 0, up = 0, face = 'forward' }
-    local instructions = {}
-
-    function plan.setInitialTurtleLocation(loc)
-        initialTurtleLoc = loc
-    end
-
-    function plan.initEntity(entityFactory, args)
-        local entityInfo = entityFactory.build(args)
-        table.insert(instructions, { type = 'INIT_ENTITY', value = { init = entityInfo.init } })
-        return entityInfo.entity
-    end
-
-    function plan.doProject(projectId)
-        table.insert(instructions, { type = 'DO_PROJECT', value = projectId })
-    end
-
-    function plan.build()
-        return { initialTurtleLoc = initialTurtleLoc, steps = util.copyTable(instructions) }
-    end
-
-    return plan
+function initTask(projectId)
+    return {
+        projectId = projectId,
+        stage = nil,
+        projectState = nil,
+        projectVars = {},
+    }
 end
 
 return module

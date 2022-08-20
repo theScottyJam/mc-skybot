@@ -15,6 +15,7 @@ local completeMapKey = {
     ['minecraft:dirt'] = 'd',
     ['minecraft:grass'] = 'D',
     ['minecraft:chest'] = 'C',
+    ['minecraft:cobblestone'] = 'c',
     ['minecraft:leaves'] = 'l',
     ['minecraft:sapling'] = 's',
     ['minecraft:log'] = 'L',
