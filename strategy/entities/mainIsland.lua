@@ -49,8 +49,8 @@ function initProject(opts)
     local location = _G.act.location
     local commands = _G.act.commands
 
-    local taskId = 'project:mainIsland:init'
-    _G.act.task.registerTaskRunner(taskId, {
+    local taskRunnerId = 'project:mainIsland:init'
+    _G.act.task.registerTaskRunner(taskRunnerId, {
         nextExecutionPlan = function(state, taskState)
             local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
 
@@ -59,7 +59,7 @@ function initProject(opts)
             return nil, planner.plan
         end,
     })
-    return _G.act.project.create(taskId, {
+    return _G.act.project.create(taskRunnerId, {
         postConditions = function(currentConditions)
             currentConditions.mainIsland = {
                 emptyBucketInInventory = false,
@@ -82,8 +82,8 @@ function harvestInitialTreeAndPrepareTreeFarmProject(opts)
     local space = _G.act.space
 
     local bedrockCmps = space.createCompass(bedrockPos)
-    local taskId = 'project:mainIsland:harvestInitialTreeAndPrepareTreeFarm'
-    _G.act.task.registerTaskRunner(taskId, {
+    local taskRunnerId = 'project:mainIsland:harvestInitialTreeAndPrepareTreeFarm'
+    _G.act.task.registerTaskRunner(taskRunnerId, {
         nextExecutionPlan = function(state, taskState)
             local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
             location.travelToLocation(planner, homeLoc)
@@ -111,7 +111,7 @@ function harvestInitialTreeAndPrepareTreeFarmProject(opts)
             return nil, planner.plan
         end,
     })
-    return _G.act.project.create(taskId, {
+    return _G.act.project.create(taskRunnerId, {
         preConditions = function(currentConditions)
             return (
                 currentConditions.mainIsland and
@@ -240,8 +240,8 @@ function startBuildingCobblestoneGeneratorProject(opts)
     local space = _G.act.space
 
     local homeCmps = space.createCompass(homeLoc.pos)
-    local taskId = 'project:mainIsland:startBuildingCobblestoneGenerator'
-    _G.act.task.registerTaskRunner(taskId, {
+    local taskRunnerId = 'project:mainIsland:startBuildingCobblestoneGenerator'
+    _G.act.task.registerTaskRunner(taskRunnerId, {
         nextExecutionPlan = function(state, taskState)
             local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
             location.travelToLocation(planner, homeLoc)
@@ -296,7 +296,7 @@ function startBuildingCobblestoneGeneratorProject(opts)
             return nil, planner.plan
         end,
     })
-    return _G.act.project.create(taskId, {
+    return _G.act.project.create(taskRunnerId, {
         preConditions = function(currentConditions)
             return currentConditions.mainIsland
         end,
@@ -318,8 +318,8 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
     local space = _G.act.space
 
     local homeCmps = space.createCompass(homeLoc.pos)
-    local taskId = 'project:mainIsland:waitForIceToMeltAndfinishCobblestoneGenerator'
-    _G.act.task.registerTaskRunner(taskId, {
+    local taskRunnerId = 'project:mainIsland:waitForIceToMeltAndfinishCobblestoneGenerator'
+    _G.act.task.registerTaskRunner(taskRunnerId, {
         nextExecutionPlan = function(state, taskState)
             local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
             location.travelToLocation(planner, homeLoc)
@@ -350,7 +350,7 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
             return nil, planner.plan
         end,
     })
-    return _G.act.project.create(taskId, {
+    return _G.act.project.create(taskRunnerId, {
         preConditions = function(currentConditions)
             return (
                 currentConditions.mainIsland and
@@ -409,7 +409,7 @@ function createCobbleTowerProject(opts)
     local space = _G.act.space
 
     local homeCmps = space.createCompass(homeLoc.pos)
-    local taskId = _G.act.task.registerTaskRunner('project:mainIsland:createCobbleTower', {
+    local taskRunnerId = _G.act.task.registerTaskRunner('project:mainIsland:createCobbleTower', {
         requiredResources = {
             ['minecraft:cobblestone'] = 8
         },
@@ -433,7 +433,7 @@ function createCobbleTowerProject(opts)
             return nil, planner.plan
         end,
     })
-    return _G.act.project.create(taskId, {
+    return _G.act.project.create(taskRunnerId, {
         preConditions = function(currentConditions)
             return currentConditions.mainIsland
         end,

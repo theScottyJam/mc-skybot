@@ -61,9 +61,9 @@ function module.registerTaskRunner(id, opts)
     return id
 end
 
-function module.create(taskId)
+function module.create(taskRunnerId)
     return {
-        taskId = taskId,
+        taskRunnerId = taskRunnerId,
         -- Are we actively doing this task? Gathering resources? Is it done?
         stage = nil,
         -- Arbitrary state, to help keep track of what's going on between interruptions
@@ -83,8 +83,8 @@ function collectResource(state, resourceName, quantity)
     return mill.harvest(state, { [resourceName] = quantity })
 end
 
-function module.lookup(taskId)
-    return taskRegistry[taskId]
+function module.lookup(taskRunnerId)
+    return taskRegistry[taskRunnerId]
 end
 
 return module

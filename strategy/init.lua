@@ -19,22 +19,22 @@ end
 function initStrategy()
     local project = _G.act.project
 
-    local initialTaskList = {}
+    local projectList = {}
 
     local mainIsland = _G.strategy.entities.mainIsland.initEntity({
         bedrockCoord = { forward = 3, right = 0, up = 64, from = 'ORIGIN' }
     })
 
     local currentConditions = {}
-    mainIsland.init.addToInitialTaskList(initialTaskList, currentConditions)
-    mainIsland.startBuildingCobblestoneGenerator.addToInitialTaskList(initialTaskList, currentConditions)
-    mainIsland.harvestInitialTreeAndPrepareTreeFarm.addToInitialTaskList(initialTaskList, currentConditions)
-    mainIsland.waitForIceToMeltAndfinishCobblestoneGenerator.addToInitialTaskList(initialTaskList, currentConditions)
-    mainIsland.createCobbleTower.addToInitialTaskList(initialTaskList, currentConditions)
+    mainIsland.init.addToProjectList(projectList, currentConditions)
+    mainIsland.startBuildingCobblestoneGenerator.addToProjectList(projectList, currentConditions)
+    mainIsland.harvestInitialTreeAndPrepareTreeFarm.addToProjectList(projectList, currentConditions)
+    mainIsland.waitForIceToMeltAndfinishCobblestoneGenerator.addToProjectList(projectList, currentConditions)
+    mainIsland.createCobbleTower.addToProjectList(projectList, currentConditions)
 
     return {
         initialTurtlePos = mainIsland.initialLoc.pos,
-        taskList = initialTaskList,
+        projectList = projectList,
     }
 end
 

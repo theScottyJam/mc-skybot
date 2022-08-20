@@ -7,15 +7,15 @@ local util = import('util.lua')
 local module = {}
 
 -- onStep is optional
--- A strategy is of the shape { initialTurtlePos=..., taskList=<list of taskIds> }
+-- A strategy is of the shape { initialTurtlePos=..., projectList=<list of taskRunnerIds> }
 function module.exec(strategy, onStep)
     local state = _G.act._state.createInitialState({ startingPos = strategy.initialTurtlePos })
-    for i, taskId in ipairs(strategy.taskList) do
+    for i, taskRunnerId in ipairs(strategy.projectList) do
         state.strategyStepNumber = i
-        state.primaryTask = _G.act.task.create(taskId)
+        state.primaryTask = _G.act.task.create(taskRunnerId)
 
         -- Go through primary task
-        local currentTask = _G.act.task.lookup(state.primaryTask.taskId)
+        local currentTask = _G.act.task.lookup(state.primaryTask.taskRunnerId)
         while not currentTask.isExhausted(state.primaryTask) do
             state.plan = currentTask.nextPlan(state, state.primaryTask)
 
