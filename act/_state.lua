@@ -17,7 +17,7 @@ function module.createInitialState(opts)
 
     return {
         turtlePos = opts.startingPos,
-        shortTermPlan = {},
+        plan = {},
         -- Which step are you in in the overall strategy, so we can skip to that.
         strategyStepNumber = 1,
         primaryTask = nil,

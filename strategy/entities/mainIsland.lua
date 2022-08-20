@@ -56,16 +56,16 @@ function initProject(opts)
                 startedCobblestoneGeneratorConstruction = false,
             }
         end,
-        nextShortTermPlan = function(state, projectState)
+        nextPlan = function(state, projectState)
             if projectState.done == true then
                 return nil, nil
             end
 
-            local shortTermPlanner = _G.act.shortTermPlanner.create({ turtlePos = state.turtlePos })
+            local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
 
-            commands.general.registerLocPath(shortTermPlanner, initialLoc, homeLoc)
+            commands.general.registerLocPath(planner, initialLoc, homeLoc)
 
-            return nil, shortTermPlanner.shortTermPlan
+            return nil, planner.plan
         end,
     })
 end
@@ -89,35 +89,35 @@ function harvestInitialTreeAndPrepareTreeFarmProject(opts)
                 currentConditions.mainIsland.someDirtInInventory
             )
         end,
-        nextShortTermPlan = function(state, projectState)
+        nextPlan = function(state, projectState)
             if projectState.done == true then
                 return nil, nil
             end
 
-            local shortTermPlanner = _G.act.shortTermPlanner.create({ turtlePos = state.turtlePos })
-            location.travelToLocation(shortTermPlanner, homeLoc)
-            local startPos = util.copyTable(shortTermPlanner.turtlePos)
+            local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
+            location.travelToLocation(planner, homeLoc)
+            local startPos = util.copyTable(planner.turtlePos)
 
             local bottomTree1LogCmps = bedrockCmps.compassAt({ forward=-4, right=-1, up=3 })
             local aboveTree1Cmps = bottomTree1LogCmps.compassAt({ up=9 })
             local aboveTree2Cmps = aboveTree1Cmps.compassAt({ right=2 })
 
-            highLevelCommands.findAndSelectSlotWithItem(shortTermPlanner, 'minecraft:dirt')
-            navigate.moveToCoord(shortTermPlanner, aboveTree2Cmps.coord, { 'up', 'forward', 'right' })
-            commands.turtle.placeDown(shortTermPlanner)
-            highLevelCommands.findAndSelectSlotWithItem(shortTermPlanner, 'minecraft:dirt')
-            navigate.moveToCoord(shortTermPlanner, aboveTree1Cmps.coord, { 'up', 'forward', 'right' })
-            commands.turtle.placeDown(shortTermPlanner)
-            commands.turtle.select(shortTermPlanner, 1)
+            highLevelCommands.findAndSelectSlotWithItem(planner, 'minecraft:dirt')
+            navigate.moveToCoord(planner, aboveTree2Cmps.coord, { 'up', 'forward', 'right' })
+            commands.turtle.placeDown(planner)
+            highLevelCommands.findAndSelectSlotWithItem(planner, 'minecraft:dirt')
+            navigate.moveToCoord(planner, aboveTree1Cmps.coord, { 'up', 'forward', 'right' })
+            commands.turtle.placeDown(planner)
+            commands.turtle.select(planner, 1)
 
-            harvestTreeFromAbove(shortTermPlanner, { bottomLogPos = bottomTree1LogCmps.pos })
+            harvestTreeFromAbove(planner, { bottomLogPos = bottomTree1LogCmps.pos })
 
-            navigate.moveToPos(shortTermPlanner, bottomTree1LogCmps.posAt({ right=1 }))
-            plantSaplingsFromBetweenTrees(shortTermPlanner, { bedrockCmps = bedrockCmps })
+            navigate.moveToPos(planner, bottomTree1LogCmps.posAt({ right=1 }))
+            plantSaplingsFromBetweenTrees(planner, { bedrockCmps = bedrockCmps })
 
-            navigate.moveToPos(shortTermPlanner, startPos, { 'up', 'forward', 'right' })
+            navigate.moveToPos(planner, startPos, { 'up', 'forward', 'right' })
 
-            return nil, shortTermPlanner.shortTermPlan
+            return nil, planner.plan
         end,
     })
 end
@@ -138,7 +138,7 @@ local harvestTreeFromAboveTransformers = _G.act.commands.registerFutureTransform
     }
 )
 
-function harvestTreeFromAbove(shortTermPlanner, opts)
+function harvestTreeFromAbove(planner, opts)
     local bottomLogPos = opts.bottomLogPos
 
     local location = _G.act.location
@@ -148,59 +148,59 @@ function harvestTreeFromAbove(shortTermPlanner, opts)
 
     local bottomLogCmps = space.createCompass(bottomLogPos)
 
-    navigate.assertCoord(shortTermPlanner, bottomLogCmps.coordAt({ up=9 }))
-    navigate.face(shortTermPlanner, bottomLogCmps.facingAt({ face='forward' }))
-    commands.turtle.forward(shortTermPlanner)
+    navigate.assertCoord(planner, bottomLogCmps.coordAt({ up=9 }))
+    navigate.face(planner, bottomLogCmps.facingAt({ face='forward' }))
+    commands.turtle.forward(planner)
 
     -- Move down until you hit leaves
-    local leavesNotFound = commands.futures.set(shortTermPlanner, { out=genId('leavesNotFound'), value=true })
-    commands.futures.while_(shortTermPlanner, { continueIf = leavesNotFound }, function(shortTermPlanner)
-        commands.turtle.down(shortTermPlanner)
-        local blockBelow = commands.turtle.inspectDown(shortTermPlanner, { out = genId('blockBelow') })
-        leavesNotFound = harvestTreeFromAboveTransformers.isNotBlockOfLeaves(shortTermPlanner, { in_=blockBelow, out=leavesNotFound })
-        commands.futures.delete(shortTermPlanner, { in_ = blockBelow })
+    local leavesNotFound = commands.futures.set(planner, { out=genId('leavesNotFound'), value=true })
+    commands.futures.while_(planner, { continueIf = leavesNotFound }, function(planner)
+        commands.turtle.down(planner)
+        local blockBelow = commands.turtle.inspectDown(planner, { out = genId('blockBelow') })
+        leavesNotFound = harvestTreeFromAboveTransformers.isNotBlockOfLeaves(planner, { in_=blockBelow, out=leavesNotFound })
+        commands.futures.delete(planner, { in_ = blockBelow })
     end)
 
     -- Harvest top-half of leaves
-    local topLeafCmps = space.createCompass(shortTermPlanner.turtlePos).compassAt({ forward=-1, up=-1 })
+    local topLeafCmps = space.createCompass(planner.turtlePos).compassAt({ forward=-1, up=-1 })
     local cornerPos = topLeafCmps.posAt({ forward = 1, right = 1, face='backward' })
-    navigate.moveToPos(shortTermPlanner, cornerPos, { 'right', 'forward', 'up' })
-    spiralInwards(shortTermPlanner, {
+    navigate.moveToPos(planner, cornerPos, { 'right', 'forward', 'up' })
+    spiralInwards(planner, {
         sideLength = 3,
         onVisit = function()
-            commands.turtle.dig(shortTermPlanner)
-            commands.turtle.digDown(shortTermPlanner)
+            commands.turtle.dig(planner)
+            commands.turtle.digDown(planner)
         end
     })
 
     -- Harvest bottom-half of leaves
     local aboveCornerPos = topLeafCmps.posAt({ forward = 2, right = 2, up = -1, face='backward' })
-    navigate.moveToPos(shortTermPlanner, aboveCornerPos, { 'right', 'forward', 'up' })
-    commands.turtle.digDown(shortTermPlanner)
-    commands.turtle.down(shortTermPlanner)
-    spiralInwards(shortTermPlanner, {
+    navigate.moveToPos(planner, aboveCornerPos, { 'right', 'forward', 'up' })
+    commands.turtle.digDown(planner)
+    commands.turtle.down(planner)
+    spiralInwards(planner, {
         sideLength = 5,
         onVisit = function()
-            commands.turtle.dig(shortTermPlanner)
-            commands.turtle.digDown(shortTermPlanner)
+            commands.turtle.dig(planner)
+            commands.turtle.digDown(planner)
         end
     })
-    navigate.face(shortTermPlanner, topLeafCmps.facingAt({ face='forward' }))
+    navigate.face(planner, topLeafCmps.facingAt({ face='forward' }))
 
     -- Harvest trunk
-    local logIsBelow = commands.futures.set(shortTermPlanner, { out=genId('logIsBelow'), value=true })
-    commands.futures.while_(shortTermPlanner, { continueIf = logIsBelow }, function(shortTermPlanner)
-        commands.turtle.digDown(shortTermPlanner)
-        commands.turtle.down(shortTermPlanner)
-        local blockBelow = commands.turtle.inspectDown(shortTermPlanner, { out = genId('blockBelow') })
-        logIsBelow = harvestTreeFromAboveTransformers.isBlockALog(shortTermPlanner, { in_=blockBelow, out=logIsBelow })
-        commands.futures.delete(shortTermPlanner, { in_ = blockBelow })
+    local logIsBelow = commands.futures.set(planner, { out=genId('logIsBelow'), value=true })
+    commands.futures.while_(planner, { continueIf = logIsBelow }, function(planner)
+        commands.turtle.digDown(planner)
+        commands.turtle.down(planner)
+        local blockBelow = commands.turtle.inspectDown(planner, { out = genId('blockBelow') })
+        logIsBelow = harvestTreeFromAboveTransformers.isBlockALog(planner, { in_=blockBelow, out=logIsBelow })
+        commands.futures.delete(planner, { in_ = blockBelow })
     end)
 
-    shortTermPlanner.turtlePos = util.copyTable(bottomLogCmps.pos)
+    planner.turtlePos = util.copyTable(bottomLogCmps.pos)
 end
 
-function plantSaplingsFromBetweenTrees(shortTermPlanner, opts)
+function plantSaplingsFromBetweenTrees(planner, opts)
     local navigate = _G.act.navigate
     local commands = _G.act.commands
     local highLevelCommands = _G.act.highLevelCommands
@@ -208,27 +208,27 @@ function plantSaplingsFromBetweenTrees(shortTermPlanner, opts)
     local bedrockCmps = opts.bedrockCmps
 
     local betweenTreesCmps = bedrockCmps.compassAt({ forward=-4, up=3 })
-    navigate.assertPos(shortTermPlanner, betweenTreesCmps.pos)
+    navigate.assertPos(planner, betweenTreesCmps.pos)
 
-    local saplingFound = highLevelCommands.findAndSelectSlotWithItem(shortTermPlanner, 'minecraft:sapling', {
+    local saplingFound = highLevelCommands.findAndSelectSlotWithItem(planner, 'minecraft:sapling', {
         allowMissing = true,
         out=genId('saplingFound'),
     })
-    commands.futures.if_(shortTermPlanner, saplingFound, function(shortTermPlanner)
-        navigate.face(shortTermPlanner, betweenTreesCmps.facingAt({ face='left' }))
-        commands.turtle.place(shortTermPlanner)
+    commands.futures.if_(planner, saplingFound, function(planner)
+        navigate.face(planner, betweenTreesCmps.facingAt({ face='left' }))
+        commands.turtle.place(planner)
 
-        saplingFound = highLevelCommands.findAndSelectSlotWithItem(shortTermPlanner, 'minecraft:sapling', {
+        saplingFound = highLevelCommands.findAndSelectSlotWithItem(planner, 'minecraft:sapling', {
             allowMissing = true,
             out=saplingFound,
         })
-        commands.futures.if_(shortTermPlanner, saplingFound, function(shortTermPlanner)
-            navigate.face(shortTermPlanner, betweenTreesCmps.facingAt({ face='right' }))
-            commands.turtle.place(shortTermPlanner)
+        commands.futures.if_(planner, saplingFound, function(planner)
+            navigate.face(planner, betweenTreesCmps.facingAt({ face='right' }))
+            commands.turtle.place(planner)
         end)
     end)
 
-    highLevelCommands.reorient(shortTermPlanner, betweenTreesCmps.facingAt({ face='forward' }))
+    highLevelCommands.reorient(planner, betweenTreesCmps.facingAt({ face='forward' }))
 end
 
 -- Doesn't finish the cobblestone generator
@@ -251,62 +251,62 @@ function prepareCobblestoneGeneratorProject(opts)
             currentConditions.mainIsland.someDirtInInventory = true
             currentConditions.mainIsland.startedCobblestoneGeneratorConstruction = true
         end,
-        nextShortTermPlan = function(state, projectState)
+        nextPlan = function(state, projectState)
             if projectState.done == true then
                 return nil, nil
             end
 
-            local shortTermPlanner = _G.act.shortTermPlanner.create({ turtlePos = state.turtlePos })
-            location.travelToLocation(shortTermPlanner, homeLoc)
-            local startPos = util.copyTable(shortTermPlanner.turtlePos)
+            local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
+            location.travelToLocation(planner, homeLoc)
+            local startPos = util.copyTable(planner.turtlePos)
 
             -- Dig out east branch
-            navigate.face(shortTermPlanner, homeCmps.facingAt({ face='right' }))
+            navigate.face(planner, homeCmps.facingAt({ face='right' }))
             for i = 1, 2 do
-                commands.turtle.forward(shortTermPlanner)
-                commands.turtle.digDown(shortTermPlanner)
+                commands.turtle.forward(planner)
+                commands.turtle.digDown(planner)
             end
 
             -- Grab stuff from chest
             local LAVA_BUCKET_SLOT = 16
             local ICE_SLOT = 15
-            commands.turtle.forward(shortTermPlanner)
-            commands.turtle.select(shortTermPlanner, LAVA_BUCKET_SLOT)
-            commands.turtle.suck(shortTermPlanner, 1)
-            commands.turtle.select(shortTermPlanner, ICE_SLOT)
-            commands.turtle.suck(shortTermPlanner, 1)
+            commands.turtle.forward(planner)
+            commands.turtle.select(planner, LAVA_BUCKET_SLOT)
+            commands.turtle.suck(planner, 1)
+            commands.turtle.select(planner, ICE_SLOT)
+            commands.turtle.suck(planner, 1)
 
             -- Place lava down
-            navigate.moveToCoord(shortTermPlanner, homeCmps.coordAt({ right=2 }))
-            commands.turtle.select(shortTermPlanner, LAVA_BUCKET_SLOT)
-            commands.turtle.placeDown(shortTermPlanner)
+            navigate.moveToCoord(planner, homeCmps.coordAt({ right=2 }))
+            commands.turtle.select(planner, LAVA_BUCKET_SLOT)
+            commands.turtle.placeDown(planner)
             -- Move the empty bucket to an earlier cell.
-            highLevelCommands.transferToFirstEmptySlot(shortTermPlanner)
-            commands.turtle.select(shortTermPlanner, 1)
+            highLevelCommands.transferToFirstEmptySlot(planner)
+            commands.turtle.select(planner, 1)
 
             -- Dig out west branch
-            navigate.moveToPos(shortTermPlanner, homeCmps.posAt({ face='backward' }))
-            commands.turtle.forward(shortTermPlanner)
-            commands.turtle.digDown(shortTermPlanner)
-            commands.turtle.down(shortTermPlanner)
-            commands.turtle.digDown(shortTermPlanner)
-            commands.turtle.dig(shortTermPlanner)
-            commands.turtle.up(shortTermPlanner)
+            navigate.moveToPos(planner, homeCmps.posAt({ face='backward' }))
+            commands.turtle.forward(planner)
+            commands.turtle.digDown(planner)
+            commands.turtle.down(planner)
+            commands.turtle.digDown(planner)
+            commands.turtle.dig(planner)
+            commands.turtle.up(planner)
 
             -- Place ice down
             -- (We're placing ice here, instead of in it's final spot, so it can be closer to the lava
             -- so the lava can melt it)
-            commands.turtle.select(shortTermPlanner, ICE_SLOT)
-            commands.turtle.placeDown(shortTermPlanner)
-            commands.turtle.select(shortTermPlanner, 1)
+            commands.turtle.select(planner, ICE_SLOT)
+            commands.turtle.placeDown(planner)
+            commands.turtle.select(planner, 1)
 
             -- Dig out place for player to stand
-            navigate.moveToCoord(shortTermPlanner, homeCmps.coordAt({ right=-1 }))
-            commands.turtle.digDown(shortTermPlanner)
+            navigate.moveToCoord(planner, homeCmps.coordAt({ right=-1 }))
+            commands.turtle.digDown(planner)
 
-            navigate.moveToPos(shortTermPlanner, startPos)
+            navigate.moveToPos(planner, startPos)
 
-            return nil, shortTermPlanner.shortTermPlan
+            return nil, planner.plan
         end,
     })
 end
@@ -329,38 +329,38 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
                 currentConditions.mainIsland.startedCobblestoneGeneratorConstruction
             )
         end,
-        nextShortTermPlan = function(state, projectState)
+        nextPlan = function(state, projectState)
             if projectState.done == true then
                 return nil, nil
             end
 
-            local shortTermPlanner = _G.act.shortTermPlanner.create({ turtlePos = state.turtlePos })
-            location.travelToLocation(shortTermPlanner, homeLoc)
+            local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
+            location.travelToLocation(planner, homeLoc)
 
-            local startPos = util.copyTable(shortTermPlanner.turtlePos)
+            local startPos = util.copyTable(planner.turtlePos)
 
             -- Wait for ice to melt
-            navigate.moveToCoord(shortTermPlanner, homeCmps.coordAt({ forward=-1 }))
-            highLevelCommands.waitUntilDetectBlock(shortTermPlanner, {
+            navigate.moveToCoord(planner, homeCmps.coordAt({ forward=-1 }))
+            highLevelCommands.waitUntilDetectBlock(planner, {
                 expectedBlockId = 'minecraft:water',
                 direction = 'down',
                 endFacing = homeCmps.facingAt({ face='backward' }),
             })
             
             -- Move water
-            highLevelCommands.findAndSelectSlotWithItem(shortTermPlanner, 'minecraft:bucket')
-            commands.turtle.placeDown(shortTermPlanner)
-            commands.turtle.forward(shortTermPlanner)
-            commands.turtle.placeDown(shortTermPlanner)
-            commands.turtle.select(shortTermPlanner, 1)
+            highLevelCommands.findAndSelectSlotWithItem(planner, 'minecraft:bucket')
+            commands.turtle.placeDown(planner)
+            commands.turtle.forward(planner)
+            commands.turtle.placeDown(planner)
+            commands.turtle.select(planner, 1)
 
-            navigate.moveToPos(shortTermPlanner, startPos)
-            commands.turtle.digDown(shortTermPlanner)
+            navigate.moveToPos(planner, startPos)
+            commands.turtle.digDown(planner)
 
-            commands.mockHooks.registerCobblestoneRegenerationBlock(shortTermPlanner, homeCmps.coordAt({ up=-1 }))
-            commands.general.activateMill(shortTermPlanner, 'mainIsland:cobblestoneGenerator')
+            commands.mockHooks.registerCobblestoneRegenerationBlock(planner, homeCmps.coordAt({ up=-1 }))
+            commands.general.activateMill(planner, 'mainIsland:cobblestoneGenerator')
 
-            return nil, shortTermPlanner.shortTermPlan
+            return nil, planner.plan
         end,
     })
 end
@@ -383,22 +383,22 @@ function cobblestoneGeneratorMill(opts)
             -- I don't have inventory management techniques in place to handle a larger quantity
             if quantity > 64 * 8 then error('Can not handle that large of a quantity yet') end
 
-            local shortTermPlanner = _G.act.shortTermPlanner.create({ turtlePos = state.turtlePos })
-            location.travelToLocation(shortTermPlanner, homeLoc)
+            local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
+            location.travelToLocation(planner, homeLoc)
 
-            local startPos = util.copyTable(shortTermPlanner.turtlePos)
+            local startPos = util.copyTable(planner.turtlePos)
 
             for i = 1, quantity do
-                highLevelCommands.waitUntilDetectBlock(shortTermPlanner, {
+                highLevelCommands.waitUntilDetectBlock(planner, {
                     expectedBlockId = 'minecraft:cobblestone',
                     direction = 'down',
                     endFacing = 'ANY',
                 })
-                commands.turtle.digDown(shortTermPlanner)
+                commands.turtle.digDown(planner)
             end
-            highLevelCommands.reorient(shortTermPlanner, space.posToFacing(startPos))
+            highLevelCommands.reorient(planner, space.posToFacing(startPos))
 
-            return shortTermPlanner.shortTermPlan
+            return planner.plan
         end
     })
 end
@@ -417,28 +417,28 @@ function createCobbleTowerProject(opts)
         requiredResources = {
             ['minecraft:cobblestone'] = 8
         },
-        nextShortTermPlan = function(state, projectState)
+        nextPlan = function(state, projectState)
             if projectState.done == true then
                 return nil, nil
             end
 
-            local shortTermPlanner = _G.act.shortTermPlanner.create({ turtlePos = state.turtlePos })
-            location.travelToLocation(shortTermPlanner, homeLoc)
-            local startPos = util.copyTable(shortTermPlanner.turtlePos)
+            local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
+            location.travelToLocation(planner, homeLoc)
+            local startPos = util.copyTable(planner.turtlePos)
 
             local towerBaseCmps = homeCmps.compassAt({ right=-3 })
-            navigate.moveToCoord(shortTermPlanner, towerBaseCmps.coord)
+            navigate.moveToCoord(planner, towerBaseCmps.coord)
 
             for i = 1, 8 do
-                highLevelCommands.findAndSelectSlotWithItem(shortTermPlanner, 'minecraft:cobblestone')
-                commands.turtle.placeDown(shortTermPlanner)
-                commands.turtle.up(shortTermPlanner)
+                highLevelCommands.findAndSelectSlotWithItem(planner, 'minecraft:cobblestone')
+                commands.turtle.placeDown(planner)
+                commands.turtle.up(planner)
             end
-            commands.turtle.select(shortTermPlanner, 1)
+            commands.turtle.select(planner, 1)
 
-            navigate.moveToPos(shortTermPlanner, startPos, { 'right', 'forward', 'up' })
+            navigate.moveToPos(planner, startPos, { 'right', 'forward', 'up' })
 
-            return nil, shortTermPlanner.shortTermPlan
+            return nil, planner.plan
         end,
     })
 end
@@ -447,7 +447,7 @@ end
 -- a clockwise spiral to the center. You must start facing in a direction such that
 -- no turning is required before movement.
 -- The `onVisit` function is called at each cell visited.
-function spiralInwards(shortTermPlanner, opts)
+function spiralInwards(planner, opts)
     local commands = _G.act.commands
 
     local sideLength = opts.sideLength
@@ -457,13 +457,13 @@ function spiralInwards(shortTermPlanner, opts)
         local firstIter = segmentLength == sideLength - 1
         for i = 1, (firstIter and 3 or 2) do
             for j = 1, segmentLength do
-                onVisit(shortTermPlanner)
-                commands.turtle.forward(shortTermPlanner)
+                onVisit(planner)
+                commands.turtle.forward(planner)
             end
-            commands.turtle.turnRight(shortTermPlanner)
+            commands.turtle.turnRight(planner)
         end
     end
-    onVisit(shortTermPlanner)
+    onVisit(planner)
 end
 
 return module

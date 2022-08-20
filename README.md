@@ -32,7 +32,7 @@ Coordinate: An x, y, z coordinate
 Position: An x, y, z, and face.
 Location: A specific point in space that you often travel to. There's logic in place to find the quickest route from one location to another.
 
-shortTermPlan: A series of steps that needs to be taken until you get to a place where an interruption can happen. (e.g. an interruption to go refuel)
+plan: A series of immediate steps that needs to be taken (like turnLeft, go forward, etc) until you get to a place where an interruption can happen. An interruption could be, for example, refueling, or tending a farm.
 strategy: The overall plan from harvesting the first tree to the last projects.
 
 primary task: The main project you're currently working on (like building a tree farm)

@@ -77,22 +77,22 @@ function calcPathCost(coords)
 end
 
 -- Finds the shortest route to a location among the registered paths and travels there.
-function module.travelToLocation(shortTermPlanner, destLoc)
+function module.travelToLocation(planner, destLoc)
     local space = _G.act.space
     local navigate = _G.act.navigate
 
-    if space.comparePos(shortTermPlanner.turtlePos, destLoc.pos) then return end
-    local turtleLoc = lookupLoc(space.posToCoord(shortTermPlanner.turtlePos))
+    if space.comparePos(planner.turtlePos, destLoc.pos) then return end
+    local turtleLoc = lookupLoc(space.posToCoord(planner.turtlePos))
     local route = findBestRoute(turtleLoc, destLoc).route
     if route == nil then error('Failed to naviage to a particular location - there was no route to this location.') end
 
     for _, path in ipairs(route) do
         for i, coord in ipairs(path.midPoints) do
-            navigate.moveToCoord(shortTermPlanner, coord)
+            navigate.moveToCoord(planner, coord)
         end
-        navigate.moveToCoord(shortTermPlanner, space.posToCoord(path.to.pos))
+        navigate.moveToCoord(planner, space.posToCoord(path.to.pos))
     end
-    navigate.face(shortTermPlanner, space.posToFacing(destLoc.pos))
+    navigate.face(planner, space.posToFacing(destLoc.pos))
 end
 
 -- May return nil

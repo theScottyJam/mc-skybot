@@ -17,14 +17,14 @@ function module.exec(strategy, onStep)
         -- Go through primary task
         local currentProject = _G.act.project.lookup(state.primaryTask.projectId)
         while not currentProject.isExhausted(state.primaryTask) do
-            state.shortTermPlan = currentProject.nextStep(state, state.primaryTask)
+            state.plan = currentProject.nextStep(state, state.primaryTask)
 
-            -- for each command in state.shortTermPlan
-            while #state.shortTermPlan > 0 do
+            -- for each command in state.plan
+            while #state.plan > 0 do
                 -- TODO: I need to actually save the state off to a file between each step, and
                 -- make it so it can automatically load where it's at from a file if it got interrupted.
-                local command = table.remove(state.shortTermPlan, 1)
-                -- Executing a command can put more commands into the shortTermPlan
+                local command = table.remove(state.plan, 1)
+                -- Executing a command can put more commands into the plan
                 _G.act.commands.execCommand(state, command)
 
                 if onStep ~= nil then onStep() end

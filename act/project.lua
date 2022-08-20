@@ -10,15 +10,15 @@ local projectRegistry = {}
 --   what conditions have been fulfilled.
 -- opts.createProjectState() (optional) returns any arbitrary record.
 --   If not provided, it default to an empty record.
--- opts.nextShortTermPlan() takes a state and project state and returns a tuple
---   containing an updated project state and a short-term plan.
+-- opts.nextPlan() takes a state and project state and returns a tuple
+--   containing an updated project state and a plan.
 --   Return `nil` for the project state to signal that the project will be complete
 --   once the returned plan finishes.
 function module.register(id, opts)
     local createProjectState = opts.createProjectState or function() return {} end
     local preConditions = opts.preConditions or function() return true end
     local postConditions = opts.postConditions or function() end
-    local nextShortTermPlan = opts.nextShortTermPlan
+    local nextPlan = opts.nextPlan
     local requiredResources = opts.requiredResources or {}
 
     projectRegistry[id] = {
@@ -26,7 +26,7 @@ function module.register(id, opts)
         preConditions = preConditions,
         postConditions = postConditions,
         -- Takes a state and a reference to this task.
-        -- Returns a shortTermPlan.
+        -- Returns a plan.
         nextStep = function(state, currentTask)
             if currentTask.stage == nil then
                 currentTask.stage = 'RESOURCE_FETCHING'
@@ -48,13 +48,13 @@ function module.register(id, opts)
                 currentTask.projectState = createProjectState()
             end
 
-            local newProjectState, newShortTermPlan = nextShortTermPlan(state, currentTask.projectState)
+            local newProjectState, newPlan = nextPlan(state, currentTask.projectState)
             currentTask.projectState = newProjectState
 
             if newProjectState == nil then
                 currentTask.stage = 'EXHAUSTED'
             end
-            return newShortTermPlan
+            return newPlan
         end,
         -- "exhausted" means all steps have been given.
         -- It might not be "complete" yet, as it's unknown if those steps have been carried out.

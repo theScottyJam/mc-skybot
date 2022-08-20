@@ -7,7 +7,7 @@ local module = {}
 
 local millRegistry = {}
 
--- opts.harvest() takes a state and a resource-request, and returns a short-term plan.
+-- opts.harvest() takes a state and a resource-request, and returns a plan.
 --   The resource-request is a mapping of desired resources to quantities desired.
 -- opts.supplies is a list of resources the mill is capable of supplying.
 -- Returns the mill id passed in.

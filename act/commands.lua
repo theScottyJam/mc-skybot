@@ -13,7 +13,7 @@ local module = {
 
 local commandListeners = {}
 
--- Note, if you ever choose to add a command directly (as a table literal) into the shortTermPlan list
+-- Note, if you ever choose to add a command directly (as a table literal) into the plan list
 -- (something that higher-level commands might do), take care to handle the onSetup
 -- stuff yourself, as that won't run if you bypass the command-initialization function.
 function module.registerCommand(id, execute, opts)
@@ -25,14 +25,14 @@ function module.registerCommand(id, execute, opts)
         if onExec ~= nil then onExec(state, table.unpack({...})) end
         execute(state, table.unpack({ ... }))
     end
-    return function(shortTermPlanner, ...)
+    return function(planner, ...)
         -- A sanity check, because I mess this up a lot.
-        if shortTermPlanner == nil or shortTermPlanner.shortTermPlan == nil then
-            error('Forgot to pass in a proper shortTermPlanner object into a command')
+        if planner == nil or planner.plan == nil then
+            error('Forgot to pass in a proper planner object into a command')
         end
         local returnValue = nil
-        if onSetup ~= nil then returnValue = onSetup(shortTermPlanner, table.unpack({...})) end
-        table.insert(shortTermPlanner.shortTermPlan, { command = id, args = {...} })
+        if onSetup ~= nil then returnValue = onSetup(planner, table.unpack({...})) end
+        table.insert(planner.plan, { command = id, args = {...} })
         return returnValue
     end
 end
@@ -41,8 +41,8 @@ local registerCommand = module.registerCommand
 -- A convinient shorthand function to remove boilerplate related to updating movement information.
 function registerMovementCommand(id, execute, updatePos)
     return registerCommand(id, execute, {
-        onSetup = function(shortTermPlanner)
-            updatePos(shortTermPlanner.turtlePos)
+        onSetup = function(planner)
+            updatePos(planner.turtlePos)
         end,
         onExec = function(state)
             updatePos(state.turtlePos)
@@ -60,7 +60,7 @@ function module.registerCommandWithFuture(id, execute_, extractFutureId)
         end
     end
     return registerCommand(id, execute, {
-        onSetup = function(shortTermPlanner, ...)
+        onSetup = function(planner, ...)
             local futureId = extractFutureId(table.unpack({ ... }))
             if futureId ~= nil and type(futureId) ~= 'string' then
                 error('Expected id to be a string or nil')
@@ -252,34 +252,34 @@ local while_ = registerCommand('futures:while', function(state, opts)
     end
 
     local newOpts = { subCommands = subCommands, runIndex = nextRunIndex, continueIfFuture = continueIfFuture }
-    table.insert(state.shortTermPlan, 1, { command = 'futures:while', args = {newOpts} })
-    table.insert(state.shortTermPlan, 1, subCommands[runIndex])
+    table.insert(state.plan, 1, { command = 'futures:while', args = {newOpts} })
+    table.insert(state.plan, 1, subCommands[runIndex])
 end)
 
 -- Don't do branching logic and what-not inside the passed-in block.
 -- it needs to be possible to run the block in advance to learn about the behavior of the block.
-futuresActions.while_ = function(shortTermPlanner, opts, block)
+futuresActions.while_ = function(planner, opts, block)
     local continueIfFuture = opts.continueIf
 
     -- First run of block() is used to determin how the turtle moves
-    local originalShortTermPlanLength = #shortTermPlanner.shortTermPlan
-    local innerPlanner = _G.act.shortTermPlanner.copy(shortTermPlanner)
+    local originalPlanLength = #planner.plan
+    local innerPlanner = _G.act.planner.copy(planner)
     block(innerPlanner)
 
-    if originalShortTermPlanLength < #shortTermPlanner.shortTermPlan then
-        error('The outer shortTermPlan got updated during a block. Only the passed-in shortTermPlan should be modified. ')
+    if originalPlanLength < #planner.plan then
+        error('The outer plan got updated during a block. Only the passed-in plan should be modified. ')
     end
 
-    shortTermPlanner.turtlePos = createPosInterprettingDifferencesAsUnknowns(shortTermPlanner.turtlePos, innerPlanner.turtlePos)
+    planner.turtlePos = createPosInterprettingDifferencesAsUnknowns(planner.turtlePos, innerPlanner.turtlePos)
 
     -- Second run of block() is used to determin the actual list of block commands to record.
     -- This time around, the turtlePos has been updated to have UNKNOWN positions where appropriate.
-    local innerPlanner2 = _G.act.shortTermPlanner.copy(shortTermPlanner)
-    innerPlanner2.shortTermPlan = {}
+    local innerPlanner2 = _G.act.planner.copy(planner)
+    innerPlanner2.plan = {}
     block(innerPlanner2)
 
-    return while_(shortTermPlanner, {
-        subCommands = innerPlanner2.shortTermPlan,
+    return while_(planner, {
+        subCommands = innerPlanner2.plan,
         continueIfFuture = continueIfFuture,
     })
 end
@@ -292,28 +292,28 @@ local if_ = registerCommand('futures:if', function(state, opts)
 
     if state.primaryTask.projectVars[enterIfFuture] then
         for i = #subCommands, 1, -1 do
-            table.insert(state.shortTermPlan, 1, subCommands[i])
+            table.insert(state.plan, 1, subCommands[i])
         end
     end
 end)
 
 -- Don't do branching logic and what-not inside the passed-in block.
 -- it needs to be possible to run the block in advance to learn about the behavior of the block.
-futuresActions.if_ = function(shortTermPlanner, enterIfFuture, block)
+futuresActions.if_ = function(planner, enterIfFuture, block)
     -- First run of block() is used to determin how the turtle moves
-    local originalShortTermPlanLength = #shortTermPlanner.shortTermPlan
-    local innerPlanner = _G.act.shortTermPlanner.copy(shortTermPlanner)
-    innerPlanner.shortTermPlan = {}
+    local originalPlanLength = #planner.plan
+    local innerPlanner = _G.act.planner.copy(planner)
+    innerPlanner.plan = {}
     block(innerPlanner)
 
-    if originalShortTermPlanLength < #shortTermPlanner.shortTermPlan then
-        error('The outer shortTermPlan got updated during a block. Only the passed-in shortTermPlan should be modified. ')
+    if originalPlanLength < #planner.plan then
+        error('The outer plan got updated during a block. Only the passed-in plan should be modified. ')
     end
 
-    shortTermPlanner.turtlePos = createPosInterprettingDifferencesAsUnknowns(shortTermPlanner.turtlePos, innerPlanner.turtlePos)
+    planner.turtlePos = createPosInterprettingDifferencesAsUnknowns(planner.turtlePos, innerPlanner.turtlePos)
 
-    return if_(shortTermPlanner, {
-        subCommands = innerPlanner.shortTermPlan,
+    return if_(planner, {
+        subCommands = innerPlanner.plan,
         enterIfFuture = enterIfFuture,
     })
 end

@@ -93,26 +93,26 @@ function module.init(commands)
                 -- If endFacing is 'CURRENT' (or nil), we need to swap it for a calculated direction,
                 -- so the next command that runs knows the original facing.
                 local newOpts = util.mergeTables(opts, { endFacing = endFacing })
-                table.insert(state.shortTermPlan, 1, { command = 'highLevelCommands:waitUntilDetectBlock', args = {newOpts} })
+                table.insert(state.plan, 1, { command = 'highLevelCommands:waitUntilDetectBlock', args = {newOpts} })
             elseif endFacing ~= 'ANY' then
-                table.insert(state.shortTermPlan, 1, { command = 'highLevelCommands:reorient', args = {endFacing} })
+                table.insert(state.plan, 1, { command = 'highLevelCommands:reorient', args = {endFacing} })
             end
         end,
         {
-            onSetup = function(shortTermPlanner, opts)
+            onSetup = function(planner, opts)
                 local endFacing = opts.endFacing
 
-                local turtlePos = shortTermPlanner.turtlePos
+                local turtlePos = planner.turtlePos
                 if endFacing == 'CURRENT' or endFacing == nil then
                     -- Do nothing
                 elseif endFacing == 'ANY' then
-                    shortTermPlanner.turtlePos = {
+                    planner.turtlePos = {
                         forward=0,
                         right=0,
                         up=0,
                         face='forward',
                         from=util.mergeTables(
-                            shortTermPlanner.turtlePos,
+                            planner.turtlePos,
                             { face='UNKNOWN' }
                         )
                     }
@@ -148,16 +148,16 @@ function module.init(commands)
             end
             state.turtlePos.face = targetFacing.face
         end, {
-            onSetup = function(shortTermPlanner, targetFacing)
+            onSetup = function(planner, targetFacing)
                 local space = _G.act.space
                 if targetFacing.from ~= 'ORIGIN' then
                     error('The targetFacing "from" field must be set to "ORIGIN"')
                 end
-                if shortTermPlanner.turtlePos.from == 'ORIGIN' then
+                if planner.turtlePos.from == 'ORIGIN' then
                     error("There is no need to use reorient(), if the turtle's positition is completely known.")
                 end
 
-                local squashedPos = space.squashFromFields(shortTermPlanner.turtlePos)
+                local squashedPos = space.squashFromFields(planner.turtlePos)
                 local unsupportedMovement = (
                     squashedPos.forward == 'UNKNOWN' or
                     squashedPos.right == 'UNKNOWN' or
@@ -167,7 +167,7 @@ function module.init(commands)
                     error('The reoirient command currently only knows how to fix the "from" field when "face" is the only field set to "UNKNOWN" in the "from" chain.')
                 end
                 squashedPos.face = targetFacing.face
-                shortTermPlanner.turtlePos = squashedPos
+                planner.turtlePos = squashedPos
             end
         }
     )

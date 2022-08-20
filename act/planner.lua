@@ -1,5 +1,5 @@
 --[[
-    Everything in shortTermPlanner is mutable.
+    Everything in planner is mutable.
     If you want to pluck a property off, clone it first.
 --]]
 
@@ -12,14 +12,14 @@ function module.create(opts)
 
     return {
         turtlePos = util.copyTable(turtlePos),
-        shortTermPlan = {}
+        plan = {}
     }
 end
 
-function module.copy(shortTermPlanner)
+function module.copy(planner)
     return {
-        turtlePos = util.copyTable(shortTermPlanner.turtlePos),
-        shortTermPlan = util.copyTable(shortTermPlanner.shortTermPlan)
+        turtlePos = util.copyTable(planner.turtlePos),
+        plan = util.copyTable(planner.plan)
     }
 end
 
