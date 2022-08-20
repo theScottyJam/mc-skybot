@@ -56,7 +56,7 @@ function module.registerCommandWithFuture(id, execute_, extractFutureId)
         local futureId = extractFutureId(table.unpack({ ... }))
         local result = execute_(state, table.unpack({ ... }))
         if futureId ~= nil then
-            state.primaryTask.taskVars[futureId] = result
+            state.currentProjectTask.taskVars[futureId] = result
         end
     end
     return registerCommand(id, execute, {
@@ -80,7 +80,7 @@ function module.registerFutureTransformers(baseId, transformers)
             local inId = opts.in_
             local outId = opts.out
 
-            local inValue = state.primaryTask.taskVars[inId]
+            local inValue = state.currentProjectTask.taskVars[inId]
             return transformer(inValue)
         end, function(opts) return opts.out end)
     end
@@ -227,10 +227,10 @@ futuresActions.delete = registerCommand('futures:delete', function(state, opts)
     -- The variable might not exist if it is only registered during a branch that never runs
     local allowMissing = opts.allowMissing
 
-    if not allowMissing and state.primaryTask.taskVars[inId] == nil then
+    if not allowMissing and state.currentProjectTask.taskVars[inId] == nil then
         error('Failed to find variable with future-id to delete')
     end
-    state.primaryTask.taskVars[inId] = nil
+    state.currentProjectTask.taskVars[inId] = nil
 end)
 
 local while_ = registerCommand('futures:while', function(state, opts)
@@ -241,7 +241,7 @@ local while_ = registerCommand('futures:while', function(state, opts)
     if #subCommands == 0 then error('The block must register at least one command') end
 
     if runIndex == 1 then
-        if not state.primaryTask.taskVars[continueIfFuture] then
+        if not state.currentProjectTask.taskVars[continueIfFuture] then
             return -- break the loop
         end
     end
@@ -290,7 +290,7 @@ local if_ = registerCommand('futures:if', function(state, opts)
 
     if #subCommands == 0 then error('The block must register at least one command') end
 
-    if state.primaryTask.taskVars[enterIfFuture] then
+    if state.currentProjectTask.taskVars[enterIfFuture] then
         for i = #subCommands, 1, -1 do
             table.insert(state.plan, 1, subCommands[i])
         end
