@@ -49,6 +49,13 @@ function initProject(opts)
     local location = _G.act.location
     local commands = _G.act.commands
     return _G.act.project.register('mainIsland:init', {
+        postConditions = function(currentConditions)
+            currentConditions.mainIsland = {
+                emptyBucketInInventory = false,
+                someDirtInInventory = false,
+                startedCobblestoneGeneratorConstruction = false,
+            }
+        end,
         nextShortTermPlan = function(state, projectState)
             if projectState.done == true then
                 return nil, nil
@@ -76,6 +83,12 @@ function harvestInitialTreeAndPrepareTreeFarmProject(opts)
 
     local bedrockCmps = space.createCompass(bedrockPos)
     return _G.act.project.register('mainIsland:harvestInitialTreeAndPrepareTreeFarm', {
+        preConditions = function(currentConditions)
+            return (
+                currentConditions.mainIsland and
+                currentConditions.mainIsland.someDirtInInventory
+            )
+        end,
         nextShortTermPlan = function(state, projectState)
             if projectState.done == true then
                 return nil, nil
@@ -218,7 +231,7 @@ function plantSaplingsFromBetweenTrees(shortTermPlanner, opts)
     highLevelCommands.reorient(shortTermPlanner, betweenTreesCmps.facingAt({ face='forward' }))
 end
 
--- End condition: An empty bucket will be left in your inventory
+-- Doesn't finish the cobblestone generator
 function prepareCobblestoneGeneratorProject(opts)
     local homeLoc = opts.homeLoc
 
@@ -230,6 +243,14 @@ function prepareCobblestoneGeneratorProject(opts)
 
     local homeCmps = space.createCompass(homeLoc.pos)
     return _G.act.project.register('mainIsland:prepareCobblestoneGenerator', {
+        preConditions = function(currentConditions)
+            return currentConditions.mainIsland
+        end,
+        postConditions = function(currentConditions)
+            currentConditions.mainIsland.emptyBucketInInventory = true
+            currentConditions.mainIsland.someDirtInInventory = true
+            currentConditions.mainIsland.startedCobblestoneGeneratorConstruction = true
+        end,
         nextShortTermPlan = function(state, projectState)
             if projectState.done == true then
                 return nil, nil
@@ -290,7 +311,6 @@ function prepareCobblestoneGeneratorProject(opts)
     })
 end
 
--- Start condition: An empty bucket must be in your inventory.
 function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
     local homeLoc = opts.homeLoc
 
@@ -302,6 +322,13 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
 
     local homeCmps = space.createCompass(homeLoc.pos)
     return _G.act.project.register('mainIsland:waitForIceToMeltAndfinishCobblestoneGenerator', {
+        preConditions = function(currentConditions)
+            return (
+                currentConditions.mainIsland and
+                currentConditions.mainIsland.emptyBucketInInventory and
+                currentConditions.mainIsland.startedCobblestoneGeneratorConstruction
+            )
+        end,
         nextShortTermPlan = function(state, projectState)
             if projectState.done == true then
                 return nil, nil

@@ -419,12 +419,11 @@ function hookListeners.registerCobblestoneRegenerationBlock(deltaCoord)
         z = -deltaCoord.forward
     }
     function regenerateCobblestone()
+        addTickListener(5, regenerateCobblestone)
         local currentWorld = _G.mockComputerCraftApi._currentWorld
         local cell = lookupInMap(currentWorld.map, coord)
         if cell ~= nil then return end
         setInMap(currentWorld.map, coord, { id = 'minecraft:cobblestone' })
-
-        addTickListener(5, regenerateCobblestone)  
     end
 
     addTickListener(5, regenerateCobblestone)

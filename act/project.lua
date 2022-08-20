@@ -2,9 +2,13 @@ local module = {}
 
 local projectRegistry = {}
 
--- opts.requiredResources is an optional mapping of resource names to quantities.
+-- opts.requiredResources (optional) is a mapping of resource names to quantities.
 --   Fetching these resources must be done before the project starts.
--- opts.createProjectState() returns any arbitrary record.
+-- opts.preConditions() (optional) takes a currentConditions, and returns true if all
+--   pre-conditions are met.
+-- opts.postConditions() (optional) takes a currentConditions, and mutates it to state
+--   what conditions have been fulfilled.
+-- opts.createProjectState() (optional) returns any arbitrary record.
 --   If not provided, it default to an empty record.
 -- opts.nextShortTermPlan() takes a state and project state and returns a tuple
 --   containing an updated project state and a short-term plan.
@@ -12,11 +16,15 @@ local projectRegistry = {}
 --   once the returned plan finishes.
 function module.register(id, opts)
     local createProjectState = opts.createProjectState or function() return {} end
+    local preConditions = opts.preConditions or function() return true end
+    local postConditions = opts.postConditions or function() end
     local nextShortTermPlan = opts.nextShortTermPlan
     local requiredResources = opts.requiredResources or {}
 
     projectRegistry[id] = {
         requiredResources = requiredResources,
+        preConditions = preConditions,
+        postConditions = postConditions,
         -- Takes a state and a reference to this task.
         -- Returns a shortTermPlan.
         nextStep = function(state, currentTask)
@@ -58,6 +66,9 @@ function module.register(id, opts)
 end
 
 function collectResource(state, resourceName, quantity)
+    if state.resourceSuppliers[resourceName] == nil then
+        error('The next project requires the resource '..resourceName..', but there are no registered sources for this resource.')
+    end
     local resource = state.resourceSuppliers[resourceName][1]
     if resource.type ~= 'mill' then error('Invalid resource type') end
     local mill = _G.act.mill.lookup(resource.millId)

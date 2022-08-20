@@ -17,9 +17,18 @@ function module.run(onStep)
 end
 
 function initStrategy()
+    local project = _G.act.project
+
     local steps = {}
+    local currentConditions = {}
     function doProject(projectId)
+        local projectToAdd = project.lookup(projectId)
+        if not projectToAdd.preConditions(currentConditions) then
+            error('Project '..projectId..' did not have its pre-conditions satisfied.')
+        end
+
         table.insert(steps, projectId)
+        projectToAdd.postConditions(currentConditions)
     end
 
     local mainIsland = _G.strategy.entities.mainIsland.initEntity({
