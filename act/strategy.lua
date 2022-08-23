@@ -27,10 +27,12 @@ function module.exec(strategy, onStep)
         end
 
         -- Go through the task's plans
+        local taskRunnerBeingDone = state.activeTask.getTaskRunner()
+        executePlan(state, onStep, taskRunnerBeingDone.enter(state, state.activeTask))
         while not state.activeTask.completed do
-            local plan = state.activeTask.getTaskRunner().nextPlan(state, state.activeTask)
-            executePlan(state, plan, onStep)
+            executePlan(state, onStep, taskRunnerBeingDone.nextPlan(state, state.activeTask))
         end
+        executePlan(state, onStep, taskRunnerBeingDone.exit(state, state.activeTask))
         state.activeTask = nil
     end
 end
@@ -49,7 +51,7 @@ function takeInventory(state, onStep)
     return resourcesInInventory
 end
 
-function executePlan(state, plan, onStep)
+function executePlan(state, onStep, plan)
     state.plan = plan
     while #state.plan > 0 do
         -- TODO: I need to actually save the state off to a file between each step, and

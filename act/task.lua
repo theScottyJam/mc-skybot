@@ -8,41 +8,71 @@ local module = {}
 
 local taskRegistry = {}
 
--- opts.requiredResources (optional) is a mapping of resource names to tables
---   of the shape { quantity=..., at='INVENTORY' }
---   Fetching these resources must be done before the project starts.
--- opts.createTaskState() (optional) returns any arbitrary record.
---   If not provided, it default to an empty record.
--- opts.nextExecutionPlan() takes a state and project state and returns a tuple
---   containing an updated project state and a plan.
---   Return `nil` for the project state to signal that the project will be complete
---   once the returned plan finishes.
+--[[
+inputs:
+  opts.requiredResources (optional) is a mapping of resource names to tables
+    of the shape { quantity=..., at='INVENTORY' }
+    Fetching these resources must be done before the project starts.
+  opts.createTaskState() (optional) returns any arbitrary record.
+    If not provided, it default to an empty record.
+  opts.enter() takes a planner and a taskState. It will run before the task
+    starts and whenever the task continues after an interruption, and is supposed
+    to bring the turtle from anywhere in the world to a desired position.
+  opts.exit() takes a planner, a taskState, and an info object. The info object contains a
+    "complete" boolean property that indicates if the task has been completed at this point.
+    This function will run after the task finishes and whenever the task needs to pause
+    for an interruption, and is supposed to bring the turtle to the position of a registered location.
+  opts.nextPlan() takes a planner, a taskState, and any other arbitrary
+    arguments it might need and returns a tuple containing an updated task state and
+    a "complete" boolean, which when true indicates thatonce everything registered in the
+    provided plan happens, exit() should be used, and this task will be complete.
+--]]
 function module.registerTaskRunner(id, opts)
-    local createTaskState = opts.createTaskState or function() return {} end
-    local nextExecutionPlan = opts.nextExecutionPlan
     local requiredResources = opts.requiredResources or {}
+    local createTaskState = opts.createTaskState or function() return {} end
+    local enter = opts.enter
+    local exit = opts.exit
+    local nextPlan = opts.nextPlan
 
     taskRegistry[id] = {
         id = id,
         requiredResources = requiredResources,
-        -- Takes a state and a reference to this task.
-        -- Returns a plan.
-        nextPlan = function(state, currentTask)
+
+        -- Takes a state and a reference to this task. Returns a plan.
+        enter = function(state, currentTask)
             if not currentTask.initialized then
                 currentTask.initialized = true
                 currentTask.taskState = createTaskState()
             end
+
+            local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
+            enter(planner, currentTask.taskState)
+            currentTask.entered = true
+
+            return planner.plan
+        end,
+
+        -- Takes a state and a reference to this task. Returns a plan.
+        exit = function(state, currentTask)
+            local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
+            exit(planner, currentTask.taskState, { complete = currentTask.completed })
+            currentTask.entered = false
+
+            return planner.plan
+        end,
+
+        -- Takes a state and a reference to this task. Returns a plan.
+        nextPlan = function(state, currentTask)
             if currentTask.completed == true then
                 error('This task is already finished')
             end
 
-            local newTaskState, newPlan = nextExecutionPlan(state, currentTask.taskState, currentTask.args)
+            local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
+            local newTaskState, complete = nextPlan(planner, currentTask.taskState, currentTask.args)
             currentTask.taskState = newTaskState
+            currentTask.completed = complete
 
-            if newTaskState == nil then
-                currentTask.completed = true
-            end
-            return newPlan
+            return planner.plan
         end,
     }
     return id
@@ -114,6 +144,8 @@ function module.create(taskRunnerId, args)
         -- "complete" means you've requested the last available plan.
         -- It doesn't necessarily mean all requested plans have been executed.
         completed = false,
+        -- true when enter() gets called. false when exit() gets called.
+        entered = false,
         -- Arbitrary state, to help keep track of what's going on between interruptions
         taskState = nil,
         -- Contains the values of futures

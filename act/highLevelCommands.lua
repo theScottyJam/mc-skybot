@@ -58,7 +58,9 @@ function module.init(commands)
     -- opts.direction is 'up' or 'down' ('front' is not yet supported).
     -- opts.endFacing. Can be a facing or 'ANY', or 'CURRENT' (the default)
     --   If set to 'ANY', you MUST use highLevelCommands.reorient() to fix your facing
-    --   when you're ready to depend on it again.
+    --   when you're ready to depend on it again. (The exception is if you let the
+    --   current plan end while in an unknown position then try to fix the position
+    --   in a new plan, as the turtle's real position becomes known between plans)
     highLevelCommands.waitUntilDetectBlock = registerCommand(
         'highLevelCommands:waitUntilDetectBlock',
         function(state, opts)

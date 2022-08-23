@@ -51,12 +51,11 @@ function initProject(opts)
 
     local taskRunnerId = 'project:mainIsland:init'
     _G.act.task.registerTaskRunner(taskRunnerId, {
-        nextExecutionPlan = function(state, taskState)
-            local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
-
+        enter = function() end,
+        exit = function() end,
+        nextPlan = function(planner, taskState)
             commands.general.registerLocPath(planner, initialLoc, homeLoc)
-
-            return nil, planner.plan
+            return taskState, true
         end,
     })
     return _G.act.project.create(taskRunnerId, {
@@ -84,9 +83,13 @@ function harvestInitialTreeAndPrepareTreeFarmProject(opts)
     local bedrockCmps = space.createCompass(bedrockPos)
     local taskRunnerId = 'project:mainIsland:harvestInitialTreeAndPrepareTreeFarm'
     _G.act.task.registerTaskRunner(taskRunnerId, {
-        nextExecutionPlan = function(state, taskState)
-            local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
+        enter = function(planner, taskState)
             location.travelToLocation(planner, homeLoc)
+        end,
+        exit = function(planner, taskState)
+            navigate.assertPos(planner, homeLoc.pos)
+        end,
+        nextPlan = function(planner, taskState)
             local startPos = util.copyTable(planner.turtlePos)
 
             local bottomTree1LogCmps = bedrockCmps.compassAt({ forward=-4, right=-1, up=3 })
@@ -108,7 +111,7 @@ function harvestInitialTreeAndPrepareTreeFarmProject(opts)
 
             navigate.moveToPos(planner, startPos, { 'up', 'forward', 'right' })
 
-            return nil, planner.plan
+            return taskState, true
         end,
     })
     return _G.act.project.create(taskRunnerId, {
@@ -242,9 +245,13 @@ function startBuildingCobblestoneGeneratorProject(opts)
     local homeCmps = space.createCompass(homeLoc.pos)
     local taskRunnerId = 'project:mainIsland:startBuildingCobblestoneGenerator'
     _G.act.task.registerTaskRunner(taskRunnerId, {
-        nextExecutionPlan = function(state, taskState)
-            local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
+        enter = function(planner, taskState)
             location.travelToLocation(planner, homeLoc)
+        end,
+        exit = function(planner, taskState)
+            navigate.assertPos(planner, homeLoc.pos)
+        end,
+        nextPlan = function(planner, taskState)
             local startPos = util.copyTable(planner.turtlePos)
 
             -- Dig out east branch
@@ -293,7 +300,7 @@ function startBuildingCobblestoneGeneratorProject(opts)
 
             navigate.moveToPos(planner, startPos)
 
-            return nil, planner.plan
+            return taskState, true
         end,
     })
     return _G.act.project.create(taskRunnerId, {
@@ -321,10 +328,17 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
     local homeCmps = space.createCompass(homeLoc.pos)
     local taskRunnerId = 'project:mainIsland:waitForIceToMeltAndfinishCobblestoneGenerator'
     _G.act.task.registerTaskRunner(taskRunnerId, {
-        nextExecutionPlan = function(state, taskState)
-            local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
+        enter = function(planner, taskState)
             location.travelToLocation(planner, homeLoc)
-
+        end,
+        exit = function(planner, taskState, info)
+            navigate.assertPos(planner, homeLoc.pos)
+            if info.complete then
+                commands.mockHooks.registerCobblestoneRegenerationBlock(planner, homeCmps.coordAt({ up=-1 }))
+                cobblestoneGeneratorMill.activate(planner)
+            end
+        end,
+        nextPlan = function(planner, taskState)
             local startPos = util.copyTable(planner.turtlePos)
 
             -- Wait for ice to melt
@@ -345,10 +359,7 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
             navigate.moveToPos(planner, startPos)
             commands.turtle.digDown(planner)
 
-            commands.mockHooks.registerCobblestoneRegenerationBlock(planner, homeCmps.coordAt({ up=-1 }))
-            cobblestoneGeneratorMill.activate(planner)
-
-            return nil, planner.plan
+            return taskState, true
         end,
     })
     return _G.act.project.create(taskRunnerId, {
@@ -374,28 +385,32 @@ function createCobblestoneGeneratorMill(opts)
     local homeCmps = space.createCompass(homeLoc.pos)
     local taskRunnerId = 'mill:mainIsland:cobblestoneGenerator'
     _G.act.task.registerTaskRunner(taskRunnerId, {
-        nextExecutionPlan = function(state, taskState, resourceRequests)
+        createTaskState = function()
+            return { harvested = 0 }
+        end,
+        enter = function(planner, taskState)
+            location.travelToLocation(planner, homeLoc)
+        end,
+        exit = function(planner, taskState)
+            navigate.face(planner, space.posToFacing(homeLoc.pos))
+            navigate.assertPos(planner, homeLoc.pos)
+        end,
+        nextPlan = function(planner, taskState, resourceRequests)
+            local newTaskState = util.copyTable(taskState)
             local quantity = resourceRequests['minecraft:cobblestone']
             if quantity == nil then error('Must supply a request for cobblestone to use this mill') end
             -- I don't have inventory management techniques in place to handle a larger quantity
             if quantity > 64 * 8 then error('Can not handle that large of a quantity yet') end
 
-            local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
-            location.travelToLocation(planner, homeLoc)
-
-            local startPos = util.copyTable(planner.turtlePos)
-
-            for i = 1, quantity do
-                highLevelCommands.waitUntilDetectBlock(planner, {
-                    expectedBlockId = 'minecraft:cobblestone',
-                    direction = 'down',
-                    endFacing = 'ANY',
-                })
-                commands.turtle.digDown(planner)
-            end
-            highLevelCommands.reorient(planner, space.posToFacing(startPos))
-
-            return nil, planner.plan
+            highLevelCommands.waitUntilDetectBlock(planner, {
+                expectedBlockId = 'minecraft:cobblestone',
+                direction = 'down',
+                endFacing = 'ANY',
+            })
+            commands.turtle.digDown(planner)
+            newTaskState.harvested = newTaskState.harvested + 1
+            
+            return newTaskState, newTaskState.harvested == quantity
         end,
     })
     return _G.act.mill.create(taskRunnerId, {
@@ -415,26 +430,39 @@ function createCobbleTowerProject(opts)
     local homeCmps = space.createCompass(homeLoc.pos)
     local taskRunnerId = _G.act.task.registerTaskRunner('project:mainIsland:createCobbleTower', {
         requiredResources = {
-            ['minecraft:cobblestone'] = { quantity=8, at='INVENTORY' }
+            ['minecraft:cobblestone'] = { quantity=64 * 6, at='INVENTORY' }
         },
-        nextExecutionPlan = function(state, taskState)
-            local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
+        enter = function(planner, taskState)
+            location.travelToLocation(planner, homeLoc)
+        end,
+        exit = function(planner, taskState)
+            navigate.assertPos(planner, homeLoc.pos)
+        end,
+        nextPlan = function(planner, taskState)
             location.travelToLocation(planner, homeLoc)
             local startPos = util.copyTable(planner.turtlePos)
 
             local towerBaseCmps = homeCmps.compassAt({ right=-3 })
-            navigate.moveToCoord(planner, towerBaseCmps.coord)
-
-            for i = 1, 8 do
-                highLevelCommands.findAndSelectSlotWithItem(planner, 'minecraft:cobblestone')
-                commands.turtle.placeDown(planner)
-                commands.turtle.up(planner)
+            
+            for x = 0, 2 do
+                for z = 0, 3 do
+                    navigate.moveToCoord(
+                        planner,
+                        towerBaseCmps.coordAt({ forward = -z, right = -x }),
+                        { 'forward', 'right', 'up' }
+                    )
+                    for i = 1, 32 do
+                        highLevelCommands.findAndSelectSlotWithItem(planner, 'minecraft:cobblestone')
+                        commands.turtle.placeDown(planner)
+                        commands.turtle.up(planner)
+                    end
+                end
             end
             commands.turtle.select(planner, 1)
 
             navigate.moveToPos(planner, startPos, { 'right', 'forward', 'up' })
 
-            return nil, planner.plan
+            return taskState, true
         end,
     })
     return _G.act.project.create(taskRunnerId, {
