@@ -2,11 +2,14 @@
     A "taskRunner" holds the logic assosiated with a specific task, while a "task" holds the state.
 --]]
 
+local util = import('util.lua')
+
 local module = {}
 
 local taskRegistry = {}
 
--- opts.requiredResources (optional) is a mapping of resource names to quantities.
+-- opts.requiredResources (optional) is a mapping of resource names to tables
+--   of the shape { quantity=..., at='INVENTORY' }
 --   Fetching these resources must be done before the project starts.
 -- opts.createTaskState() (optional) returns any arbitrary record.
 --   If not provided, it default to an empty record.
@@ -20,70 +23,111 @@ function module.registerTaskRunner(id, opts)
     local requiredResources = opts.requiredResources or {}
 
     taskRegistry[id] = {
+        id = id,
         requiredResources = requiredResources,
         -- Takes a state and a reference to this task.
         -- Returns a plan.
         nextPlan = function(state, currentTask)
-            if currentTask.stage == nil then
-                currentTask.stage = 'RESOURCE_FETCHING'
-                -- A mapping of resources collected to `true` if it was done,
-                -- or `nil` if it needs to be done.
-                currentTask.taskState = {}
-            elseif currentTask.stage == 'EXHAUSTED' then
-                error('This project is already finished')
-            end
-
-            if currentTask.stage == 'RESOURCE_FETCHING' then
-                for resourceName, quantity in pairs(requiredResources) do
-                    if currentTask.taskState[resourceName] == nil then
-                        currentTask.taskState[resourceName] = true
-                        return collectResource(state, resourceName, quantity)
-                    end
-                end
-                currentTask.stage = 'EXECUTING'
+            if not currentTask.initialized then
+                currentTask.initialized = true
                 currentTask.taskState = createTaskState()
             end
+            if currentTask.completed == true then
+                error('This task is already finished')
+            end
 
-            local newTaskState, newPlan = nextExecutionPlan(state, currentTask.taskState)
+            local newTaskState, newPlan = nextExecutionPlan(state, currentTask.taskState, currentTask.args)
             currentTask.taskState = newTaskState
 
             if newTaskState == nil then
-                currentTask.stage = 'EXHAUSTED'
+                currentTask.completed = true
             end
             return newPlan
         end,
-        -- "exhausted" means all steps have been given.
-        -- It might not be "complete" yet, as it's unknown if those steps have been carried out.
-        isExhausted = function(currentTask)
-            return currentTask.stage == 'EXHAUSTED'
-        end
     }
     return id
 end
 
-function module.create(taskRunnerId)
+-- Returns a task that will collect some of the required resources, or nil if there
+-- aren't any requirements left to fulfill.
+function module.collectResources(state, initialTaskRunner, resourcesInInventory)
+    local resourceMap = {}
+
+    -- Collect the nested requirement tree into a flat mapping (resourceMap)
+    local requiredResourcesToProcess = { initialTaskRunner.requiredResources }
+    while #requiredResourcesToProcess > 0 do
+        local requiredResources = table.remove(requiredResourcesToProcess)
+        for resourceName, rawRequirements in pairs(requiredResources) do
+            if rawRequirements.at ~= 'INVENTORY' then error('Only at="INVENTORY" is supported right now.') end
+            if resourceMap[resourceName] == nil then
+                if state.resourceSuppliers[resourceName] == nil then
+                    error(
+                        'Attempted to start a task that requires the resource '..resourceName..', '..
+                        'but there are no registered sources for this resource.'
+                    )
+                end
+                local supplier = state.resourceSuppliers[resourceName][1]
+                if supplier.type ~= 'mill' then error('Invalid supplier type') end
+                local subTaskRunner = module.lookupTaskRunner(supplier.taskRunnerId)
+                resourceMap[resourceName] = {
+                    quantity = 0,
+                    taskRunner = subTaskRunner,
+                }
+                table.insert(requiredResourcesToProcess, subTaskRunner.requiredResources)
+            end
+            resourceMap[resourceName].quantity = resourceMap[resourceName].quantity + rawRequirements.quantity
+        end
+    end
+
+    -- Loop over the mapping, removing things that are already satisfied, until
+    -- you find a resource that needs to be done, who's requirements are all fulfilled.
+    while util.tableSize(resourceMap) > 0 do
+        for resourceName, resourceInfo in pairs(resourceMap) do
+            local quantityNeeded = util.maxNumber(0, resourceInfo.quantity - (resourcesInInventory[resourceName] or 0))
+            if quantityNeeded == 0 then
+                resourceMap[resourceName] = nil
+            else
+                local requirementsFulfilled = true
+                for subResourceName, subRawRequirements in pairs(resourceInfo.taskRunner.requiredResources) do
+                    if resourceMap[resourceName] ~= nil then
+                        requirementsFulfilled = false
+                        break
+                    end
+                end
+                if requirementsFulfilled then
+                    return module.create(resourceInfo.taskRunner.id, { [resourceName] = quantityNeeded })
+                end
+            end
+        end
+    end
+
+    -- Return nil if there aren't any additional resources that need to be collected.
+    return nil
+end
+
+-- args is optional
+function module.create(taskRunnerId, args)
     return {
         taskRunnerId = taskRunnerId,
-        -- Are we actively doing this task? Gathering resources? Is it done?
-        stage = nil,
+        -- Auto-initializes the first time you request a plan
+        initialized = false,
+        -- "complete" means you've requested the last available plan.
+        -- It doesn't necessarily mean all requested plans have been executed.
+        completed = false,
         -- Arbitrary state, to help keep track of what's going on between interruptions
         taskState = nil,
         -- Contains the values of futures
         taskVars = {},
+        -- Configuration for the task
+        args = args,
+
+        getTaskRunner = function()
+            return module.lookupTaskRunner(taskRunnerId)
+        end,
     }
 end
 
-function collectResource(state, resourceName, quantity)
-    if state.resourceSuppliers[resourceName] == nil then
-        error('The next task requires the resource '..resourceName..', but there are no registered sources for this resource.')
-    end
-    local resource = state.resourceSuppliers[resourceName][1]
-    if resource.type ~= 'mill' then error('Invalid resource type') end
-    local mill = _G.act.mill.lookup(resource.millId)
-    return mill.harvest(state, { [resourceName] = quantity })
-end
-
-function module.lookup(taskRunnerId)
+function module.lookupTaskRunner(taskRunnerId)
     return taskRegistry[taskRunnerId]
 end
 

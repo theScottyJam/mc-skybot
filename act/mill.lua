@@ -5,22 +5,21 @@
 
 local module = {}
 
-local millRegistry = {}
-
--- opts.harvest() takes a state and a resource-request, and returns a plan.
---   The resource-request is a mapping of desired resources to quantities desired.
 -- opts.supplies is a list of resources the mill is capable of supplying.
--- Returns the mill id passed in.
-function module.register(id, opts)
-    millRegistry[id] = {
-        supplies = opts.supplies,
-        harvest = opts.harvest,
-    }
-    return id
-end
+-- Returns a mill instance
+function module.create(taskRunnerId, opts)
+    local commands = _G.act.commands
 
-function module.lookup(millId)
-    return millRegistry[millId]
+    local supplies = opts.supplies
+
+    return {
+        activate = function(planner)
+            commands.general.activateMill(planner, {
+                taskRunnerId = taskRunnerId,
+                supplies = supplies,
+            })
+        end
+    }
 end
 
 return module

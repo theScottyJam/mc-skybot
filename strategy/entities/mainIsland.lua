@@ -22,12 +22,12 @@ function initEntity(opts)
     -- initialLoc is in front of the chest
     local initialLoc = location.register(space.resolveRelPos({ right=3, face='left' }, homeLoc.pos))
 
-    cobblestoneGeneratorMill({ homeLoc = homeLoc })
+    local cobblestoneGeneratorMill = createCobblestoneGeneratorMill({ homeLoc = homeLoc })
 
     local init = initProject({ initialLoc = initialLoc, homeLoc = homeLoc })
     local harvestInitialTreeAndPrepareTreeFarm = harvestInitialTreeAndPrepareTreeFarmProject({ bedrockPos = bedrockPos, homeLoc = homeLoc })
     local startBuildingCobblestoneGenerator = startBuildingCobblestoneGeneratorProject({ homeLoc = homeLoc })
-    local waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGeneratorProject({ homeLoc = homeLoc })
+    local waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGeneratorProject({ homeLoc = homeLoc, cobblestoneGeneratorMill = cobblestoneGeneratorMill })
     local createCobbleTower = createCobbleTowerProject({ homeLoc = homeLoc })
 
     return {
@@ -310,6 +310,7 @@ end
 
 function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
     local homeLoc = opts.homeLoc
+    local cobblestoneGeneratorMill = opts.cobblestoneGeneratorMill
 
     local location = _G.act.location
     local navigate = _G.act.navigate
@@ -345,7 +346,7 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
             commands.turtle.digDown(planner)
 
             commands.mockHooks.registerCobblestoneRegenerationBlock(planner, homeCmps.coordAt({ up=-1 }))
-            commands.general.activateMill(planner, 'mill:mainIsland:cobblestoneGenerator')
+            cobblestoneGeneratorMill.activate(planner)
 
             return nil, planner.plan
         end,
@@ -361,7 +362,7 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
     })
 end
 
-function cobblestoneGeneratorMill(opts)
+function createCobblestoneGeneratorMill(opts)
     local homeLoc = opts.homeLoc
 
     local location = _G.act.location
@@ -371,9 +372,9 @@ function cobblestoneGeneratorMill(opts)
     local space = _G.act.space
 
     local homeCmps = space.createCompass(homeLoc.pos)
-    return _G.act.mill.register('mill:mainIsland:cobblestoneGenerator', {
-        supplies = { 'minecraft:cobblestone' },
-        harvest = function(state, resourceRequests)
+    local taskRunnerId = 'mill:mainIsland:cobblestoneGenerator'
+    _G.act.task.registerTaskRunner(taskRunnerId, {
+        nextExecutionPlan = function(state, taskState, resourceRequests)
             local quantity = resourceRequests['minecraft:cobblestone']
             if quantity == nil then error('Must supply a request for cobblestone to use this mill') end
             -- I don't have inventory management techniques in place to handle a larger quantity
@@ -394,8 +395,11 @@ function cobblestoneGeneratorMill(opts)
             end
             highLevelCommands.reorient(planner, space.posToFacing(startPos))
 
-            return planner.plan
-        end
+            return nil, planner.plan
+        end,
+    })
+    return _G.act.mill.create(taskRunnerId, {
+        supplies = { 'minecraft:cobblestone' },
     })
 end
 
@@ -411,7 +415,7 @@ function createCobbleTowerProject(opts)
     local homeCmps = space.createCompass(homeLoc.pos)
     local taskRunnerId = _G.act.task.registerTaskRunner('project:mainIsland:createCobbleTower', {
         requiredResources = {
-            ['minecraft:cobblestone'] = 8
+            ['minecraft:cobblestone'] = { quantity=8, at='INVENTORY' }
         },
         nextExecutionPlan = function(state, taskState)
             local planner = _G.act.planner.create({ turtlePos = state.turtlePos })

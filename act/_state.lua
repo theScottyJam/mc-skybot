@@ -13,7 +13,8 @@ function module.createInitialState(opts)
     local startingPos = opts.startingPos
     local projectList = opts.projectList
 
-    return {
+    local state
+    state = {
         -- Note that the "from" field should always be set to "ORIGIN".
         -- Worrying about unknown positions are only needed during the planning phase.
         turtlePos = opts.startingPos,
@@ -22,12 +23,16 @@ function module.createInitialState(opts)
         -- List of steps that need to be taken to get to a good interrupt point
         plan = {},
         -- The project currently being worked on, or that we're currently gathering resources for
-        currentProjectTask = nil,
-        -- If we're doing a task to actively gather resources for the current project, it'll be done here.
-        currentMillTask = nil,
+        activeTask = nil,
         -- A mapping that lets us know where resources can be found.
         resourceSuppliers = {},
+
+        -- DEPRECATED
+        getActiveTask = function()
+            return state.activeTask
+        end
     }
+    return state
 end
 
 return module
