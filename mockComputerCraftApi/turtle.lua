@@ -129,24 +129,24 @@ function module.place(signText)
     tick()
     if signText ~= nil then error('signText arg not supported') end
     local currentWorld = _G.mockComputerCraftApi._currentWorld
-    local placePos = getPosInFront(currentWorld.turtle.pos)
-    return placeAt(currentWorld, placePos)
+    local placeCoord = posToCoord(getPosInFront(currentWorld.turtle.pos))
+    return placeAt(currentWorld, placeCoord)
 end
 
 function module.placeUp()
     tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
-    local placePos = { x = turtle.pos.x, y = turtle.pos.y + 1, z = turtle.pos.z }
-    return placeAt(currentWorld, placePos)
+    local placeCoord = { x = turtle.pos.x, y = turtle.pos.y + 1, z = turtle.pos.z }
+    return placeAt(currentWorld, placeCoord)
 end
 
 function module.placeDown()
     tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
-    local placePos = { x = turtle.pos.x, y = turtle.pos.y - 1, z = turtle.pos.z }
-    return placeAt(currentWorld, placePos)
+    local placeCoord = { x = turtle.pos.x, y = turtle.pos.y - 1, z = turtle.pos.z }
+    return placeAt(currentWorld, placeCoord)
 end
 
 local canPlace = {
@@ -159,10 +159,10 @@ local canPlace = {
     'minecraft:cobblestone',
 }
 
-function placeAt(currentWorld, placePos)
-    local targetCell = lookupInMap(currentWorld.map, placePos) -- may be nil
+function placeAt(currentWorld, placeCoord)
+    local targetCell = lookupInMap(currentWorld.map, placeCoord) -- may be nil
 
-    itemIdBeingPlaced, quantity = removeFrominventory(currentWorld.turtle, 1)
+    local itemIdBeingPlaced, quantity = removeFrominventory(currentWorld.turtle, 1)
     if quantity == 0 then return false end
 
     if not util.tableContains(canPlace, itemIdBeingPlaced) then
@@ -171,12 +171,12 @@ function placeAt(currentWorld, placePos)
 
     if targetCell ~= nil then
         if targetCell.id == 'minecraft:water' and itemIdBeingPlaced == 'minecraft:bucket' then
-            setInMap(currentWorld.map, placePos, nil)
+            setInMap(currentWorld.map, placeCoord, nil)
             local success = addToInventory(currentWorld.turtle, 'minecraft:water_bucket') == 1
             if not success then error('UNREACHABLE') end
             return true
         elseif targetCell.id == 'minecraft:lava' and itemIdBeingPlaced == 'minecraft:bucket' then
-            setInMap(currentWorld.map, placePos, nil)
+            setInMap(currentWorld.map, placeCoord, nil)
             local success = addToInventory(currentWorld.turtle, 'minecraft:lava_bucket') == 1
             if not success then error('UNREACHABLE') end
             return true
@@ -194,38 +194,38 @@ function placeAt(currentWorld, placePos)
         if not success then error('UNREACHABLE') end
     elseif itemIdBeingPlaced == 'minecraft:ice' then
         addTickListener(math.random(200, 250), function()
-            local cell = lookupInMap(currentWorld.map, placePos)
+            local cell = lookupInMap(currentWorld.map, placeCoord)
             if cell ~= nil and cell.id == 'minecraft:ice' then
-                setInMap(currentWorld.map, placePos, { id = 'minecraft:water' })
+                setInMap(currentWorld.map, placeCoord, { id = 'minecraft:water' })
             end
         end)
     end
-    setInMap(currentWorld.map, placePos, { id = itemIdBeingPlaced })
+    setInMap(currentWorld.map, placeCoord, { id = itemIdBeingPlaced })
     return true
 end
 
 function module.inspect()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
-    local inspectPos = getPosInFront(currentWorld.turtle.pos)
-    return inspectAt(currentWorld, inspectPos)
+    local inspectCoord = posToCoord(getPosInFront(currentWorld.turtle.pos))
+    return inspectAt(currentWorld, inspectCoord)
 end
 
 function module.inspectUp()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
-    local inspectPos = { x = turtle.pos.x, y = turtle.pos.y + 1, z = turtle.pos.z }
-    return inspectAt(currentWorld, inspectPos)
+    local inspectCoord = { x = turtle.pos.x, y = turtle.pos.y + 1, z = turtle.pos.z }
+    return inspectAt(currentWorld, inspectCoord)
 end
 
 function module.inspectDown()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
-    local inspectPos = { x = turtle.pos.x, y = turtle.pos.y - 1, z = turtle.pos.z }
-    return inspectAt(currentWorld, inspectPos)
+    local inspectCoord = { x = turtle.pos.x, y = turtle.pos.y - 1, z = turtle.pos.z }
+    return inspectAt(currentWorld, inspectCoord)
 end
 
-function inspectAt(currentWorld, inspectPos)
-    local targetCell = lookupInMap(currentWorld.map, inspectPos)
+function inspectAt(currentWorld, inspectCoord)
+    local targetCell = lookupInMap(currentWorld.map, inspectCoord)
 
     if targetCell == nil then
         return false, 'no block to inspect'
@@ -243,24 +243,24 @@ end
 function module.dig(toolSide)
     tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
-    local posBeingDug = getPosInFront(currentWorld.turtle.pos)
-    return digAt(currentWorld, posBeingDug, toolSide)
+    local coordBeingDug = posToCoord(getPosInFront(currentWorld.turtle.pos))
+    return digAt(currentWorld, coordBeingDug, toolSide)
 end
 
 function module.digUp(toolSide)
     tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
-    local posBeingDug = { x = turtle.pos.x, y = turtle.pos.y + 1, z = turtle.pos.z }
-    return digAt(currentWorld, posBeingDug, toolSide)
+    local coordBeingDug = { x = turtle.pos.x, y = turtle.pos.y + 1, z = turtle.pos.z }
+    return digAt(currentWorld, coordBeingDug, toolSide)
 end
 
 function module.digDown(toolSide)
     tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
-    local posBeingDug = { x = turtle.pos.x, y = turtle.pos.y - 1, z = turtle.pos.z }
-    return digAt(currentWorld, posBeingDug, toolSide)
+    local coordBeingDug = { x = turtle.pos.x, y = turtle.pos.y - 1, z = turtle.pos.z }
+    return digAt(currentWorld, coordBeingDug, toolSide)
 end
 
 local canDig = {
@@ -272,8 +272,8 @@ local canDig = {
     'minecraft:ice',
 }
 
-function digAt(currentWorld, posBeingDug, toolSide)
-    local dugCell = lookupInMap(currentWorld.map, posBeingDug)
+function digAt(currentWorld, coordBeingDug, toolSide)
+    local dugCell = lookupInMap(currentWorld.map, coordBeingDug)
     if dugCell == nil then
         return false
     end
@@ -281,7 +281,7 @@ function digAt(currentWorld, posBeingDug, toolSide)
         error('Can not dig block '..dugCell.id..' yet. Perhaps this requires using a tool, which is not supported.')
     end
 
-    setInMap(currentWorld.map, posBeingDug, nil)
+    setInMap(currentWorld.map, coordBeingDug, nil)
     local success
     if dugCell.id == 'minecraft:leaves' then
         if math.random(0, 10) == 0 then
@@ -310,36 +310,36 @@ function module.suck(amount)
     tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
-    local posSuckingFrom = getPosInFront(turtle.pos)
-    return suckAt(currentWorld, posSuckingFrom, amount)
+    local coordSuckingFrom = posToCoord(getPosInFront(turtle.pos))
+    return suckAt(currentWorld, coordSuckingFrom, amount)
 end
 
 function module.suckUp(amount)
     tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
-    local posSuckingFrom = { x = turtle.pos.x, y = turtle.pos.y + 1, z = turtle.pos.z, face = turtle.pos.face }
-    return suckAt(currentWorld, posSuckingFrom, amount)
+    local coordSuckingFrom = { x = turtle.pos.x, y = turtle.pos.y + 1, z = turtle.pos.z }
+    return suckAt(currentWorld, coordSuckingFrom, amount)
 end
 
 function module.suckDown(amount)
     tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
-    local posSuckingFrom = { x = turtle.pos.x, y = turtle.pos.y - 1, z = turtle.pos.z, face = turtle.pos.face }
-    return suckAt(currentWorld, posSuckingFrom, amount)
+    local coordSuckingFrom = { x = turtle.pos.x, y = turtle.pos.y - 1, z = turtle.pos.z }
+    return suckAt(currentWorld, coordSuckingFrom, amount)
 end
 
 local canSuckFrom = { 'minecraft:chest' }
 
-function suckAt(currentWorld, posSuckingFrom, amount)
+function suckAt(currentWorld, coordSuckingFrom, amount)
     if amount == nil then
         -- According to the docs, the `amount` param used to not be a thing.
         -- Apparently now that it is a thing, it's also required.
         error('`amount` param is required')
     end
 
-    local cellSuckingFrom = lookupInMap(currentWorld.map, posSuckingFrom)
+    local cellSuckingFrom = lookupInMap(currentWorld.map, coordSuckingFrom)
     if cellSuckingFrom == nil then
         return false
     end
@@ -491,7 +491,7 @@ function removeFrominventory(turtle, amount)
 end
 
 function getPosInFront(pos)
-    newPos = util.copyTable(pos)
+    local newPos = util.copyTable(pos)
     if pos.face == 'N' then
         newPos.z = newPos.z - 1
     elseif pos.face == 'S' then
@@ -505,7 +505,7 @@ function getPosInFront(pos)
 end
 
 function getPosBehind(pos)
-    newPos = util.copyTable(pos)
+    local newPos = util.copyTable(pos)
     if pos.face == 'N' then
         newPos.z = newPos.z + 1
     elseif pos.face == 'S' then
