@@ -442,7 +442,7 @@ function createCobbleTowerProject(opts)
             location.travelToLocation(planner, homeLoc)
             local startPos = util.copyTable(planner.turtlePos)
 
-            local towerBaseCmps = homeCmps.compassAt({ right=-3 })
+            local towerBaseCmps = homeCmps.compassAt({ right=-5 })
             
             for x = 0, 2 do
                 for z = 0, 3 do

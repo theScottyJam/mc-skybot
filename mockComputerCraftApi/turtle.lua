@@ -199,6 +199,13 @@ function placeAt(currentWorld, placeCoord)
                 setInMap(currentWorld.map, placeCoord, { id = 'minecraft:water' })
             end
         end)
+    elseif itemIdBeingPlaced == 'minecraft:sapling' then
+        addTickListener(math.random(300, 400), function()
+            local cell = lookupInMap(currentWorld.map, placeCoord)
+            if cell ~= nil and cell.id == 'minecraft:sapling' then
+                spawnTreeAt(currentWorld, placeCoord)
+            end
+        end)
     end
     setInMap(currentWorld.map, placeCoord, { id = itemIdBeingPlaced })
     return true
@@ -543,6 +550,59 @@ end
 
 function posToCoord(pos)
     return { x = pos.x, y = pos.y, z = pos.z }
+end
+
+function spawnTreeAt(currentWorld, absCoord)
+    function trySetInMap(x, y, z, id)
+        local coord = { x = absCoord.x + x, y = absCoord.y + y, z = absCoord.z + z }
+        local existingCell = lookupInMap(currentWorld.map, coord)
+        if existingCell == nil then
+            setInMap(currentWorld.map, coord, { id = id })
+        end
+    end
+
+    local trunkLength = math.random(3, 5)
+
+    for i = 1, trunkLength do
+        trySetInMap(0, i, 0, 'minecraft:log')
+    end
+
+    -- Remove existing sapling
+    setInMap(currentWorld.map, absCoord, nil)
+
+    -- Creating 5x5 block of leaves with logs down the center
+    for x = -2, 2 do
+        for z = -2, 2 do
+            for y = 0, 1 do
+                if x == 0 and z == 0 then
+                    trySetInMap(x, trunkLength + y, z, 'minecraft:log')
+                elseif y == 0 and math.abs(x) == 2 and math.abs(z) == 2 then
+                    -- do nothing
+                elseif y == 1 and math.abs(x) == 2 and math.abs(z) == 2 and math.random(0, 1) == 0 then
+                    -- do nothing
+                else
+                    trySetInMap(x, trunkLength + y, z, 'minecraft:leaves')
+                end
+            end
+        end
+    end
+
+    -- Creating the top two layers
+    for x = -1, 1 do
+        for z = -1, 1 do
+            for y = 2, 3 do
+                if y == 2 and x == 0 and z == 0 then
+                    trySetInMap(x, trunkLength + y, z, 'minecraft:log')
+                elseif y == 2 and math.abs(x) == 1 and math.abs(z) == 1 then
+                    -- do nothing
+                elseif y == 3 and math.abs(x) == 1 and math.abs(z) == 1 and math.random(0, 1) == 0 then
+                    -- do nothing
+                else
+                    trySetInMap(x, trunkLength + y, z, 'minecraft:leaves')
+                end
+            end
+        end
+    end
 end
 
 return module, hookListeners
