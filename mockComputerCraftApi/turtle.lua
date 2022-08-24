@@ -5,6 +5,8 @@ local module = {}
 local hookListeners = {}
 
 local MAX_INVENTORY_SIZE = 100
+math.randomseed(0)
+-- math.randomseed(os.time())
 
 function module.up()
     tick()
@@ -191,7 +193,7 @@ function placeAt(currentWorld, placePos)
         local success = addToInventory(currentWorld.turtle, 'minecraft:bucket') == 1
         if not success then error('UNREACHABLE') end
     elseif itemIdBeingPlaced == 'minecraft:ice' then
-        addTickListener(200, function()
+        addTickListener(math.random(200, 250), function()
             local cell = lookupInMap(currentWorld.map, placePos)
             if cell ~= nil and cell.id == 'minecraft:ice' then
                 setInMap(currentWorld.map, placePos, { id = 'minecraft:water' })
@@ -270,7 +272,6 @@ local canDig = {
     'minecraft:ice',
 }
 
-local leavesDug = 0
 function digAt(currentWorld, posBeingDug, toolSide)
     local dugCell = lookupInMap(currentWorld.map, posBeingDug)
     if dugCell == nil then
@@ -283,12 +284,11 @@ function digAt(currentWorld, posBeingDug, toolSide)
     setInMap(currentWorld.map, posBeingDug, nil)
     local success
     if dugCell.id == 'minecraft:leaves' then
-        leavesDug = leavesDug + 1
-        if leavesDug % 19 == 0 then
-            success = addToInventory(currentWorld.turtle, 'minecraft:stick') == 1
-        elseif leavesDug % 14 == 0 then
+        if math.random(0, 10) == 0 then
             success = addToInventory(currentWorld.turtle, 'minecraft:sapling') == 1
-        elseif leavesDug % 30 == 0 then
+        elseif math.random(0, 20) == 0 then
+            success = addToInventory(currentWorld.turtle, 'minecraft:stick') == 1
+        elseif math.random(0, 30) == 0 then
             success = addToInventory(currentWorld.turtle, 'minecraft:apple') == 1
         else
             success = true
