@@ -3,6 +3,8 @@ local util = import('util.lua')
 local module = {}
 local debugModule = {}
 
+debugModule.showStepByStep = false
+
 function debugModule.printTable(table)
     if util.tableSize(table) == 0 then print('{}'); return end
     print('{')
@@ -26,8 +28,10 @@ end
 function debugModule.onDebugCommand(state, opts)
     local present = _G.mockComputerCraftApi.present
     local world = _G.mockComputerCraftApi._currentWorld
+    debugModule.showStepByStep = true
+    present.displayMap(world, { minX = -8, maxX = 5, minY = 0, maxY = 79, minZ = -5, maxZ = 4 }, { showKey = false })
     -- present.inventory(world)
-    present.displayMap(world, { minX = -5, maxX = 5, minZ = -5, maxZ = 5 })
+    -- present.showTurtlePosition(world)
     -- debugModule.printTable(state.getActiveTask().taskVars)
 end
 

@@ -34,6 +34,7 @@ function module.registerTaskRunner(id, opts)
     local exit = opts.exit
     local nextPlan = opts.nextPlan
 
+    if taskRegistry[id] ~= nil then error('A taskRunner with that id already exists') end
     taskRegistry[id] = {
         id = id,
         requiredResources = requiredResources,

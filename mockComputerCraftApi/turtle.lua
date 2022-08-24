@@ -12,7 +12,7 @@ function module.up()
     tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     currentWorld.turtle.pos.y = currentWorld.turtle.pos.y + 1
-    assertNotInsideBlock(currentWorld)
+    assertNotInsideBlock(currentWorld, 'up')
     return true
 end
 
@@ -20,7 +20,7 @@ function module.down()
     tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     currentWorld.turtle.pos.y = currentWorld.turtle.pos.y - 1
-    assertNotInsideBlock(currentWorld)
+    assertNotInsideBlock(currentWorld, 'down')
     return true
 end
 
@@ -28,7 +28,7 @@ function module.forward()
     tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     currentWorld.turtle.pos = getPosInFront(currentWorld.turtle.pos)
-    assertNotInsideBlock(currentWorld)
+    assertNotInsideBlock(currentWorld, 'forwards')
     return true
 end
 
@@ -36,7 +36,7 @@ function module.back()
     tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     currentWorld.turtle.pos = getPosBehind(currentWorld.turtle.pos)
-    assertNotInsideBlock(currentWorld)
+    assertNotInsideBlock(currentWorld, 'backwards')
     return true
 end
 
@@ -525,11 +525,11 @@ function getPosBehind(pos)
     return newPos
 end
 
-function assertNotInsideBlock(world)
+function assertNotInsideBlock(world, movementDirectionForError)
     local cell = lookupInMap(world.map, posToCoord(world.turtle.pos))
     if cell ~= nil then
         local pos = world.turtle.pos
-        error('Ran into a block of '..cell.id..' at ('..pos.x..', '..pos.y..', '..pos.z..')')
+        error('Ran into a block of '..cell.id..' at ('..pos.x..', '..pos.y..', '..pos.z..') while moving '..movementDirectionForError)
     end
 end
 
@@ -563,25 +563,25 @@ function spawnTreeAt(currentWorld, absCoord)
 
     local trunkLength = math.random(3, 5)
 
-    for i = 1, trunkLength do
-        trySetInMap(0, i, 0, 'minecraft:log')
-    end
-
     -- Remove existing sapling
     setInMap(currentWorld.map, absCoord, nil)
+
+    for i = 0, trunkLength - 1 do
+        trySetInMap(0, i, 0, 'minecraft:log')
+    end
 
     -- Creating 5x5 block of leaves with logs down the center
     for x = -2, 2 do
         for z = -2, 2 do
             for y = 0, 1 do
                 if x == 0 and z == 0 then
-                    trySetInMap(x, trunkLength + y, z, 'minecraft:log')
+                    trySetInMap(x, trunkLength + y - 1, z, 'minecraft:log')
                 elseif y == 0 and math.abs(x) == 2 and math.abs(z) == 2 then
                     -- do nothing
                 elseif y == 1 and math.abs(x) == 2 and math.abs(z) == 2 and math.random(0, 1) == 0 then
                     -- do nothing
                 else
-                    trySetInMap(x, trunkLength + y, z, 'minecraft:leaves')
+                    trySetInMap(x, trunkLength + y - 1, z, 'minecraft:leaves')
                 end
             end
         end
@@ -592,13 +592,13 @@ function spawnTreeAt(currentWorld, absCoord)
         for z = -1, 1 do
             for y = 2, 3 do
                 if y == 2 and x == 0 and z == 0 then
-                    trySetInMap(x, trunkLength + y, z, 'minecraft:log')
-                elseif y == 2 and math.abs(x) == 1 and math.abs(z) == 1 then
+                    trySetInMap(x, trunkLength + y - 1, z, 'minecraft:log')
+                elseif y == 2 and math.abs(x) == 1 and math.abs(z) == 1 and math.random(0, 1) == 0 then
                     -- do nothing
-                elseif y == 3 and math.abs(x) == 1 and math.abs(z) == 1 and math.random(0, 1) == 0 then
+                elseif y == 3 and math.abs(x) == 1 and math.abs(z) == 1 then
                     -- do nothing
                 else
-                    trySetInMap(x, trunkLength + y, z, 'minecraft:leaves')
+                    trySetInMap(x, trunkLength + y - 1, z, 'minecraft:leaves')
                 end
             end
         end

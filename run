@@ -62,7 +62,7 @@ elseif inputs.useMockLib then
 end
 
 function onStep()
-    if inputs.useMockLib then
+    if inputs.useMockLib and (debug.showStepByStep or true) then
         -- _G.mockComputerCraftApi.present.displayMap(world, { minX = -5, maxX = 5, minY = 0, maxY = 999, minZ = -5, maxZ = 5 }, { showKey = false })
         -- mockComputerCraftApi.present.showTurtlePosition(world)
         -- debug.busySleep(0.15)
@@ -82,6 +82,7 @@ end
 if inputs.useMockLib then
     mockComputerCraftApi.present.displayMap(world, { minX = -8, maxX = 5, minY = 0, maxY = 79, minZ = -5, maxZ = 4 }, { showKey = false })
     -- mockComputerCraftApi.present.displayMap(world, { minX = -8, maxX = 5, minY = 65, maxY = 68, minZ = -5, maxZ = 4 }, { showKey = false })
+    -- mockComputerCraftApi.present.displayLayers(world, { minX = -8, maxX = 5, minY = 65, maxY = 75, minZ = -5, maxZ = 4 }, { showKey = false })
     mockComputerCraftApi.present.showTurtlePosition(world)
     mockComputerCraftApi.present.inventory(world)
 end

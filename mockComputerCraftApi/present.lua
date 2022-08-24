@@ -91,6 +91,16 @@ function module.displayMap(world, bounds, opts)
     print(result)
 end
 
+function module.displayLayers(world, bounds, opts)
+    for i = bounds.minY, bounds.maxY do
+        local boundsCopy = util.copyTable(bounds)
+        boundsCopy.minY = i
+        boundsCopy.maxY = i
+        print('y='..i)
+        module.displayMap(world, boundsCopy, opts)
+    end
+end
+
 function module.inventory(world)
     print('Inventory:')
     local found = false

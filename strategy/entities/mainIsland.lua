@@ -23,6 +23,7 @@ function initEntity(opts)
     local initialLoc = location.register(space.resolveRelPos({ right=3, face='left' }, homeLoc.pos))
 
     local cobblestoneGeneratorMill = createCobblestoneGeneratorMill({ homeLoc = homeLoc })
+    local startingIslandTreeFarm = createStartingIslandTreeFarm({ bedrockPos = bedrockPos, homeLoc = homeLoc })
 
     local init = initProject({ initialLoc = initialLoc, homeLoc = homeLoc })
     local harvestInitialTreeAndPrepareTreeFarm = harvestInitialTreeAndPrepareTreeFarmProject({ bedrockPos = bedrockPos, homeLoc = homeLoc })
@@ -34,6 +35,7 @@ function initEntity(opts)
         initialLoc = initialLoc,
         homeLoc = homeLoc,
         init = init,
+        startingIslandTreeFarm = startingIslandTreeFarm, ------ Temporary
         harvestInitialTreeAndPrepareTreeFarm = harvestInitialTreeAndPrepareTreeFarm,
         startBuildingCobblestoneGenerator = startBuildingCobblestoneGenerator,
         waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGenerator,
@@ -92,24 +94,49 @@ function harvestInitialTreeAndPrepareTreeFarmProject(opts)
         nextPlan = function(planner, taskState)
             local startPos = util.copyTable(planner.turtlePos)
 
-            local bottomTree1LogCmps = bedrockCmps.compassAt({ forward=-4, right=-1, up=3 })
-            local aboveTree1Cmps = bottomTree1LogCmps.compassAt({ up=9 })
-            local aboveTree2Cmps = aboveTree1Cmps.compassAt({ right=2 })
+            local bottomTreeLogCmps = bedrockCmps.compassAt({ forward=-4, right=-1, up=3 })
+            local aboveTreeCmps = bottomTreeLogCmps.compassAt({ up=9 })
+            local aboveFutureTree1Cmps = aboveTreeCmps.compassAt({ right=-2 })
+            local aboveFutureTree2Cmps = aboveTreeCmps.compassAt({ right=4 })
 
+            -- Place dirt up top
             highLevelCommands.findAndSelectSlotWithItem(planner, 'minecraft:dirt')
-            navigate.moveToCoord(planner, aboveTree2Cmps.coord, { 'up', 'forward', 'right' })
+            navigate.moveToCoord(planner, aboveFutureTree2Cmps.coord, { 'up', 'forward', 'right' })
             commands.turtle.placeDown(planner)
             highLevelCommands.findAndSelectSlotWithItem(planner, 'minecraft:dirt')
-            navigate.moveToCoord(planner, aboveTree1Cmps.coord, { 'up', 'forward', 'right' })
+            navigate.moveToCoord(planner, aboveFutureTree1Cmps.coord, { 'up', 'forward', 'right' })
             commands.turtle.placeDown(planner)
             commands.turtle.select(planner, 1)
 
-            harvestTreeFromAbove(planner, { bottomLogPos = bottomTree1LogCmps.pos })
+            -- Harvest tree
+            navigate.moveToCoord(planner, aboveTreeCmps.coord, { 'up', 'forward', 'right' })
+            harvestTreeFromAbove(planner, { bottomLogPos = bottomTreeLogCmps.pos })
 
-            navigate.moveToPos(planner, bottomTree1LogCmps.posAt({ right=1 }))
-            plantSaplingsFromBetweenTrees(planner, { bedrockCmps = bedrockCmps })
+            -- Prepare sapling planting area
+            function prepareSaplingDirtArm(planner, direction)
+                for i = 1, 2 do
+                    commands.turtle.digDown(planner)
+                    commands.turtle.down(planner)
+                end
+                commands.turtle.digDown(planner)
+                commands.turtle.up(planner)
+                commands.turtle.up(planner)
+                navigate.face(planner, bottomTreeLogCmps.facingAt({ face=direction }))
+                for i = 1, 2 do
+                    highLevelCommands.placeItemDown(planner, 'minecraft:dirt')
+                    commands.turtle.forward(planner)
+                end
+                highLevelCommands.placeItemDown(planner, 'minecraft:dirt')
+                commands.turtle.up(planner)
+                highLevelCommands.placeItemDown(planner, 'minecraft:sapling')
+            end
 
-            navigate.moveToPos(planner, startPos, { 'up', 'forward', 'right' })
+            navigate.assertPos(planner, bottomTreeLogCmps.pos)
+            prepareSaplingDirtArm(planner, 'left')
+            navigate.moveToPos(planner, bottomTreeLogCmps.posAt({ right=2 }), { 'forward', 'right', 'up' })
+            prepareSaplingDirtArm(planner, 'right')
+
+            navigate.moveToPos(planner, startPos, { 'forward', 'right', 'up' })
 
             return taskState, true
         end,
@@ -147,6 +174,7 @@ function harvestTreeFromAbove(planner, opts)
     local navigate = _G.act.navigate
     local commands = _G.act.commands
     local space = _G.act.space
+    local transformers = harvestTreeFromAboveTransformers
 
     local bottomLogCmps = space.createCompass(bottomLogPos)
 
@@ -159,7 +187,7 @@ function harvestTreeFromAbove(planner, opts)
     commands.futures.while_(planner, { continueIf = leavesNotFound }, function(planner)
         commands.turtle.down(planner)
         local blockBelow = commands.turtle.inspectDown(planner, { out = genId('blockBelow') })
-        leavesNotFound = harvestTreeFromAboveTransformers.isNotBlockOfLeaves(planner, { in_=blockBelow, out=leavesNotFound })
+        leavesNotFound = transformers.isNotBlockOfLeaves(planner, { in_=blockBelow, out=leavesNotFound })
         commands.futures.delete(planner, { in_ = blockBelow })
     end)
 
@@ -200,37 +228,6 @@ function harvestTreeFromAbove(planner, opts)
     end)
 
     planner.turtlePos = util.copyTable(bottomLogCmps.pos)
-end
-
-function plantSaplingsFromBetweenTrees(planner, opts)
-    local navigate = _G.act.navigate
-    local commands = _G.act.commands
-    local highLevelCommands = _G.act.highLevelCommands
-
-    local bedrockCmps = opts.bedrockCmps
-
-    local betweenTreesCmps = bedrockCmps.compassAt({ forward=-4, up=3 })
-    navigate.assertPos(planner, betweenTreesCmps.pos)
-
-    local saplingFound = highLevelCommands.findAndSelectSlotWithItem(planner, 'minecraft:sapling', {
-        allowMissing = true,
-        out=genId('saplingFound'),
-    })
-    commands.futures.if_(planner, saplingFound, function(planner)
-        navigate.face(planner, betweenTreesCmps.facingAt({ face='left' }))
-        commands.turtle.place(planner)
-
-        saplingFound = highLevelCommands.findAndSelectSlotWithItem(planner, 'minecraft:sapling', {
-            allowMissing = true,
-            out=saplingFound,
-        })
-        commands.futures.if_(planner, saplingFound, function(planner)
-            navigate.face(planner, betweenTreesCmps.facingAt({ face='right' }))
-            commands.turtle.place(planner)
-        end)
-    end)
-
-    highLevelCommands.reorient(planner, betweenTreesCmps.facingAt({ face='forward' }))
 end
 
 function startBuildingCobblestoneGeneratorProject(opts)
@@ -418,6 +415,77 @@ function createCobblestoneGeneratorMill(opts)
     })
 end
 
+local startingIslandTreeFarmTransformers = _G.act.commands.registerFutureTransformers(
+    moduleId..':startingIslandTreeFarm',
+    {
+        isBlockALog = function(blockInfoTuple)
+            local success = blockInfoTuple[1]
+            local blockInfo = blockInfoTuple[2]
+            return success and blockInfo.name == 'minecraft:log'
+        end,
+    }
+)
+
+
+function createStartingIslandTreeFarm(opts)
+    local homeLoc = opts.homeLoc
+    local bedrockPos = opts.bedrockPos
+
+    local location = _G.act.location
+    local navigate = _G.act.navigate
+    local commands = _G.act.commands
+    local highLevelCommands = _G.act.highLevelCommands
+    local space = _G.act.space
+    local transformers = startingIslandTreeFarmTransformers
+
+    local homeCmps = space.createCompass(homeLoc.pos)
+    local taskRunnerId = _G.act.task.registerTaskRunner('farm:mainIsland:startingIslandTreeFarm', {
+        enter = function(planner, taskState)
+            location.travelToLocation(planner, homeLoc)
+        end,
+        exit = function(planner, taskState)
+            navigate.assertPos(planner, homeLoc.pos)
+        end,
+        nextPlan = function(planner, taskState)
+            location.travelToLocation(planner, homeLoc)
+            local startPos = util.copyTable(planner.turtlePos)
+
+            local mainCmps = homeCmps.compassAt({ forward=-5 })
+            navigate.moveToCoord(planner, mainCmps.coord)
+
+            function tryHarvestTree(planner, inFrontOfTreeCmps)
+                local blockInfo = commands.turtle.inspect(planner, { out=genId('blockInfo') })
+                local blockIsLog = transformers.isBlockALog(planner, { in_=blockInfo, out=genId('blockIsLog') })
+                commands.futures.if_(planner, blockIsLog, function(planner)
+                    local bottomLogCmps = inFrontOfTreeCmps.compassAt({ forward=1 })
+                    navigate.moveToCoord(planner, inFrontOfTreeCmps.coordAt({ forward=-2 }))
+                    navigate.moveToPos(planner, bottomLogCmps.posAt({ up=9 }), { 'up', 'forward', 'right' })
+                    harvestTreeFromAbove(planner, { bottomLogPos = bottomLogCmps.pos })
+                    navigate.moveToPos(planner, inFrontOfTreeCmps.pos)
+                    highLevelCommands.placeItem(planner, 'minecraft:sapling', { allowMissing = true })
+                end)
+            end
+
+            local inFrontOfTree1Cmps = mainCmps.compassAt({ right=-3 })
+            navigate.moveToPos(planner, inFrontOfTree1Cmps.pos)
+            tryHarvestTree(planner, inFrontOfTree1Cmps)
+
+            local inFrontOfTree2Cmps = mainCmps.compassAt({ right=3 })
+            navigate.moveToPos(planner, inFrontOfTree2Cmps.pos)
+            tryHarvestTree(planner, inFrontOfTree2Cmps)
+
+            navigate.moveToPos(planner, startPos, { 'up', 'right', 'forward' })
+
+            return taskState, true
+        end,
+    })
+    return _G.act.project.create(taskRunnerId, {
+        preConditions = function(currentConditions)
+            return currentConditions.mainIsland
+        end,
+    })
+end
+
 function createCobbleTowerProject(opts)
     local homeLoc = opts.homeLoc
 
@@ -439,10 +507,9 @@ function createCobbleTowerProject(opts)
             navigate.assertPos(planner, homeLoc.pos)
         end,
         nextPlan = function(planner, taskState)
-            location.travelToLocation(planner, homeLoc)
             local startPos = util.copyTable(planner.turtlePos)
 
-            local towerBaseCmps = homeCmps.compassAt({ right=-5 })
+            local towerBaseCmps = homeCmps.compassAt({ right=-6 })
             
             for x = 0, 2 do
                 for z = 0, 3 do

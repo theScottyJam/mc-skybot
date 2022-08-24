@@ -2,6 +2,15 @@ local util = import('util.lua')
 
 local module = {}
 
+local moduleId = 'act:highLevelCommands'
+local _genId = nil
+local getGenId = function()
+    if _genId == nil then
+        _genId = _G.act.commands.createIdGenerator(moduleId)
+    end
+    return _genId
+end
+
 function module.init(commands)
     local registerCommand = commands.registerCommand
     local registerCommandWithFuture = commands.registerCommandWithFuture
@@ -53,6 +62,36 @@ function module.init(commands)
             return opts and opts.out
         end
     )
+
+    highLevelCommands.placeItem = function(planner, itemId, opts)
+        placeItemUsing(planner, itemId, opts, commands.turtle.place)
+    end
+
+    highLevelCommands.placeItemUp = function(planner, itemId, opts)
+        placeItemUsing(planner, itemId, opts, commands.turtle.placeUp)
+    end
+
+    highLevelCommands.placeItemDown = function(planner, itemId, opts)
+        placeItemUsing(planner, itemId, opts, commands.turtle.placeDown)
+    end
+
+    function placeItemUsing(planner, itemId, opts, placeFn)
+        local commands = _G.act.commands
+        local genId = getGenId()
+
+        opts = opts or {}
+        local allowMissing = opts.allowMissing or false
+        local out = opts.out or genId('foundItem')
+
+        local foundItem = highLevelCommands.findAndSelectSlotWithItem(planner, itemId, {
+            out = out,
+            allowMissing = allowMissing,
+        })
+        commands.futures.if_(planner, foundItem, function(planner)
+            placeFn(planner)
+            commands.turtle.select(planner, 1)
+        end)
+    end
 
     -- opts.expectedBlockId is the blockId you're waiting for
     -- opts.direction is 'up' or 'down' ('front' is not yet supported).
