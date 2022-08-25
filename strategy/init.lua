@@ -31,7 +31,6 @@ function initStrategy()
     mainIsland.harvestInitialTreeAndPrepareTreeFarm.addToProjectList(projectList, currentConditions)
     mainIsland.waitForIceToMeltAndfinishCobblestoneGenerator.addToProjectList(projectList, currentConditions)
     mainIsland.createCobbleTower.addToProjectList(projectList, currentConditions)
-    mainIsland.startingIslandTreeFarm.addToProjectList(projectList, currentConditions)
 
     return {
         initialTurtlePos = mainIsland.initialLoc.pos,

@@ -1,4 +1,5 @@
 local util = import('util.lua')
+local time = import('./_time.lua')
 
 local module = {}
 
@@ -9,7 +10,7 @@ math.randomseed(0)
 -- math.randomseed(os.time())
 
 function module.up()
-    tick()
+    time.tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     currentWorld.turtle.pos.y = currentWorld.turtle.pos.y + 1
     assertNotInsideBlock(currentWorld, 'up')
@@ -17,7 +18,7 @@ function module.up()
 end
 
 function module.down()
-    tick()
+    time.tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     currentWorld.turtle.pos.y = currentWorld.turtle.pos.y - 1
     assertNotInsideBlock(currentWorld, 'down')
@@ -25,7 +26,7 @@ function module.down()
 end
 
 function module.forward()
-    tick()
+    time.tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     currentWorld.turtle.pos = getPosInFront(currentWorld.turtle.pos)
     assertNotInsideBlock(currentWorld, 'forwards')
@@ -33,7 +34,7 @@ function module.forward()
 end
 
 function module.back()
-    tick()
+    time.tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     currentWorld.turtle.pos = getPosBehind(currentWorld.turtle.pos)
     assertNotInsideBlock(currentWorld, 'backwards')
@@ -41,7 +42,7 @@ function module.back()
 end
 
 function module.turnLeft()
-    tick()
+    time.tick()
     local turtle = _G.mockComputerCraftApi._currentWorld.turtle
     if turtle.pos.face == 'N' then
         turtle.pos.face = 'W'
@@ -56,7 +57,7 @@ function module.turnLeft()
 end
 
 function module.turnRight()
-    tick()
+    time.tick()
     local turtle = _G.mockComputerCraftApi._currentWorld.turtle
     if turtle.pos.face == 'N' then
         turtle.pos.face = 'E'
@@ -126,7 +127,7 @@ end
 
 -- signText is optional
 function module.place(signText)
-    tick()
+    time.tick()
     if signText ~= nil then error('signText arg not supported') end
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local placeCoord = posToCoord(getPosInFront(currentWorld.turtle.pos))
@@ -134,7 +135,7 @@ function module.place(signText)
 end
 
 function module.placeUp()
-    tick()
+    time.tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
     local placeCoord = { x = turtle.pos.x, y = turtle.pos.y + 1, z = turtle.pos.z }
@@ -142,7 +143,7 @@ function module.placeUp()
 end
 
 function module.placeDown()
-    tick()
+    time.tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
     local placeCoord = { x = turtle.pos.x, y = turtle.pos.y - 1, z = turtle.pos.z }
@@ -193,14 +194,14 @@ function placeAt(currentWorld, placeCoord)
         local success = addToInventory(currentWorld.turtle, 'minecraft:bucket') == 1
         if not success then error('UNREACHABLE') end
     elseif itemIdBeingPlaced == 'minecraft:ice' then
-        addTickListener(math.random(200, 250), function()
+        time.addTickListener(math.random(200, 250), function()
             local cell = lookupInMap(currentWorld.map, placeCoord)
             if cell ~= nil and cell.id == 'minecraft:ice' then
                 setInMap(currentWorld.map, placeCoord, { id = 'minecraft:water' })
             end
         end)
     elseif itemIdBeingPlaced == 'minecraft:sapling' then
-        addTickListener(math.random(300, 400), function()
+        time.addTickListener(math.random(600, 1600), function()
             local cell = lookupInMap(currentWorld.map, placeCoord)
             if cell ~= nil and cell.id == 'minecraft:sapling' then
                 spawnTreeAt(currentWorld, placeCoord)
@@ -248,14 +249,14 @@ function inspectAt(currentWorld, inspectCoord)
 end
 
 function module.dig(toolSide)
-    tick()
+    time.tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local coordBeingDug = posToCoord(getPosInFront(currentWorld.turtle.pos))
     return digAt(currentWorld, coordBeingDug, toolSide)
 end
 
 function module.digUp(toolSide)
-    tick()
+    time.tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
     local coordBeingDug = { x = turtle.pos.x, y = turtle.pos.y + 1, z = turtle.pos.z }
@@ -263,7 +264,7 @@ function module.digUp(toolSide)
 end
 
 function module.digDown(toolSide)
-    tick()
+    time.tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
     local coordBeingDug = { x = turtle.pos.x, y = turtle.pos.y - 1, z = turtle.pos.z }
@@ -314,7 +315,7 @@ end
 
 -- amount is optional
 function module.suck(amount)
-    tick()
+    time.tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
     local coordSuckingFrom = posToCoord(getPosInFront(turtle.pos))
@@ -322,7 +323,7 @@ function module.suck(amount)
 end
 
 function module.suckUp(amount)
-    tick()
+    time.tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
     local coordSuckingFrom = { x = turtle.pos.x, y = turtle.pos.y + 1, z = turtle.pos.z }
@@ -330,7 +331,7 @@ function module.suckUp(amount)
 end
 
 function module.suckDown(amount)
-    tick()
+    time.tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
     local coordSuckingFrom = { x = turtle.pos.x, y = turtle.pos.y - 1, z = turtle.pos.z }
@@ -426,36 +427,17 @@ function hookListeners.registerCobblestoneRegenerationBlock(deltaCoord)
         z = -deltaCoord.forward
     }
     function regenerateCobblestone()
-        addTickListener(5, regenerateCobblestone)
+        time.addTickListener(5, regenerateCobblestone)
         local currentWorld = _G.mockComputerCraftApi._currentWorld
         local cell = lookupInMap(currentWorld.map, coord)
         if cell ~= nil then return end
         setInMap(currentWorld.map, coord, { id = 'minecraft:cobblestone' })
     end
 
-    addTickListener(5, regenerateCobblestone)
+    time.addTickListener(5, regenerateCobblestone)
 end
 
 ---- HELPERS ----
-
-local tickListeners = {}
-local currentTick = 0
-function tick()
-    currentTick = currentTick + 1
-    for i, entry in ipairs(tickListeners) do
-        if entry.at == currentTick then
-            entry.listener()
-        end
-    end
-    tickListeners = util.filterArrayTable(tickListeners, function(value) return value.at > currentTick end)
-end
-
-function addTickListener(ticksLater, listener)
-    table.insert(tickListeners, {
-        at = currentTick + ticksLater,
-        listener = listener
-    })
-end
 
 -- quantity must be the size of a stack or less. Defaults to 1.
 -- Returns the quantity added successfuly.
@@ -605,4 +587,4 @@ function spawnTreeAt(currentWorld, absCoord)
     end
 end
 
-return module, hookListeners
+return { module, hookListeners }

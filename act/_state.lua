@@ -23,14 +23,17 @@ function module.createInitialState(opts)
         -- List of steps that need to be taken to get to a good interrupt point
         plan = {},
         -- The project currently being worked on, or that we're currently gathering resources for
-        activeTask = nil,
+        primaryTask = nil,
+        -- A task, like a farm-tending task, that's interrupting the active one
+        interruptTask = nil,
         -- A mapping that lets us know where resources can be found.
         resourceSuppliers = {},
+        -- A list of info objects related to enabled farms that require occasional attention.
+        activeFarms = {},
 
-        -- DEPRECATED
         getActiveTask = function()
-            return state.activeTask
-        end
+            return state.primaryTask or state.interruptTask
+        end,
     }
     return state
 end

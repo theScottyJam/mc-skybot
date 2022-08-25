@@ -1,3 +1,4 @@
+local time = import('./_time.lua')
 local util = import('util.lua')
 
 local turtleActions = {}
@@ -371,6 +372,28 @@ generalActions.activateMill = registerCommand(
             end
 
             table.insert(state.resourceSuppliers[resourceName], 1, { type='mill', taskRunnerId = taskRunnerId })
+        end
+    end
+)
+
+generalActions.activateFarm = registerCommand(
+    'general:activateFarm',
+    function(state, opts)
+        local taskRunnerId = opts.taskRunnerId
+        local supplies = opts.supplies
+        local scheduleOpts = opts.scheduleOpts
+
+        for _, resourceName in ipairs(supplies) do
+            if state.resourceSuppliers[resourceName] == nil then
+                state.resourceSuppliers[resourceName] = {}
+            end
+
+            table.insert(state.resourceSuppliers[resourceName], 1, { type='farm', taskRunnerId = taskRunnerId })
+            table.insert(state.activeFarms, {
+                taskRunnerId = taskRunnerId,
+                scheduleOpts = scheduleOpts,
+                lastVisited = time.get(),
+            })
         end
     end
 )

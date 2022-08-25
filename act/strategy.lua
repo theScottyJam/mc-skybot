@@ -1,7 +1,3 @@
--- TODO: When ready, I probably should split this module into a "strategy" module and a "scheduler" module.
--- The "strategy" module would be in charge of the big picture, while the "scheduler" would be in charge
--- of working on a single active task and its interruptions.
-
 local util = import('util.lua')
 
 local module = {}
@@ -16,25 +12,53 @@ function module.exec(strategy, onStep)
         projectList = strategy.projectList,
     })
     while #state.projectList > 0 do
+        -- Prepare the next project task, or resource-fetching task
         local resourcesInInventory = takeInventory(state, onStep)
         local nextProjectTaskRunner = task.lookupTaskRunner(state.projectList[1])
         local resourceCollectionTask = task.collectResources(state, nextProjectTaskRunner, resourcesInInventory)
         if resourceCollectionTask ~= nil then
-            state.activeTask = resourceCollectionTask
+            state.primaryTask = resourceCollectionTask
         else
             table.remove(state.projectList, 1)
-            state.activeTask = task.create(nextProjectTaskRunner.id)
+            state.primaryTask = task.create(nextProjectTaskRunner.id)
+        end
+
+        -- Check for interruptions
+        local interruptTask = _G.act.farm.checkForInterruptions(state)
+        if interruptTask ~= nil then
+            handleInterruption(state, interruptTask)
         end
 
         -- Go through the task's plans
-        local taskRunnerBeingDone = state.activeTask.getTaskRunner()
-        executePlan(state, onStep, taskRunnerBeingDone.enter(state, state.activeTask))
-        while not state.activeTask.completed do
-            executePlan(state, onStep, taskRunnerBeingDone.nextPlan(state, state.activeTask))
+        local taskRunnerBeingDone = state.primaryTask.getTaskRunner()
+        executePlan(state, onStep, taskRunnerBeingDone.enter(state, state.primaryTask))
+        while true do
+            executePlan(state, onStep, taskRunnerBeingDone.nextPlan(state, state.primaryTask))
+            if state.primaryTask.completed then break end
+
+            -- Handle interruptions
+            local interruptTask = _G.act.farm.checkForInterruptions(state)
+            if interruptTask ~= nil then
+                executePlan(state, onStep, taskRunnerBeingDone.exit(state, state.primaryTask))
+                handleInterruption(state, interruptTask)
+                executePlan(state, onStep, taskRunnerBeingDone.enter(state, state.primaryTask))
+            end
         end
-        executePlan(state, onStep, taskRunnerBeingDone.exit(state, state.activeTask))
-        state.activeTask = nil
+        executePlan(state, onStep, taskRunnerBeingDone.exit(state, state.primaryTask))
+        state.primaryTask = nil
     end
+end
+
+function handleInterruption(state, interruptTask)
+    state.interruptTask = interruptTask
+    local taskRunnerBeingDone = state.interruptTask.getTaskRunner()
+    executePlan(state, onStep, taskRunnerBeingDone.enter(state, state.interruptTask))
+    while not state.interruptTask.completed do
+        executePlan(state, onStep, taskRunnerBeingDone.nextPlan(state, state.interruptTask))
+    end
+    executePlan(state, onStep, taskRunnerBeingDone.exit(state, state.interruptTask))
+    _G.act.farm.markFarmTaskAsCompleted(state, state.interruptTask.taskRunnerId)
+    state.interruptTask = nil
 end
 
 function takeInventory(state, onStep)

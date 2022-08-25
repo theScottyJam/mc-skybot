@@ -26,10 +26,10 @@ local completeMapKey = {
 
 -- bounds is of the shape { minX = ..., maxX = ..., minY? = ..., maxY? = ..., minZ = ..., maxZ = ...}
 -- This will render a top-down view of the world, cropped at the provided bounds.
--- opts is optional
+-- opts is optional. You can provide `opts.showKey` to also render the map's key.
 function module.displayMap(world, bounds, opts)
     local showKey = (opts or {}).showKey
-    if showKey == nil then showKey = true end
+    if showKey == nil then showKey = false end
 
     local map = world.map
     local view = {}
@@ -89,6 +89,25 @@ function module.displayMap(world, bounds, opts)
     end
 
     print(result)
+end
+
+function module.displayCentered(world, opts)
+    opts = opts or {}
+    local coord = opts.coord or world.turtle.pos
+    local width = opts.width or 20
+    local height = opts.height or 8
+    local minY = opts.minY -- may be nil
+    local maxY = opts.maxY -- may be nil
+    local showKey = opts.showKey -- may be nil
+
+    module.displayMap(world, {
+        minX = coord.x - math.floor(width / 2),
+        maxX = coord.x + math.ceil(width / 2),
+        minY = minY,
+        maxY = maxY,
+        minZ = coord.z - math.floor(height / 2),
+        maxZ = coord.z + math.ceil(height / 2),
+    }, { showKey = showKey })
 end
 
 function module.displayLayers(world, bounds, opts)

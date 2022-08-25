@@ -22,6 +22,7 @@ inputs:
     "complete" boolean property that indicates if the task has been completed at this point.
     This function will run after the task finishes and whenever the task needs to pause
     for an interruption, and is supposed to bring the turtle to the position of a registered location.
+    It can also be used to activate mills and farms.
   opts.nextPlan() takes a planner, a taskState, and any other arbitrary
     arguments it might need and returns a tuple containing an updated task state and
     a "complete" boolean, which when true indicates thatonce everything registered in the

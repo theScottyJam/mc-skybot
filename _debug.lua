@@ -15,8 +15,12 @@ function debugModule.printTable(table)
 end
 
 function debugModule.busySleep(seconds)
-    local sec = tonumber(os.clock() + seconds);
-    while (os.clock() < sec) do 
+    -- The os module gets overwritten to act more like computerCraft's version of `os`.
+    -- The original os module is still needed to count real time passing, if it's available.
+    -- (When mocking, the original is backed-up to _G.originalOs)
+    local osModule = _G.originalOs or _G.os
+    local sec = tonumber(osModule.clock() + seconds);
+    while (osModule.clock() < sec) do 
     end 
 end
 
