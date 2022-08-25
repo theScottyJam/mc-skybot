@@ -113,10 +113,11 @@ function module.collectResources(state, initialTaskRunner, resourcesInInventory)
     -- Loop over the mapping, removing things that are already satisfied, until
     -- you find a resource that needs to be done, who's requirements are all fulfilled.
     while util.tableSize(resourceMap) > 0 do
+        local fieldsToRemoveFromMap = {}
         for resourceName, resourceInfo in pairs(resourceMap) do
             local quantityNeeded = util.maxNumber(0, resourceInfo.quantity - (resourcesInInventory[resourceName] or 0))
             if quantityNeeded == 0 then
-                resourceMap[resourceName] = nil
+                table.insert(fieldsToRemoveFromMap, resourceName)
             elseif resourceInfo.taskRunner == nil then
                 error(
                     'Attempted to start a task that requires the resource '..resourceName..', '..
@@ -134,6 +135,10 @@ function module.collectResources(state, initialTaskRunner, resourcesInInventory)
                     return module.create(resourceInfo.taskRunner.id, { [resourceName] = quantityNeeded })
                 end
             end
+        end
+
+        for _, fieldToRemove in pairs(fieldsToRemoveFromMap) do
+            resourceMap[fieldToRemove] = nil
         end
     end
 
