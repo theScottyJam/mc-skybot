@@ -32,14 +32,43 @@ end
 local inputs = parseTerminalArgs({ ... })
 
 local BASE_PATH = inputs.basePath
+local moduleCache = {}
+local importStack = { 'run' }
 _G.import = function (path)
-    return dofile(BASE_PATH..path)
+    local absPath = resolvePotentiallyRelativePath(path)
+    if moduleCache[absPath] == nil then
+        table.insert(importStack, absPath)
+        moduleCache[absPath] = dofile(BASE_PATH..absPath)
+        table.remove(importStack)
+    end
+    return moduleCache[absPath]
+end
+
+function resolvePotentiallyRelativePath(path)
+    if string.sub(path, 1, 2) ~= './' then
+        -- it's already absolute
+        return path
+    end
+
+    local baseFilePath = importStack[#importStack]
+    local baseFile
+    do
+        local reversed = string.reverse(baseFilePath)
+        local slashPos = string.find(reversed, '/')
+        if slashPos == nil then
+            basePath = ''
+        else
+            basePath = string.reverse(string.sub(reversed, slashPos))
+        end
+    end
+
+    return basePath .. string.sub(path, 3)
 end
 
 local base
 local world
 local hookListeners = {}
-import('./debug.lua').registerGlobal() -- 'debug' is already a module, so must be imported via './debug'
+import('_debug.lua').registerGlobal()
 if inputs.showHelp then
     print('USAGE: run [...flags]')
     print('  --help/-h: This help')

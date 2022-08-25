@@ -1,6 +1,7 @@
 # Helpful information
 
 turtle api: https://computercraft.info/wiki/Turtle_(API)
+All APIs available to the turtle: https://computercraft.info/wiki/Category:APIs
 
        (-Z)
          N     up: +y
