@@ -64,7 +64,6 @@ function initProject(opts)
         postConditions = function(currentConditions)
             currentConditions.mainIsland = {
                 emptyBucketInInventory = false,
-                someDirtInInventory = false,
                 startedCobblestoneGeneratorConstruction = false,
             }
         end,
@@ -85,6 +84,10 @@ function harvestInitialTreeAndPrepareTreeFarmProject(opts)
     local bedrockCmps = space.createCompass(bedrockPos)
     local taskRunnerId = 'project:mainIsland:harvestInitialTreeAndPrepareTreeFarm'
     _G.act.task.registerTaskRunner(taskRunnerId, {
+        requiredResources = {
+            -- 2 for each "sappling-arm", and 2 for the dirt that hovers above the trees
+            ['minecraft:dirt'] = { quantity=6, at='INVENTORY' }
+        },
         enter = function(planner, taskState)
             location.travelToLocation(planner, homeLoc)
         end,
@@ -114,19 +117,11 @@ function harvestInitialTreeAndPrepareTreeFarmProject(opts)
 
             -- Prepare sapling planting area
             function prepareSaplingDirtArm(planner, direction)
-                for i = 1, 2 do
-                    commands.turtle.digDown(planner)
-                    commands.turtle.down(planner)
-                end
-                commands.turtle.digDown(planner)
-                commands.turtle.up(planner)
-                commands.turtle.up(planner)
                 navigate.face(planner, bottomTreeLogCmps.facingAt({ face=direction }))
                 for i = 1, 2 do
-                    highLevelCommands.placeItemDown(planner, 'minecraft:dirt')
                     commands.turtle.forward(planner)
+                    highLevelCommands.placeItemDown(planner, 'minecraft:dirt')
                 end
-                highLevelCommands.placeItemDown(planner, 'minecraft:dirt')
                 commands.turtle.up(planner)
                 highLevelCommands.placeItemDown(planner, 'minecraft:sapling')
             end
@@ -143,10 +138,7 @@ function harvestInitialTreeAndPrepareTreeFarmProject(opts)
     })
     return _G.act.project.create(taskRunnerId, {
         preConditions = function(currentConditions)
-            return (
-                currentConditions.mainIsland and
-                currentConditions.mainIsland.someDirtInInventory
-            )
+            return currentConditions.mainIsland
         end,
     })
 end
@@ -306,7 +298,6 @@ function startBuildingCobblestoneGeneratorProject(opts)
         end,
         postConditions = function(currentConditions)
             currentConditions.mainIsland.emptyBucketInInventory = true
-            currentConditions.mainIsland.someDirtInInventory = true
             currentConditions.mainIsland.startedCobblestoneGeneratorConstruction = true
         end,
     })

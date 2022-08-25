@@ -90,13 +90,13 @@ function module.collectResources(state, initialTaskRunner, resourcesInInventory)
         local requiredResources = table.remove(requiredResourcesToProcess)
         for resourceName, rawRequirements in pairs(requiredResources) do
             if rawRequirements.at ~= 'INVENTORY' then error('Only at="INVENTORY" is supported right now.') end
-            if resourceMap[resourceName] == nil then
-                if state.resourceSuppliers[resourceName] == nil then
-                    error(
-                        'Attempted to start a task that requires the resource '..resourceName..', '..
-                        'but there are no registered sources for this resource.'
-                    )
-                end
+
+            if resourceMap[resourceName] == nil and state.resourceSuppliers[resourceName] == nil then
+                resourceMap[resourceName] = {
+                    quantity = 0,
+                    taskRunner = nil, -- nil means there are no registered resource suppliers
+                }
+            elseif resourceMap[resourceName] == nil then
                 local supplier = state.resourceSuppliers[resourceName][1]
                 if supplier.type ~= 'mill' then error('Invalid supplier type') end
                 local subTaskRunner = module.lookupTaskRunner(supplier.taskRunnerId)
@@ -117,6 +117,11 @@ function module.collectResources(state, initialTaskRunner, resourcesInInventory)
             local quantityNeeded = util.maxNumber(0, resourceInfo.quantity - (resourcesInInventory[resourceName] or 0))
             if quantityNeeded == 0 then
                 resourceMap[resourceName] = nil
+            elseif resourceInfo.taskRunner == nil then
+                error(
+                    'Attempted to start a task that requires the resource '..resourceName..', '..
+                    'but there are no registered sources for this resource, nor is there enough of it on hand.'
+                )
             else
                 local requirementsFulfilled = true
                 for subResourceName, subRawRequirements in pairs(resourceInfo.taskRunner.requiredResources) do
