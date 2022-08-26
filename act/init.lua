@@ -4,7 +4,7 @@ function module.registerGlobal(base, hookListeners)
   local act = {}
 
   act._state = import(base..'_state.lua')
-  act.commands = import(base..'commands.lua')
+  act.commands = import(base..'commands/init.lua')
   act.farm = import(base..'farm.lua')
   act.highLevelCommands = import(base..'highLevelCommands.lua')
   act.location = import(base..'location.lua')

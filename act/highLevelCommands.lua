@@ -1,4 +1,4 @@
-local commands = import('./commands.lua')
+local commands = import('./commands/init.lua')
 local util = import('util.lua')
 
 local registerCommand = commands.registerCommand
