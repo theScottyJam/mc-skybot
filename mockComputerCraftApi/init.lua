@@ -1,20 +1,26 @@
 local module = {}
 
-function module.registerGlobals(base)
-    _G.mockComputerCraftApi = {}
-    local turtleImport = import(base..'turtle.lua')
-    _G.turtle = turtleImport[1]
-    _G.mockComputerCraftApi.hookListeners = turtleImport[2]
-    _G.originalOs = _G.os
-    _G.os = import(base..'os.lua')
-    _G.mockComputerCraftApi._currentWorld = nil -- Any mockComputerCraftApi module is allowed to access this
-    _G.mockComputerCraftApi.present = import(base..'present.lua')
-    _G.mockComputerCraftApi.world = import(base..'world.lua')
+local turtleImport = import('./turtle.lua')
+local util = import('util.lua')
 
-    -- This world comes from _G.mockComputerCraftApi.world
-    function _G.mockComputerCraftApi.setWorld(world)
-        _G.mockComputerCraftApi._currentWorld = world
-    end
+local globals
+globals = {
+    turtle = turtleImport[1],
+    originalOs = _G.os,
+    os = import('./os.lua'),
+    mockComputerCraftApi = {
+        hookListeners = turtleImport[2],
+        present = import('./present.lua'),
+        world = import('./world.lua'),
+        _currentWorld = nil, -- Any mockComputerCraftApi module is allowed to access this
+        setWorld = function(world)
+            globals.mockComputerCraftApi._currentWorld = world
+        end,
+    }
+}
+
+function module.registerGlobals()
+    util.mergeTablesInPlace(_G, globals)
 end
 
 return module

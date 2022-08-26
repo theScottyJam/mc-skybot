@@ -5,12 +5,8 @@ local module = {}
 local moduleId = 'entity:mainIsland'
 local genId = _G.act.commands.createIdGenerator(moduleId)
 
-function module.init()
-    return { initEntity = initEntity }
-end
-
 -- opts.bedrockCoord - the coordinate of the bedrock block
-function initEntity(opts)
+function module.initEntity(opts)
     local location = _G.act.location
     local space = _G.act.space
 

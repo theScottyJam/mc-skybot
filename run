@@ -32,6 +32,8 @@ end
 local inputs = parseTerminalArgs({ ... })
 
 -- Implementation for import() --
+-- Note that import() should only be called at the top of a module,
+-- otherwise, it won't be able to properly resolve relative module paths.
 do
     local BASE_PATH = inputs.basePath
     local moduleCache = {}
@@ -93,7 +95,7 @@ if inputs.showHelp then
     print('          with a "/".')
     return
 elseif inputs.useMockLib then
-    import('mockComputerCraftApi/init.lua').registerGlobals('mockComputerCraftApi/')
+    import('mockComputerCraftApi/init.lua').registerGlobals()
     world = _G.mockComputerCraftApi.world.createDefault()
     _G.mockComputerCraftApi.setWorld(world)
     hookListeners = _G.mockComputerCraftApi.hookListeners
@@ -111,9 +113,8 @@ end
 if turtle == nil then
     print('Built-in APIs are missing. Did you intend to use --mock?')
 else
-    import('act/init.lua').registerGlobal('act/', hookListeners)
+    import('act/init.lua').registerGlobal(hookListeners)
     local strategyModule = import('strategy/init.lua')
-    strategyModule.registerGlobal('strategy/')
     turtle.refuel(16)
     strategyModule.run(onStep)
 end

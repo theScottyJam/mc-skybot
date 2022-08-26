@@ -1,12 +1,6 @@
 local module = {}
 
-function module.registerGlobal(base)
-    local strategy = {}
-  
-    strategy.entities = import(base..'entities/init.lua').init(base..'entities/')
-  
-    _G.strategy = strategy
-end
+local entities = import('./entities/init.lua')
 
 -- onStep is optional
 function module.run(onStep)
@@ -21,7 +15,7 @@ function initStrategy()
 
     local projectList = {}
 
-    local mainIsland = _G.strategy.entities.mainIsland.initEntity({
+    local mainIsland = entities.mainIsland.initEntity({
         bedrockCoord = { forward = 3, right = 0, up = 64, from = 'ORIGIN' }
     })
 
