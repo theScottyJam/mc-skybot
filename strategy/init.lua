@@ -1,11 +1,11 @@
 local module = {}
 
+if _G.act == nil then error('Must load `act` lib before importing this module') end
+
 local entities = import('./entities/init.lua')
 
 -- onStep is optional
 function module.run(onStep)
-    if _G.act == nil then error('Must load `act` lib before running the strategy') end
-
     local strategy = initStrategy()
     _G.act.strategy.exec(strategy, onStep)
 end
@@ -15,20 +15,16 @@ function initStrategy()
 
     local projectList = {}
 
-    local mainIsland = entities.mainIsland.initEntity({
-        bedrockCoord = { forward = 3, right = 0, up = 64, from = 'ORIGIN' }
-    })
-
-    local currentConditions = {}
-    mainIsland.init.addToProjectList(projectList, currentConditions)
-    mainIsland.startBuildingCobblestoneGenerator.addToProjectList(projectList, currentConditions)
-    mainIsland.harvestInitialTreeAndPrepareTreeFarm.addToProjectList(projectList, currentConditions)
-    mainIsland.waitForIceToMeltAndfinishCobblestoneGenerator.addToProjectList(projectList, currentConditions)
-    mainIsland.createCobbleTower.addToProjectList(projectList, currentConditions)
+    local mainIsland = entities.mainIsland.initEntity()
 
     return {
         initialTurtlePos = mainIsland.initialLoc.pos,
-        projectList = projectList,
+        projectList = _G.act.project.createProjectList({
+            mainIsland.startBuildingCobblestoneGenerator,
+            mainIsland.harvestInitialTreeAndPrepareTreeFarm,
+            mainIsland.waitForIceToMeltAndfinishCobblestoneGenerator,
+            mainIsland.createCobbleTower,
+        }),
     }
 end
 

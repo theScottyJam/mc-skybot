@@ -2,80 +2,51 @@ local util = import('util.lua')
 
 local module = {}
 
+local location = _G.act.location
+local navigate = _G.act.navigate
+local commands = _G.act.commands
+local highLevelCommands = _G.act.highLevelCommands
+local space = _G.act.space
+
 local moduleId = 'entity:mainIsland'
-local genId = _G.act.commands.createIdGenerator(moduleId)
+local genId = commands.createIdGenerator(moduleId)
 
--- opts.bedrockCoord - the coordinate of the bedrock block
-function module.initEntity(opts)
-    local location = _G.act.location
-    local space = _G.act.space
-
-    -- The bedrockCoord should always be at (0, 64, -3}
-    local bedrockPos = util.mergeTables(opts.bedrockCoord, { face = 'forward' })
+function module.initEntity()
+    local bedrockPos = util.mergeTables({ forward = 3, right = 0, up = 64, from = 'ORIGIN' }, { face = 'forward' })
 
     -- homeLoc is right above the bedrock
     local homeLoc = location.register(space.resolveRelPos({ up=3 }, bedrockPos))
     -- initialLoc is in front of the chest
     local initialLoc = location.register(space.resolveRelPos({ right=3, face='left' }, homeLoc.pos))
+    _G.act.location.registerPath(initialLoc, homeLoc)
 
     local cobblestoneGeneratorMill = createCobblestoneGeneratorMill({ homeLoc = homeLoc })
     local startingIslandTreeFarm = createStartingIslandTreeFarm({ bedrockPos = bedrockPos, homeLoc = homeLoc })
 
-    local init = initProject({ initialLoc = initialLoc, homeLoc = homeLoc })
-    local harvestInitialTreeAndPrepareTreeFarm = harvestInitialTreeAndPrepareTreeFarmProject({ bedrockPos = bedrockPos, homeLoc = homeLoc, startingIslandTreeFarm = startingIslandTreeFarm })
-    local startBuildingCobblestoneGenerator = startBuildingCobblestoneGeneratorProject({ homeLoc = homeLoc })
-    local waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGeneratorProject({ homeLoc = homeLoc, cobblestoneGeneratorMill = cobblestoneGeneratorMill })
-    local createCobbleTower = createCobbleTowerProject({ homeLoc = homeLoc })
-
     return {
+        -- locations
         initialLoc = initialLoc,
         homeLoc = homeLoc,
-        init = init,
-        harvestInitialTreeAndPrepareTreeFarm = harvestInitialTreeAndPrepareTreeFarm,
-        startBuildingCobblestoneGenerator = startBuildingCobblestoneGenerator,
-        waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGenerator,
-        harvestCobblestone = harvestCobblestone,
-        createCobbleTower = createCobbleTower,
+
+        -- projects
+        harvestInitialTreeAndPrepareTreeFarm = harvestInitialTreeAndPrepareTreeFarmProject({ bedrockPos = bedrockPos, homeLoc = homeLoc, startingIslandTreeFarm = startingIslandTreeFarm }),
+        startBuildingCobblestoneGenerator = startBuildingCobblestoneGeneratorProject({ homeLoc = homeLoc }),
+        waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGeneratorProject({ homeLoc = homeLoc, cobblestoneGeneratorMill = cobblestoneGeneratorMill }),
+        createCobbleTower = createCobbleTowerProject({ homeLoc = homeLoc }),
     }
 end
 
-function initProject(opts)
-    local initialLoc = opts.initialLoc
-    local homeLoc = opts.homeLoc
-
-    local location = _G.act.location
-    local commands = _G.act.commands
-
-    local taskRunnerId = 'project:mainIsland:init'
-    _G.act.task.registerTaskRunner(taskRunnerId, {
-        enter = function() end,
-        exit = function() end,
-        nextPlan = function(planner, taskState)
-            commands.general.registerLocPath(planner, initialLoc, homeLoc)
-            return taskState, true
-        end,
-    })
-    return _G.act.project.create(taskRunnerId, {
-        postConditions = function(currentConditions)
-            currentConditions.mainIsland = {
-                emptyBucketInInventory = false,
-                startedCobblestoneGeneratorConstruction = false,
-            }
-        end,
-    })
-end
+_G.act.project.registerStartingConditionInitializer(function(startingConditions)
+    startingConditions.mainIsland = {
+        startedCobblestoneGeneratorConstruction = false,
+    }
+end)
 
 -- Pre-condition: Must have two dirt in inventory
 function harvestInitialTreeAndPrepareTreeFarmProject(opts)
     local bedrockPos = opts.bedrockPos
     local homeLoc = opts.homeLoc
     local startingIslandTreeFarm = opts.startingIslandTreeFarm
-
-    local location = _G.act.location
-    local navigate = _G.act.navigate
-    local commands = _G.act.commands
-    local highLevelCommands = _G.act.highLevelCommands
-    local space = _G.act.space
 
     local bedrockCmps = space.createCompass(bedrockPos)
     local taskRunnerId = 'project:mainIsland:harvestInitialTreeAndPrepareTreeFarm'
@@ -161,12 +132,7 @@ local harvestTreeFromAboveTransformers = _G.act.commands.registerFutureTransform
 function harvestTreeFromAbove(planner, opts)
     local bottomLogPos = opts.bottomLogPos
 
-    local location = _G.act.location
-    local navigate = _G.act.navigate
-    local commands = _G.act.commands
-    local space = _G.act.space
     local transformers = harvestTreeFromAboveTransformers
-
     local bottomLogCmps = space.createCompass(bottomLogPos)
 
     navigate.assertCoord(planner, bottomLogCmps.coordAt({ up=9 }))
@@ -223,12 +189,6 @@ end
 
 function startBuildingCobblestoneGeneratorProject(opts)
     local homeLoc = opts.homeLoc
-
-    local location = _G.act.location
-    local navigate = _G.act.navigate
-    local commands = _G.act.commands
-    local highLevelCommands = _G.act.highLevelCommands
-    local space = _G.act.space
 
     local homeCmps = space.createCompass(homeLoc.pos)
     local taskRunnerId = 'project:mainIsland:startBuildingCobblestoneGenerator'
@@ -296,7 +256,6 @@ function startBuildingCobblestoneGeneratorProject(opts)
             return currentConditions.mainIsland
         end,
         postConditions = function(currentConditions)
-            currentConditions.mainIsland.emptyBucketInInventory = true
             currentConditions.mainIsland.startedCobblestoneGeneratorConstruction = true
         end,
     })
@@ -306,15 +265,12 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
     local homeLoc = opts.homeLoc
     local cobblestoneGeneratorMill = opts.cobblestoneGeneratorMill
 
-    local location = _G.act.location
-    local navigate = _G.act.navigate
-    local commands = _G.act.commands
-    local highLevelCommands = _G.act.highLevelCommands
-    local space = _G.act.space
-
     local homeCmps = space.createCompass(homeLoc.pos)
     local taskRunnerId = 'project:mainIsland:waitForIceToMeltAndfinishCobblestoneGenerator'
     _G.act.task.registerTaskRunner(taskRunnerId, {
+        requiredResources = {
+            ['minecraft:bucket'] = { quantity=1, at='INVENTORY' }
+        },
         enter = function(planner, taskState)
             location.travelToLocation(planner, homeLoc)
         end,
@@ -353,7 +309,6 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
         preConditions = function(currentConditions)
             return (
                 currentConditions.mainIsland and
-                currentConditions.mainIsland.emptyBucketInInventory and
                 currentConditions.mainIsland.startedCobblestoneGeneratorConstruction
             )
         end,
@@ -362,12 +317,6 @@ end
 
 function createCobblestoneGeneratorMill(opts)
     local homeLoc = opts.homeLoc
-
-    local location = _G.act.location
-    local navigate = _G.act.navigate
-    local commands = _G.act.commands
-    local highLevelCommands = _G.act.highLevelCommands
-    local space = _G.act.space
 
     local homeCmps = space.createCompass(homeLoc.pos)
     local taskRunnerId = 'mill:mainIsland:cobblestoneGenerator'
@@ -421,13 +370,7 @@ function createStartingIslandTreeFarm(opts)
     local homeLoc = opts.homeLoc
     local bedrockPos = opts.bedrockPos
 
-    local location = _G.act.location
-    local navigate = _G.act.navigate
-    local commands = _G.act.commands
-    local highLevelCommands = _G.act.highLevelCommands
-    local space = _G.act.space
     local transformers = startingIslandTreeFarmTransformers
-
     local homeCmps = space.createCompass(homeLoc.pos)
     local taskRunnerId = _G.act.task.registerTaskRunner('farm:mainIsland:startingIslandTreeFarm', {
         enter = function(planner, taskState)
@@ -478,12 +421,6 @@ end
 
 function createCobbleTowerProject(opts)
     local homeLoc = opts.homeLoc
-
-    local location = _G.act.location
-    local navigate = _G.act.navigate
-    local commands = _G.act.commands
-    local highLevelCommands = _G.act.highLevelCommands
-    local space = _G.act.space
 
     local homeCmps = space.createCompass(homeLoc.pos)
     local taskRunnerId = _G.act.task.registerTaskRunner('project:mainIsland:createCobbleTower', {
