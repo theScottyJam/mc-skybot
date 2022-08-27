@@ -2,6 +2,7 @@ local module = {}
 
 if _G.act == nil then error('Must load `act` lib before importing this module') end
 
+local curves = _G.act.curves
 local entities = import('./entities/init.lua')
 
 -- onStep is optional
@@ -23,9 +24,18 @@ function initStrategy()
             mainIsland.startBuildingCobblestoneGenerator,
             mainIsland.harvestInitialTreeAndPrepareTreeFarm,
             mainIsland.waitForIceToMeltAndfinishCobblestoneGenerator,
-            mainIsland.createCobbleTower,
+            mainIsland.createCobbleTower4,
+            mainIsland.createCobbleTower3,
+            mainIsland.createCobbleTower2,
+            mainIsland.createCobbleTower1,
         }),
     }
 end
+
+_G.act.farm.registerValueOfResources({
+    ['minecraft:log'] = function(quantitiesOwned)
+        return curves.inverseSqrtCurve({ yIntercept = 35, factor = 1/50 })(quantitiesOwned)
+    end,
+})
 
 return module

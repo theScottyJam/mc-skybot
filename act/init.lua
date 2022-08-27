@@ -3,8 +3,8 @@ local mockHooksModule = import('./mockHooks.lua')
 local module = {}
 
 local act = {
-    _state = import('./_state.lua'),
     commands = import('./commands/init.lua'),
+    curves = import('./curves.lua'),
     farm = import('./farm.lua'),
     highLevelCommands = import('./highLevelCommands.lua'),
     location = import('./location.lua'),

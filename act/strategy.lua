@@ -1,4 +1,5 @@
 local util = import('util.lua')
+local stateModule = import('./_state.lua')
 
 local module = {}
 
@@ -7,7 +8,7 @@ local module = {}
 function module.exec(strategy, onStep)
     local task = _G.act.task
 
-    local state = _G.act._state.createInitialState({
+    local state = stateModule.createInitialState({
         startingPos = strategy.initialTurtlePos,
         projectList = strategy.projectList,
     })
@@ -24,7 +25,7 @@ function module.exec(strategy, onStep)
         end
 
         -- Check for interruptions
-        local interruptTask = _G.act.farm.checkForInterruptions(state)
+        local interruptTask = _G.act.farm.checkForInterruptions(state, takeInventory(state, onStep))
         if interruptTask ~= nil then
             handleInterruption(state, interruptTask)
         end
@@ -37,7 +38,7 @@ function module.exec(strategy, onStep)
             if state.primaryTask.completed then break end
 
             -- Handle interruptions
-            local interruptTask = _G.act.farm.checkForInterruptions(state)
+            local interruptTask = _G.act.farm.checkForInterruptions(state, takeInventory(state, onStep))
             if interruptTask ~= nil then
                 executePlan(state, onStep, taskRunnerBeingDone.exit(state, state.primaryTask))
                 handleInterruption(state, interruptTask)

@@ -6,6 +6,7 @@ local location = _G.act.location
 local navigate = _G.act.navigate
 local commands = _G.act.commands
 local highLevelCommands = _G.act.highLevelCommands
+local curves = _G.act.curves
 local space = _G.act.space
 
 local moduleId = 'entity:mainIsland'
@@ -32,7 +33,10 @@ function module.initEntity()
         harvestInitialTreeAndPrepareTreeFarm = harvestInitialTreeAndPrepareTreeFarmProject({ bedrockPos = bedrockPos, homeLoc = homeLoc, startingIslandTreeFarm = startingIslandTreeFarm }),
         startBuildingCobblestoneGenerator = startBuildingCobblestoneGeneratorProject({ homeLoc = homeLoc }),
         waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGeneratorProject({ homeLoc = homeLoc, cobblestoneGeneratorMill = cobblestoneGeneratorMill }),
-        createCobbleTower = createCobbleTowerProject({ homeLoc = homeLoc }),
+        createCobbleTower1 = createCobbleTowerProject({ homeLoc = homeLoc, towerNumber = 1 }),
+        createCobbleTower2 = createCobbleTowerProject({ homeLoc = homeLoc, towerNumber = 2 }),
+        createCobbleTower3 = createCobbleTowerProject({ homeLoc = homeLoc, towerNumber = 3 }),
+        createCobbleTower4 = createCobbleTowerProject({ homeLoc = homeLoc, towerNumber = 4 }),
     }
 end
 
@@ -413,17 +417,38 @@ function createStartingIslandTreeFarm(opts)
         end,
     })
 
-    return _G.act.farm.create(taskRunnerId, {
-        supplies = { 'minecraft:log' },
-        scheduleOpts = {},
+    return _G.act.farm.register(taskRunnerId, {
+        supplies = { 'minecraft:log', 'minecraft:sapling', 'minecraft:apple', 'minecraft:stick' },
+        calcExpectedYield = function(timeSpan)
+            local checkTime = 20
+            local treeHarvestTime = 140
+
+            local logsPerTree = 7
+            local leavesOnTree = 50
+            local chanceOfAppleDrop = 1/200
+            local chanceOfSaplingDrop = 1/50
+            local chanceOfStickDrop = 1.5/50
+            local saplingsDroppedPerTree = 2.75
+            local createCurve = curves.sigmoidFactory({ minX = 0.3, maxX = 3 })
+            return {
+                work = createCurve({ minY = checkTime, maxY = checkTime + treeHarvestTime * 2 })(timeSpan),
+                yield = {
+                    ['minecraft:log'] = createCurve({ maxY = 2 * logsPerTree })(timeSpan),
+                    ['minecraft:sapling'] = createCurve({ maxY = 2 * leavesOnTree * chanceOfSaplingDrop })(timeSpan),
+                    ['minecraft:apple'] = createCurve({ maxY = 2 * leavesOnTree * chanceOfAppleDrop })(timeSpan),
+                    ['minecraft:stick'] = createCurve({ maxY = 2 * leavesOnTree * chanceOfStickDrop })(timeSpan),
+                },
+            }
+        end,
     })
 end
 
 function createCobbleTowerProject(opts)
     local homeLoc = opts.homeLoc
+    local towerNumber = opts.towerNumber
 
     local homeCmps = space.createCompass(homeLoc.pos)
-    local taskRunnerId = _G.act.task.registerTaskRunner('project:mainIsland:createCobbleTower', {
+    local taskRunnerId = _G.act.task.registerTaskRunner('project:mainIsland:createCobbleTower:'..towerNumber, {
         requiredResources = {
             ['minecraft:cobblestone'] = { quantity=64 * 4, at='INVENTORY' }
         },
@@ -436,7 +461,7 @@ function createCobbleTowerProject(opts)
         nextPlan = function(planner, taskState)
             local startPos = util.copyTable(planner.turtlePos)
 
-            local towerBaseCmps = homeCmps.compassAt({ right=-6 })
+            local towerBaseCmps = homeCmps.compassAt({ right = -6 - (towerNumber*2) })
             
             for x = 0, 1 do
                 for z = 0, 3 do

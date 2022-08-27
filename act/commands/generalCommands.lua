@@ -32,7 +32,11 @@ module.activateFarm = registerCommand(
     function(state, opts)
         local taskRunnerId = opts.taskRunnerId
         local supplies = opts.supplies
-        local scheduleOpts = opts.scheduleOpts
+
+        table.insert(state.activeFarms, {
+            taskRunnerId = taskRunnerId,
+            lastVisited = time.get(),
+        })
 
         for _, resourceName in ipairs(supplies) do
             if state.resourceSuppliers[resourceName] == nil then
@@ -40,11 +44,6 @@ module.activateFarm = registerCommand(
             end
 
             table.insert(state.resourceSuppliers[resourceName], 1, { type='farm', taskRunnerId = taskRunnerId })
-            table.insert(state.activeFarms, {
-                taskRunnerId = taskRunnerId,
-                scheduleOpts = scheduleOpts,
-                lastVisited = time.get(),
-            })
         end
     end
 )

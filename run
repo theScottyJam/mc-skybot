@@ -103,8 +103,8 @@ end
 
 function onStep()
     if inputs.useMockLib and (debug.showStepByStep or true) then
-        -- _G.mockComputerCraftApi.present.displayCentered(world)
         -- _G.mockComputerCraftApi.present.displayMap(world, { minX = -8, maxX = 5, minY = 0, maxY = 999, minZ = -5, maxZ = 5 }, { showKey = false })
+        -- _G.mockComputerCraftApi.present.displayCentered(world)
         -- mockComputerCraftApi.present.showTurtlePosition(world)
         -- debug.busySleep(0.05)
     end
