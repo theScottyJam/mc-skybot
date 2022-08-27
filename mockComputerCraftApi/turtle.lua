@@ -278,12 +278,16 @@ local canDig = {
     'minecraft:log',
     'minecraft:leaves',
     'minecraft:ice',
+    'minecraft:chest',
 }
 
 function digAt(currentWorld, coordBeingDug, toolSide)
     local dugCell = lookupInMap(currentWorld.map, coordBeingDug)
     if dugCell == nil then
         return false
+    end
+    if dugCell.id == 'minecraft:chest' and util.tableSize(dugCell.contents) > 0 then
+        error('Can not pick up a chest filled with items')
     end
     if not util.tableContains(canDig, dugCell.id) then
         error('Can not dig block '..dugCell.id..' yet. Perhaps this requires using a tool, which is not supported.')
@@ -439,12 +443,12 @@ end
 
 ---- HELPERS ----
 
--- quantity must be the size of a stack or less. Defaults to 1.
+-- `amount` must be the size of a stack or less. Defaults to 1.
 -- Returns the quantity added successfuly.
 function addToInventory(turtle, itemId, amount)
     if amount == nil then amount = 1 end
     local addedSuccessfully = 0
-    for i = 0,15 do
+    for i = 0, 15 do
         local slot = (i + turtle.selectedSlot - 1)%16 + 1
         if turtle.inventory[slot] == nil then
             turtle.inventory[slot] = { id = itemId, quantity = 0 }

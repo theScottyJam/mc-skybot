@@ -30,8 +30,8 @@ function module.initEntity()
         homeLoc = homeLoc,
 
         -- projects
-        harvestInitialTreeAndPrepareTreeFarm = harvestInitialTreeAndPrepareTreeFarmProject({ bedrockPos = bedrockPos, homeLoc = homeLoc, startingIslandTreeFarm = startingIslandTreeFarm }),
         startBuildingCobblestoneGenerator = startBuildingCobblestoneGeneratorProject({ homeLoc = homeLoc }),
+        harvestInitialTreeAndPrepareTreeFarm = harvestInitialTreeAndPrepareTreeFarmProject({ bedrockPos = bedrockPos, homeLoc = homeLoc, startingIslandTreeFarm = startingIslandTreeFarm }),
         waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGeneratorProject({ homeLoc = homeLoc, cobblestoneGeneratorMill = cobblestoneGeneratorMill }),
         createCobbleTower1 = createCobbleTowerProject({ homeLoc = homeLoc, towerNumber = 1 }),
         createCobbleTower2 = createCobbleTowerProject({ homeLoc = homeLoc, towerNumber = 2 }),
@@ -214,21 +214,16 @@ function startBuildingCobblestoneGeneratorProject(opts)
             end
 
             -- Grab stuff from chest
-            local LAVA_BUCKET_SLOT = 16
-            local ICE_SLOT = 15
             commands.turtle.forward(planner)
-            commands.turtle.select(planner, LAVA_BUCKET_SLOT)
             commands.turtle.suck(planner, 1)
-            commands.turtle.select(planner, ICE_SLOT)
             commands.turtle.suck(planner, 1)
+
+            -- Pick up chest
+            commands.turtle.dig(planner)
 
             -- Place lava down
             navigate.moveToCoord(planner, homeCmps.coordAt({ right=2 }))
-            commands.turtle.select(planner, LAVA_BUCKET_SLOT)
-            commands.turtle.placeDown(planner)
-            -- Move the empty bucket to an earlier cell.
-            highLevelCommands.transferToFirstEmptySlot(planner)
-            commands.turtle.select(planner, 1)
+            highLevelCommands.placeItemDown(planner, 'minecraft:lava_bucket')
 
             -- Dig out west branch
             navigate.moveToPos(planner, homeCmps.posAt({ face='backward' }))
@@ -242,9 +237,7 @@ function startBuildingCobblestoneGeneratorProject(opts)
             -- Place ice down
             -- (We're placing ice here, instead of in it's final spot, so it can be closer to the lava
             -- so the lava can melt it)
-            commands.turtle.select(planner, ICE_SLOT)
-            commands.turtle.placeDown(planner)
-            commands.turtle.select(planner, 1)
+            highLevelCommands.placeItemDown(planner, 'minecraft:ice')
 
             -- Dig out place for player to stand
             navigate.moveToCoord(planner, homeCmps.coordAt({ right=-1 }))
@@ -297,11 +290,9 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
             })
             
             -- Move water
-            highLevelCommands.findAndSelectSlotWithItem(planner, 'minecraft:bucket')
-            commands.turtle.placeDown(planner)
+            highLevelCommands.placeItemDown(planner, 'minecraft:bucket')
             commands.turtle.forward(planner)
-            commands.turtle.placeDown(planner)
-            commands.turtle.select(planner, 1)
+            highLevelCommands.placeItemDown(planner, 'minecraft:water_bucket')
 
             navigate.moveToPos(planner, startPos)
             commands.turtle.digDown(planner)
@@ -416,7 +407,6 @@ function createStartingIslandTreeFarm(opts)
             return taskState, true
         end,
     })
-
     return _G.act.farm.register(taskRunnerId, {
         supplies = { 'minecraft:log', 'minecraft:sapling', 'minecraft:apple', 'minecraft:stick' },
         calcExpectedYield = function(timeSpan)
