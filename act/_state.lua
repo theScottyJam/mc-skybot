@@ -30,9 +30,18 @@ function module.createInitialState(opts)
         resourceSuppliers = {},
         -- A list of info objects related to enabled farms that require occasional attention.
         activeFarms = {},
+        -- A place to store vars if there are no active tasks. Should be occasionally cleared out.
+        limboVars = {},
 
-        getActiveTask = function()
-            return state.primaryTask or state.interruptTask
+        -- Returns the active task's vars. The caller can mutate this table as needed.
+        -- Returns the limboVars table if there are no active tasks.
+        getActiveTaskVars = function()
+            local activeTask = state.primaryTask or state.interruptTask
+            if activeTask == nil then
+                return state.limboVars
+            else
+                return activeTask.taskVars
+            end
         end,
     }
     return state

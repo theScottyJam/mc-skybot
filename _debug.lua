@@ -36,7 +36,7 @@ function debugModule.onDebugCommand(state, opts)
     present.displayMap(world, { minX = -8, maxX = 5, minY = 0, maxY = 79, minZ = -5, maxZ = 4 }, { showKey = false })
     -- present.inventory(world)
     -- present.showTurtlePosition(world)
-    -- debugModule.printTable(state.getActiveTask().taskVars)
+    -- debugModule.printTable(state.getActiveTaskVars())
 end
 
 function module.registerGlobal()

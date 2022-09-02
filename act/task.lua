@@ -32,7 +32,7 @@ function module.registerTaskRunner(id, opts)
     local requiredResources = opts.requiredResources or {}
     local createTaskState = opts.createTaskState or function() return {} end
     local enter = opts.enter
-    local exit = opts.exit
+    local exit = opts.exit or function() end
     local nextPlan = opts.nextPlan
 
     if taskRegistry[id] ~= nil then error('A taskRunner with that id already exists') end

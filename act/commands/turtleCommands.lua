@@ -56,6 +56,14 @@ module.select = registerCommand('turtle:select', function(state, slotNum)
     turtle.select(slotNum)
 end)
 
+module.equipLeft = registerCommand('turtle:equipLeft', function(state)
+    turtle.equipLeft()
+end)
+
+module.equipRight = registerCommand('turtle:equipRight', function(state)
+    turtle.equipRight()
+end)
+
 -- signText is optional
 module.place = registerCommand('turtle:place', function(state, signText)
     turtle.place(signText)
@@ -97,6 +105,19 @@ end)
 
 module.digDown = registerCommand('turtle:digDown', function(state, toolSide)
     turtle.digDown(toolSide)
+end)
+
+-- amount is optional
+module.drop = registerCommand('turtle:drop', function(state, amount)
+    turtle.drop(amount)
+end)
+
+module.dropUp = registerCommand('turtle:dropUp', function(state, amount)
+    turtle.dropUp(amount)
+end)
+
+module.dropDown = registerCommand('turtle:dropDown', function(state, amount)
+    turtle.dropDown(amount)
 end)
 
 module.suck = registerCommand('turtle:suck', function(state, amount)

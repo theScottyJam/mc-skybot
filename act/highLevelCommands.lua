@@ -11,7 +11,10 @@ local genId = commands.createIdGenerator(moduleId)
 
 module.transferToFirstEmptySlot = registerCommand(
     'highLevelCommands:transferToFirstEmptySlot',
-    function(state)
+    function(state, opts)
+        opts = opts or {}
+        local allowEmpty = opts.allowEmpty or false
+
         local firstEmptySlot = nil
         for i = 1, 16 do
             local count = turtle.getItemCount(i)
@@ -25,6 +28,7 @@ module.transferToFirstEmptySlot = registerCommand(
         end
         local success = turtle.transferTo(firstEmptySlot)
         if not success then
+            if allowEmpty then return end
             error('Failed to transfer to the first empty slot (was the source empty?)')
         end
     end
@@ -68,8 +72,6 @@ function module.placeItemDown(planner, itemId, opts)
 end
 
 function placeItemUsing(planner, itemId, opts, placeFn)
-    local commands = _G.act.commands
-
     opts = opts or {}
     local allowMissing = opts.allowMissing or false
     local out = opts.out or genId('foundItem')
@@ -82,6 +84,242 @@ function placeItemUsing(planner, itemId, opts, placeFn)
         placeFn(planner)
         commands.turtle.select(planner, 1)
     end)
+end
+
+-- recipe is a 3x3 grid of itemIds.
+-- `maxQuantity` is optional, and default to the max,
+-- which is a stack per item the recipe produces. (e.g. reeds
+-- produce multiple paper with a single craft)
+-- pre-condition: There must be an empty space above the turtle
+module.craft = registerCommand(
+    'highLevelCommands:craft',
+    function(state, recipe, maxQuantity)
+        local strategy = _G.act.strategy
+
+        maxQuantity = maxQuantity or 999
+        if util.tableSize(recipe.from) == 0 then error('Empty recipe') end
+
+        local numOfItemsInChest = 0
+
+        local flattenedRecipe = {}
+        for i, row in pairs(recipe.from) do
+            for j, itemId in pairs(row) do
+                local slotId = (i - 1)*4 + j
+                flattenedRecipe[slotId] = itemId -- might be nil
+            end
+        end
+    
+        if turtle.detectUp() then
+            error('Can not craft unless there is room above the turtle')
+        end
+
+        strategy.atomicallyExecuteSubplan(state, function(planner)
+            module.findAndSelectSlotWithItem(planner, 'minecraft:chest')
+            commands.turtle.placeUp(planner)
+            -- Put any remaining chests into the chest, to make sure we have at least one empty inventory slot
+            commands.turtle.dropUp(planner)
+            module.findAndSelectSlotWithItem(planner, 'minecraft:crafting_table')
+            commands.turtle.equipRight(planner)
+            commands.turtle.select(planner, 1)
+        end)
+
+        function findLocationsOfItems(whereItemsAre, itemId)
+            local itemLocations = {}
+            for slotId, iterItemId in pairs(whereItemsAre) do
+                if itemId == iterItemId then
+                    table.insert(itemLocations, slotId)
+                end
+            end
+            return itemLocations
+        end
+
+        local craftSlotIds = { 1, 2, 3, 5, 6, 7, 9, 10, 11 }
+        local startingInventory = module.takeInventoryNow()
+        -- emptySlot and whereItemsAre will be updated in the following for
+        -- loop to state up-to-date as things shift around.
+        local emptySlot = findEmptyInventorySlots(startingInventory)[1]
+        local whereItemsAre = util.mapMapTable(startingInventory, function(entry) return entry.name end)
+        local usedRecipeCells = {}
+        if emptySlot == nil then
+            -- For this to happen, you have to, for example, have multiple chests in your inventory
+            -- so when one gets placed down, you're still completely full. Additional logic could be
+            -- added to support these edge cases, but right now we just throw an error.
+            error('Failed to craft - inventory is too full')
+        end
+
+        -- Shuffle around items in the 3x3 grid, so that the correct recipe items will be
+        -- found in the correct slots, or the slot will be left empty (after the next loop runs
+        -- that throws the garbage stuff into the chest above)
+        for _, i in ipairs(craftSlotIds) do
+            turtle.select(i)
+            turtle.transferTo(emptySlot)
+            whereItemsAre[emptySlot] = whereItemsAre[i]
+            whereItemsAre[i] = nil
+            emptySlot = i
+
+            local locationsOfThisResource = findLocationsOfItems(whereItemsAre, flattenedRecipe[i])
+            locationsOfThisResource = util.subtractArrayTables(locationsOfThisResource, usedRecipeCells)
+
+            if #locationsOfThisResource > 0 then
+                table.insert(usedRecipeCells, i)
+            end
+            for _, resourceLocation in ipairs(locationsOfThisResource) do
+                turtle.select(resourceLocation)
+                turtle.transferTo(i)
+                if emptySlot == i then
+                    emptySlot = resourceLocation
+                end
+                whereItemsAre[i] = whereItemsAre[resourceLocation]
+                if turtle.getItemCount(resourceLocation) == 0 then
+                    whereItemsAre[resourceLocation] = nil
+                end
+                if turtle.getItemSpace(i) == 0 then
+                    break
+                end
+            end
+        end
+        turtle.select(1)
+
+        -- Drop everything in the 3x3 grid into the chest above that isn't part of the recipe
+        -- Also drop everything into the chest outside of the 3x3 grid
+        for i = 1, 16 do
+            if not util.tableContains(usedRecipeCells, i) then
+                turtle.select(i)
+                turtle.dropUp()
+                numOfItemsInChest = numOfItemsInChest + 1
+            end
+        end
+        turtle.select(1)
+
+        -- Evently spread the recipe resources
+        local updatedInventory = module.takeInventoryNow()
+        local resourcesInInventory = module.countResourcesInInventory(updatedInventory, craftSlotIds)
+        local recipeResourcessToSlotCount = util.coundOccurancesOfValuesInTable(flattenedRecipe)
+        local minStackSize = 999
+        for i, slotId in ipairs(craftSlotIds) do
+            local resourceName = flattenedRecipe[slotId]
+            if resourceName ~= nil then
+                local totalOfResource = resourcesInInventory[resourceName]
+                local numberOfSlots = recipeResourcessToSlotCount[resourceName]
+                local amountPerSlot = math.floor(totalOfResource / numberOfSlots)
+                minStackSize = util.minNumber(amountPerSlot, minStackSize)
+                if amountPerSlot == 0 then
+                    error("There isn't enough items in the inventory to craft the requested item.")
+                end
+                local amountToRemove = turtle.getItemCount(slotId) - amountPerSlot
+                util.assert(amountToRemove >= 0)
+                -- If it fails to find another slot afterwards, then it'll just
+                -- keep any remainder in the current slot
+                for j = i + 1, #craftSlotIds do
+                    if amountToRemove == 0 then break end
+                    local iterSlotId = craftSlotIds[j]
+                    if flattenedRecipe[slotId] == flattenedRecipe[iterSlotId] then
+                        turtle.select(slotId)
+                        turtle.transferTo(iterSlotId, amountToRemove)
+                        amountToRemove = turtle.getItemCount(slotId) - amountPerSlot
+                    end
+                end
+            end
+        end
+        turtle.select(1)
+
+        turtle.select(4)
+        local quantityUsing = minStackSize
+        while quantityUsing > 0 do
+            turtle.craft(util.minNumber(64, quantityUsing * recipe.yields))
+            quantityUsing = quantityUsing - turtle.getItemCount() / recipe.yields
+            turtle.dropUp()
+            numOfItemsInChest = numOfItemsInChest + 1
+        end
+        turtle.select(1)
+
+        for i = 1, numOfItemsInChest do
+            turtle.suckUp(64)
+        end
+
+        strategy.atomicallyExecuteSubplan(state, function(planner)
+            module.findAndSelectSlotWithItem(planner, 'minecraft:diamond_pickaxe')
+            commands.turtle.equipRight(planner)
+            commands.turtle.select(planner, 1)
+            commands.turtle.digUp(planner)
+        end)
+    end
+)
+
+-- Move everything to the earlier slots in the inventory
+-- and combines split stacks.
+module.organizeInventory = registerCommand(
+    'highLevelCommands:organizeInventory',
+    function (state)
+        local lastStackLocations = {}
+        local emptySpaces = {}
+        for i = 1, 16 do
+            local itemDetails = turtle.getItemDetail(i)
+
+            -- First, try to transfer to an existing stack
+            if itemDetails ~= nil and lastStackLocations[itemDetails.name] ~= nil then
+                turtle.select(i)
+                turtle.transferTo(lastStackLocations[itemDetails.name])
+                itemDetails = turtle.getItemDetail(i)
+            end
+
+            -- Then, try to transfer it to an earlier empty slot
+            if itemDetails ~= nil and #emptySpaces > 0 then
+                local emptySpace = table.delete(emptySpace, 1)
+                turtle.select(i)
+                turtle.transferTo(emptySpace)
+                lastStackLocations[itemDetails.name] = emptySpace
+                itemDetails = turtle.getItemDetail(i)
+            end
+            
+            -- If you were able to get it moved, then note the empty cell
+            -- otherwise, not down this ptoentially partial stack left behind.
+            if itemDetails == nil then
+                table.insert(emptySpaces, i)
+            else
+                lastStackLocations[itemDetails.name] = i
+            end
+        end
+        turtle.select(1)
+    end
+)
+
+function module.takeInventoryNow()
+    local inventory = {}
+    for i = 1, 16 do
+        local itemDetails = turtle.getItemDetail(i)
+        if itemDetails ~= nil then
+            inventory[i] = {
+                name = itemDetails.name,
+                count = itemDetails.count,
+            }
+        end
+    end
+    return inventory
+end
+
+-- targetSlotIds can optionally be a list of slot IDs to look at (ignoring all other slots)
+function module.countResourcesInInventory(inventory, targetSlotIds)
+    local resourcesInInventory = {}
+    for slotId, itemDetails in pairs(inventory) do
+        if itemDetails ~= nil and (targetSlotIds == nil or util.tableContains(targetSlotIds, slotId)) then
+            if resourcesInInventory[itemDetails.name] == nil then
+                resourcesInInventory[itemDetails.name] = 0
+            end
+            resourcesInInventory[itemDetails.name] = resourcesInInventory[itemDetails.name] + itemDetails.count
+        end
+    end
+    return resourcesInInventory
+end
+
+function findEmptyInventorySlots(inventory)
+    local emptySlots = {}
+    for i = 1, 16 do
+        if inventory[i] == nil then
+            table.insert(emptySlots, i)
+        end
+    end
+    return emptySlots
 end
 
 -- opts.expectedBlockId is the blockId you're waiting for

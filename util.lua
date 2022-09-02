@@ -40,11 +40,27 @@ end
 
 function module.filterArrayTable(curTable, filterFn)
     local newTable = {}
-    for _, value in ipairs(curTable) do
-        local keep = filterFn(value, key)
+    for i, value in ipairs(curTable) do
+        local keep = filterFn(value, i)
         if keep then
             table.insert(newTable, value)
         end
+    end
+    return newTable
+end
+
+function module.mapArrayTable(curTable, mapFn)
+    local newTable = {}
+    for i, value in ipairs(curTable) do
+        table.insert(newTable, mapFn(value, i))
+    end
+    return newTable
+end
+
+function module.mapMapTable(curTable, mapFn)
+    local newTable = {}
+    for key, value in pairs(curTable) do
+        newTable[key] = mapFn(value, key)
     end
     return newTable
 end
@@ -59,8 +75,31 @@ function module.tableSize(table)
     return count
 end
 
+function module.subtractArrayTables(table1, table2)
+    local resultTable = {}
+    for _, value in pairs(table1) do
+        if not module.tableContains(table2, value) then
+            table.insert(resultTable, value)
+        end
+    end
+    return resultTable
+end
+
+function module.coundOccurancesOfValuesInTable(curTable)
+    local occurancesOfValues = {}
+    for key, value in pairs(curTable) do
+        if value ~= nil then
+            if occurancesOfValues[value] == nil then
+                occurancesOfValues[value] = 0
+            end
+            occurancesOfValues[value] = occurancesOfValues[value] + 1
+        end
+    end
+    return occurancesOfValues
+end
+
 -- Splits a string. Uses regular-expression matching to work, so not all separators will be valid.
-function module.splitString (inputstr, sep)
+function module.splitString(inputstr, sep)
     if sep == nil then
         sep = "%s"
     end
@@ -71,7 +110,7 @@ function module.splitString (inputstr, sep)
     return newTable
 end
 
-function module.minNumber (first, ...)
+function module.minNumber(first, ...)
     local min = first
     for _, value in pairs({ ... }) do
         if min > value then min = value end
@@ -79,7 +118,7 @@ function module.minNumber (first, ...)
     return min
 end
 
-function module.maxNumber (first, ...)
+function module.maxNumber(first, ...)
     local max = first
     for _, value in pairs({ ... }) do
         if max < value then max = value end
@@ -87,7 +126,7 @@ function module.maxNumber (first, ...)
     return max
 end
 
-function module.assert (condition, message)
+function module.assert(condition, message)
     local message = message or 'Assertion failed'
     if not condition then error(message) end
     return condition

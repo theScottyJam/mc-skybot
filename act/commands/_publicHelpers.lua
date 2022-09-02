@@ -60,7 +60,7 @@ function module.registerCommandWithFuture(id, execute_, extractFutureId)
         local futureId = extractFutureId(table.unpack({ ... }))
         local result = execute_(state, table.unpack({ ... }))
         if futureId ~= nil then
-            state.getActiveTask().taskVars[futureId] = result
+            state.getActiveTaskVars()[futureId] = result
         end
     end
     return module.registerCommand(id, execute, {
@@ -83,7 +83,7 @@ function module.registerFutureTransformers(baseId, transformers)
             local inId = opts.in_
             local outId = opts.out
 
-            local inValue = state.getActiveTask().taskVars[inId]
+            local inValue = state.getActiveTaskVars()[inId]
             return transformer(inValue)
         end, function(opts) return opts.out end)
     end

@@ -9,9 +9,11 @@ function module.createDefault()
         turtle = {
             pos = { x=3, y=67, z=-3, face='W' },
             selectedSlot = 1, -- Selected inventory slot
-            inventory = {},
+            inventory = {
+                [2] = { id = 'minecraft:crafting_table', quantity = 1 },
+            },
             equipedLeft = nil,
-            equipedRight = nil
+            equipedRight = { id = 'minecraft:diamond_pickaxe', quantity = 1 },
         },
         map = createStartingMap()
     }

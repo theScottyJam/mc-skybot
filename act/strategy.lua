@@ -1,12 +1,21 @@
 local util = import('util.lua')
 local stateModule = import('./_state.lua')
+local commands = import('./commands/init.lua')
 
 local module = {}
+
+local moduleId = 'act:highLevelCommands'
+local genId = commands.createIdGenerator(moduleId)
 
 -- onStep is optional
 -- A strategy is of the shape { initialTurtlePos=..., projectList=<list of taskRunnerIds> }
 function module.exec(strategy, onStep)
     local task = _G.act.task
+    local highLevelCommands = _G.act.highLevelCommands
+
+    function countResourcesInInventoryNow()
+        return highLevelCommands.countResourcesInInventory(highLevelCommands.takeInventoryNow())
+    end
 
     local state = stateModule.createInitialState({
         startingPos = strategy.initialTurtlePos,
@@ -14,7 +23,7 @@ function module.exec(strategy, onStep)
     })
     while #state.projectList > 0 do
         -- Prepare the next project task, or resource-fetching task
-        local resourcesInInventory = takeInventory(state, onStep)
+        local resourcesInInventory = countResourcesInInventoryNow(state)
         local nextProjectTaskRunner = task.lookupTaskRunner(state.projectList[1])
         local resourceCollectionTask = task.collectResources(state, nextProjectTaskRunner, resourcesInInventory)
         if resourceCollectionTask ~= nil then
@@ -25,7 +34,7 @@ function module.exec(strategy, onStep)
         end
 
         -- Check for interruptions
-        local interruptTask = _G.act.farm.checkForInterruptions(state, takeInventory(state, onStep))
+        local interruptTask = _G.act.farm.checkForInterruptions(state, resourcesInInventory)
         if interruptTask ~= nil then
             handleInterruption(state, interruptTask)
         end
@@ -38,7 +47,7 @@ function module.exec(strategy, onStep)
             if state.primaryTask.completed then break end
 
             -- Handle interruptions
-            local interruptTask = _G.act.farm.checkForInterruptions(state, takeInventory(state, onStep))
+            local interruptTask = _G.act.farm.checkForInterruptions(state, countResourcesInInventoryNow(state))
             if interruptTask ~= nil then
                 executePlan(state, onStep, taskRunnerBeingDone.exit(state, state.primaryTask))
                 handleInterruption(state, interruptTask)
@@ -47,6 +56,7 @@ function module.exec(strategy, onStep)
         end
         executePlan(state, onStep, taskRunnerBeingDone.exit(state, state.primaryTask))
         state.primaryTask = nil
+        state.limboVars = {}
     end
 end
 
@@ -62,20 +72,6 @@ function handleInterruption(state, interruptTask)
     state.interruptTask = nil
 end
 
-function takeInventory(state, onStep)
-    local resourcesInInventory = {}
-    for i = 1, 16 do
-        local itemDetails = turtle.getItemDetail(i)    
-        if itemDetails ~= nil then
-            if resourcesInInventory[itemDetails.name] == nil then
-                resourcesInInventory[itemDetails.name] = 0
-            end
-            resourcesInInventory[itemDetails.name] = resourcesInInventory[itemDetails.name] + itemDetails.count
-        end
-    end
-    return resourcesInInventory
-end
-
 function executePlan(state, onStep, plan)
     state.plan = plan
     while #state.plan > 0 do
@@ -86,6 +82,24 @@ function executePlan(state, onStep, plan)
         _G.act.commands.execCommand(state, command)
 
         if onStep ~= nil then onStep() end
+    end
+end
+
+-- Should be used sparingly. If the plan isn't tied to
+-- state, then you can't pause the turtle in the middle of its execution,
+-- which is why it's "atomic".
+function module.atomicallyExecuteSubplan(state, callback)
+    local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
+    local maybeFutureId = callback(planner)
+
+    for _, command in pairs(planner.plan) do
+        _G.act.commands.execCommand(state, command)
+    end
+
+    if maybeFutureId == nil then
+        return nil
+    else
+        return state.getActiveTaskVars()[maybeFutureId]
     end
 end
 

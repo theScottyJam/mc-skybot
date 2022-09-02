@@ -15,10 +15,10 @@ module.delete = registerCommand('futures:delete', function(state, opts)
     -- The variable might not exist if it is only registered during a branch that never runs
     local allowMissing = opts.allowMissing
 
-    if not allowMissing and state.getActiveTask().taskVars[inId] == nil then
+    if not allowMissing and state.getActiveTaskVars()[inId] == nil then
         error('Failed to find variable with future-id to delete')
     end
-    state.getActiveTask().taskVars[inId] = nil
+    state.getActiveTaskVars()[inId] = nil
 end)
 
 local while_ = registerCommand('futures:while', function(state, opts)
@@ -29,7 +29,7 @@ local while_ = registerCommand('futures:while', function(state, opts)
     if #subCommands == 0 then error('The block must register at least one command') end
 
     if runIndex == 1 then
-        if not state.getActiveTask().taskVars[continueIfFuture] then
+        if not state.getActiveTaskVars()[continueIfFuture] then
             return -- break the loop
         end
     end
@@ -78,7 +78,7 @@ local if_ = registerCommand('futures:if', function(state, opts)
 
     if #subCommands == 0 then error('The block must register at least one command') end
 
-    if state.getActiveTask().taskVars[enterIfFuture] then
+    if state.getActiveTaskVars()[enterIfFuture] then
         for i = #subCommands, 1, -1 do
             table.insert(state.plan, 1, subCommands[i])
         end

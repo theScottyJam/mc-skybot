@@ -1,5 +1,6 @@
 local util = import('util.lua')
 local time = import('./_time.lua')
+local recipes = import('shared/recipes.lua')
 
 local module = {}
 
@@ -8,6 +9,77 @@ local hookListeners = {}
 local MAX_INVENTORY_SIZE = 100
 math.randomseed(0)
 -- math.randomseed(os.time())
+
+function module.craft()
+    local currentWorld = _G.mockComputerCraftApi._currentWorld
+    assertEquiped(currentWorld, 'minecraft:crafting_table')
+    local inventory = currentWorld.turtle.inventory
+
+    function flattenRecipe(recipe)
+        local flattenedRecipe = {}
+        for i, row in pairs(recipe.from) do
+            for j, itemId in pairs(row) do
+                local slotId = (i - 1)*4 + j
+                flattenedRecipe[slotId] = itemId -- might be nil
+            end
+        end
+        return flattenedRecipe
+    end
+
+    local matchingRecipe = nil
+    for _, recipe in pairs(recipes) do
+        local flattenedRecipe = flattenRecipe(recipe)
+        matchingRecipe = recipe
+        -- Does it line up with the recipe?
+        for slotId, itemId in pairs(flattenedRecipe) do
+            if inventory[slotId] == nil or inventory[slotId].id ~= itemId then
+                matchingRecipe = nil
+                break
+            end
+        end
+        -- Are there any slots outside of the recipe that also contain items?
+        if matchingRecipe == nil then
+            for i = 1, 16 do
+                if flattenedRecipe[i] == nil and inventory[i] ~= nil then
+                    matchingRecipe = nil
+                    break
+                end
+            end
+        end
+        if matchingRecipe ~= nil then break end
+    end
+
+    if matchingRecipe == nil then
+        error('Attempted to craft with an inventory that does not follow a valid recipe.')
+    end
+
+    local minStackSize = 999
+    for i = 1, 16 do
+        if inventory[i] ~= nil then
+            minStackSize = util.minNumber(inventory[i].quantity, minStackSize)
+        end
+    end
+
+    local amountToUse = util.minNumber(minStackSize, math.floor(64 / matchingRecipe.yields))
+
+    for i = 1, 16 do
+        if inventory[i] ~= nil then
+            inventory[i].quantity = inventory[i].quantity - amountToUse
+            if inventory[i].quantity == 0 then
+                inventory[i] = nil
+            end
+        end
+    end
+
+    if inventory[currentWorld.turtle.selectedSlot] ~= nil then
+        error('Currently only supports crafting into an empty slot')
+    end
+
+    inventory[currentWorld.turtle.selectedSlot] = {
+        id = matchingRecipe.to,
+        quantity = amountToUse * matchingRecipe.yields,
+    }
+end
 
 function module.up()
     time.tick()
@@ -96,6 +168,19 @@ function module.getItemCount(slotNum)
     end
 end
 
+-- slotNum is optional
+function module.getItemSpace(slotNum)
+    local turtle = _G.mockComputerCraftApi._currentWorld.turtle
+
+    if slotNum == nil then slotNum = turtle.selectedSlot end
+    
+    if turtle.inventory[slotNum] == nil then
+        return 64
+    else
+        return 64 - turtle.inventory[slotNum].quantity
+    end
+end
+
 -- slotNum defaults to the selected slot
 function module.getItemDetail(slotNum)
     local turtle = _G.mockComputerCraftApi._currentWorld.turtle
@@ -114,6 +199,7 @@ end
 function module.equipLeft()
     local turtle = _G.mockComputerCraftApi._currentWorld.turtle
     local inventoryItem = turtle.inventory[turtle.selectedSlot] -- possibly nil
+    util.assert(inventoryItem == nil or inventoryItem.quantity == 1, 'Currently unable to equip from a slot with multiple items')
     turtle.inventory[turtle.selectedSlot] = turtle.equipedLeft
     turtle.equipedLeft = inventoryItem
 end
@@ -121,6 +207,7 @@ end
 function module.equipRight()
     local turtle = _G.mockComputerCraftApi._currentWorld.turtle
     local inventoryItem = turtle.inventory[turtle.selectedSlot] -- possibly nil
+    util.assert(inventoryItem == nil or inventoryItem.quantity == 1, 'Currently unable to equip from a slot with multiple items')
     turtle.inventory[turtle.selectedSlot] = turtle.equipedRight
     turtle.equipedRight = inventoryItem
 end
@@ -158,6 +245,7 @@ local canPlace = {
     'minecraft:ice',
     'minecraft:sapling',
     'minecraft:cobblestone',
+    'minecraft:chest',
 }
 
 function placeAt(currentWorld, placeCoord)
@@ -208,8 +296,29 @@ function placeAt(currentWorld, placeCoord)
             end
         end)
     end
-    setInMap(currentWorld.map, placeCoord, { id = itemIdBeingPlaced })
+
+    local itemBeingPlaced = { id = itemIdBeingPlaced }
+    if itemIdBeingPlaced == 'minecraft:chest' then
+        itemBeingPlaced.contents = {}
+    end
+
+    setInMap(currentWorld.map, placeCoord, itemBeingPlaced)
     return true
+end
+
+function module.detect()
+    local blockFound, _ = module.inspect()
+    return blockFound
+end
+
+function module.detectUp()
+    local blockFound, _ = module.inspectUp()
+    return blockFound
+end
+
+function module.detectDown()
+    local blockFound, _ = module.inspectDown()
+    return blockFound
 end
 
 function module.inspect()
@@ -282,6 +391,7 @@ local canDig = {
 }
 
 function digAt(currentWorld, coordBeingDug, toolSide)
+    assertEquiped(currentWorld, 'minecraft:diamond_pickaxe')
     local dugCell = lookupInMap(currentWorld.map, coordBeingDug)
     if dugCell == nil then
         return false
@@ -318,6 +428,85 @@ function digAt(currentWorld, coordBeingDug, toolSide)
 end
 
 -- amount is optional
+function module.drop(amount)
+    time.tick()
+    local currentWorld = _G.mockComputerCraftApi._currentWorld
+    local turtle = currentWorld.turtle
+    local coordDroppingTo = posToCoord(getPosInFront(turtle.pos))
+    return dropAt(currentWorld, coordDroppingTo, amount)
+end
+
+function module.dropUp(amount)
+    time.tick()
+    local currentWorld = _G.mockComputerCraftApi._currentWorld
+    local turtle = currentWorld.turtle
+    local coordDroppingTo = { x = turtle.pos.x, y = turtle.pos.y + 1, z = turtle.pos.z }
+    return dropAt(currentWorld, coordDroppingTo, amount)
+end
+
+function module.dropDown(amount)
+    time.tick()
+    local currentWorld = _G.mockComputerCraftApi._currentWorld
+    local turtle = currentWorld.turtle
+    local coordDroppingTo = { x = turtle.pos.x, y = turtle.pos.y - 1, z = turtle.pos.z }
+    return dropAt(currentWorld, coordDroppingTo, amount)
+end
+
+local canDropTo = { 'minecraft:chest' }
+
+function dropAt(currentWorld, coordDroppingTo, amount)
+    if amount == nil then amount = 64 end
+
+    local selectedSlot = currentWorld.turtle.selectedSlot
+
+    local targetCell = lookupInMap(currentWorld.map, coordDroppingTo)
+    if targetCell == nil then
+        error('Expected to find a block with an inventory')
+    end
+    if currentWorld.turtle.inventory[selectedSlot] == nil then
+        return true
+    end
+
+    if amount > currentWorld.turtle.inventory[selectedSlot].quantity then
+        amount = currentWorld.turtle.inventory[selectedSlot].quantity
+    end
+
+    if not util.tableContains(canDropTo, targetCell.id) then
+        error('Can not drop item into block '..targetCell.id..' yet.')
+    end
+
+    local MAX_CHEST_SIZE = 9 * 3 -- Only small chests are supported right now
+    local somethingMoved = false
+    for i = 1, MAX_CHEST_SIZE do
+        local inventory = currentWorld.turtle.inventory
+        if targetCell.contents[i] == nil then
+            targetCell.contents[i] = {
+                id = inventory[selectedSlot].id,
+                quantity = 0
+            }
+        end
+
+        if targetCell.contents[i].id == inventory[selectedSlot].id then
+            local maxThatCanBeMoved = 64 - targetCell.contents[i].quantity
+            local amountBeingMoved = util.minNumber(maxThatCanBeMoved, amount)
+            if amountBeingMoved > 0 then
+                somethingMoved = true
+            end
+
+            amount = amount - amountBeingMoved
+            targetCell.contents[i].quantity = targetCell.contents[i].quantity + amountBeingMoved
+            inventory[selectedSlot].quantity = inventory[selectedSlot].quantity - amountBeingMoved
+            if inventory[selectedSlot].quantity == 0 then
+                inventory[selectedSlot] = nil
+            end
+            if amount == 0 then
+                break
+            end
+        end
+    end
+    return somethingMoved
+end
+
 function module.suck(amount)
     time.tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
@@ -383,10 +572,11 @@ function suckAt(currentWorld, coordSuckingFrom, amount)
                 if quantity == limit then break end
             end
         end
-        return suckingItemId, quantity
+        return suckingItemId, quantity -- suckingItemId may be nil
     end
 
     local suckingItemId, quantityCanBePulled = findItemsToRemove(false)
+    if suckingItemId == nil then return false end
     local quantityAdded = addToInventory(currentWorld.turtle, suckingItemId, quantityCanBePulled)
     findItemsToRemove(true, quantityAdded)
 
@@ -403,19 +593,37 @@ function module.transferTo(destinationSlot, quantity)
     if quantity == nil then quantity = 64 end
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
-    
+
+    if turtle.selectedSlot == destinationSlot then
+        return true
+    end
     if turtle.inventory[turtle.selectedSlot] == nil then
         return false
     end
-    if turtle.inventory[destinationSlot] ~= nil then
-        if turtle.inventory[destinationSlot].id == turtle.inventory[turtle.selectedSlot].id then
-            error('The ability to transfer items to a partially-filled slot of the same type is not yet implemented.')
-        end
+
+    if turtle.inventory[destinationSlot] == nil then
+        turtle.inventory[destinationSlot] = {
+            id = turtle.inventory[turtle.selectedSlot].id,
+            quantity = 0,
+        }
+    end
+
+    if turtle.inventory[destinationSlot].id ~= turtle.inventory[turtle.selectedSlot].id then
         return false
     end
 
-    turtle.inventory[destinationSlot] = turtle.inventory[turtle.selectedSlot]
-    turtle.inventory[turtle.selectedSlot] = nil
+    local spaceAvailable = 64 - turtle.inventory[destinationSlot].quantity
+    local amountBeingMoved = util.minNumber(
+        util.minNumber(spaceAvailable, quantity),
+        turtle.inventory[turtle.selectedSlot].quantity
+    )
+
+    turtle.inventory[turtle.selectedSlot].quantity = turtle.inventory[turtle.selectedSlot].quantity - amountBeingMoved
+    turtle.inventory[destinationSlot].quantity = turtle.inventory[destinationSlot].quantity + amountBeingMoved
+    if turtle.inventory[turtle.selectedSlot].quantity == 0 then
+        turtle.inventory[turtle.selectedSlot] = nil
+    end
+
     return true
 end
 
@@ -516,6 +724,14 @@ function assertNotInsideBlock(world, movementDirectionForError)
     if cell ~= nil then
         local pos = world.turtle.pos
         error('Ran into a block of '..cell.id..' at ('..pos.x..', '..pos.y..', '..pos.z..') while moving '..movementDirectionForError)
+    end
+end
+
+function assertEquiped(world, itemId)
+    local isOnLeft = world.turtle.equipedLeft ~= nil and world.turtle.equipedLeft.id == itemId
+    local isOnRight = world.turtle.equipedRight ~= nil and world.turtle.equipedRight.id == itemId
+    if not isOnLeft and not isOnRight then
+        error('Must have '..itemId..' equipped before doing this task')
     end
 end
 
