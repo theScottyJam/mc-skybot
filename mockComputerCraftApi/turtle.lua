@@ -246,6 +246,7 @@ local canPlace = {
     'minecraft:sapling',
     'minecraft:cobblestone',
     'minecraft:chest',
+    'minecraft:furnace'
 }
 
 function placeAt(currentWorld, placeCoord)
@@ -300,6 +301,11 @@ function placeAt(currentWorld, placeCoord)
     local itemBeingPlaced = { id = itemIdBeingPlaced }
     if itemIdBeingPlaced == 'minecraft:chest' then
         itemBeingPlaced.contents = {}
+    end
+    if itemIdBeingPlaced == 'minecraft:furnace' then
+        itemBeingPlaced.inputSlot = nil
+        itemBeingPlaced.outputSlot = nil
+        itemBeingPlaced.fuelSlot = nil
     end
 
     setInMap(currentWorld.map, placeCoord, itemBeingPlaced)

@@ -10,15 +10,12 @@ local taskRegistry = {}
 
 --[[
 inputs:
-  opts.requiredResources (optional) is a mapping of resource names to tables
-    of the shape { quantity=..., at='INVENTORY' }
-    Fetching these resources must be done before the project starts.
   opts.createTaskState() (optional) returns any arbitrary record.
     If not provided, it default to an empty record.
-  opts.enter() takes a planner and a taskState. It will run before the task
+  opts.enter() (optional) takes a planner and a taskState. It will run before the task
     starts and whenever the task continues after an interruption, and is supposed
     to bring the turtle from anywhere in the world to a desired position.
-  opts.exit() takes a planner, a taskState, and an info object. The info object contains a
+  opts.exit() (optional) takes a planner, a taskState, and an info object. The info object contains a
     "complete" boolean property that indicates if the task has been completed at this point.
     This function will run after the task finishes and whenever the task needs to pause
     for an interruption, and is supposed to bring the turtle to the position of a registered location.
@@ -29,16 +26,14 @@ inputs:
     provided plan happens, exit() should be used, and this task will be complete.
 --]]
 function module.registerTaskRunner(id, opts)
-    local requiredResources = opts.requiredResources or {}
     local createTaskState = opts.createTaskState or function() return {} end
-    local enter = opts.enter
+    local enter = opts.enter or function() end
     local exit = opts.exit or function() end
     local nextPlan = opts.nextPlan
 
     if taskRegistry[id] ~= nil then error('A taskRunner with that id already exists') end
     taskRegistry[id] = {
         id = id,
-        requiredResources = requiredResources,
 
         -- Takes a state and a reference to this task. Returns a plan.
         enter = function(state, currentTask)
@@ -82,11 +77,13 @@ end
 
 -- Returns a task that will collect some of the required resources, or nil if there
 -- aren't any requirements left to fulfill.
-function module.collectResources(state, initialTaskRunner, resourcesInInventory)
+function module.collectResources(state, initialProject, resourcesInInventory)
     local resourceMap = {}
 
     -- Collect the nested requirement tree into a flat mapping (resourceMap)
-    local requiredResourcesToProcess = { initialTaskRunner.requiredResources }
+    local requiredResourcesToProcess = {
+        initialProject.requiredResources
+    }
     while #requiredResourcesToProcess > 0 do
         local requiredResources = table.remove(requiredResourcesToProcess)
         for resourceName, rawRequirements in pairs(requiredResources) do
@@ -96,6 +93,7 @@ function module.collectResources(state, initialTaskRunner, resourcesInInventory)
                 resourceMap[resourceName] = {
                     quantity = 0,
                     taskRunner = nil, -- nil means there are no registered resource suppliers
+                    requiredResources = {},
                 }
             elseif resourceMap[resourceName] == nil then
                 local supplier = state.resourceSuppliers[resourceName][1]
@@ -104,12 +102,27 @@ function module.collectResources(state, initialTaskRunner, resourcesInInventory)
                 resourceMap[resourceName] = {
                     quantity = 0,
                     taskRunner = subTaskRunner,
+                    requiredResourcesPerUnit = supplier.requiredResourcesPerUnit,
                 }
-                table.insert(requiredResourcesToProcess, subTaskRunner.requiredResources)
+                local resourceRequest = { [resourceName] = rawRequirements.quantity }
+                local requiredResources = _G.act.mill.calculateRequredResources(
+                    supplier.requiredResourcesPerUnit,
+                    resourceRequest
+                )
+                table.insert(requiredResourcesToProcess, requiredResources)
             end
             resourceMap[resourceName].quantity = resourceMap[resourceName].quantity + rawRequirements.quantity
         end
     end
+
+    --------------------------------------------------
+    -- ERROR: It's fetching the 256 cobblestone twice.
+    -- This is because the following loop isn't recognizing the cobble-fetching task as done
+    -- after it's been turned into furnaces.
+    --
+    -- 1. Build resource tree and record initial quantities required
+    -- 2. Apply current inventory, subtracting values from the resource tree and their child nodes (potentially removing children)
+    -- 3. Find a leaf node without any dependencies and work on it. (Note for future: Do the closets one)
 
     -- Loop over the mapping, removing things that are already satisfied, until
     -- you find a resource that needs to be done, who's requirements are all fulfilled.
@@ -125,9 +138,15 @@ function module.collectResources(state, initialTaskRunner, resourcesInInventory)
                     'but there are no registered sources for this resource, nor is there enough of it on hand.'
                 )
             else
+                local resourceRequest = { [resourceName] = resourceInfo.quantity }
+                local requiredResources = _G.act.mill.calculateRequredResources(
+                    resourceInfo.requiredResourcesPerUnit,
+                    resourceRequest
+                )
+
                 local requirementsFulfilled = true
-                for subResourceName, subRawRequirements in pairs(resourceInfo.taskRunner.requiredResources) do
-                    if resourceMap[resourceName] ~= nil then
+                for subResourceName, subRawRequirements in pairs(requiredResources) do
+                    if resourceMap[subResourceName] ~= nil then
                         requirementsFulfilled = false
                         break
                     end

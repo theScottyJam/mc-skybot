@@ -22,6 +22,7 @@ local completeMapKey = {
     ['minecraft:water'] = '~',
     ['minecraft:lava'] = '=',
     ['minecraft:ice'] = 'I',
+    ['minecraft:furnace'] = 'F',
 }
 
 -- bounds is of the shape { minX = ..., maxX = ..., minY? = ..., maxY? = ..., minZ = ..., maxZ = ...}

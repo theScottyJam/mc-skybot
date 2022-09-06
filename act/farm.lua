@@ -36,10 +36,6 @@ function module.register(taskRunnerId, opts)
     local supplies = opts.supplies
     local calcExpectedYield = opts.calcExpectedYield
 
-    if util.tableSize(_G.act.task.lookupTaskRunner(taskRunnerId).requiredResources) > 0 then
-        error('Farms do not support gathering required resources at this time.')
-    end
-
     local farm = {
         calcExpectedYield = calcExpectedYield,
         activate = function(planner)
@@ -55,7 +51,7 @@ function module.register(taskRunnerId, opts)
     return farm
 end
 
--- Should be called at each interrupable point during a project,
+-- Should be called at each interrupable point during a project or mill,
 -- and whenever an inerruption has finished.
 -- Returns an interrupt task, or nil if there
 -- are no interruptions.

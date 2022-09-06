@@ -16,13 +16,18 @@ module.activateMill = registerCommand(
     function(state, opts)
         local taskRunnerId = opts.taskRunnerId
         local supplies = opts.supplies
+        local requiredResourcesPerUnit = opts.requiredResourcesPerUnit
 
         for _, resourceName in ipairs(supplies) do
             if state.resourceSuppliers[resourceName] == nil then
                 state.resourceSuppliers[resourceName] = {}
             end
 
-            table.insert(state.resourceSuppliers[resourceName], 1, { type='mill', taskRunnerId = taskRunnerId })
+            table.insert(state.resourceSuppliers[resourceName], 1, {
+                type='mill',
+                taskRunnerId = taskRunnerId,
+                requiredResourcesPerUnit = requiredResourcesPerUnit,
+            })
         end
     end
 )
@@ -43,7 +48,10 @@ module.activateFarm = registerCommand(
                 state.resourceSuppliers[resourceName] = {}
             end
 
-            table.insert(state.resourceSuppliers[resourceName], 1, { type='farm', taskRunnerId = taskRunnerId })
+            table.insert(state.resourceSuppliers[resourceName], 1, {
+                type='farm',
+                taskRunnerId = taskRunnerId,
+            })
         end
     end
 )

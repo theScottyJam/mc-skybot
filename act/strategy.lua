@@ -24,8 +24,9 @@ function module.exec(strategy, onStep)
     while #state.projectList > 0 do
         -- Prepare the next project task, or resource-fetching task
         local resourcesInInventory = countResourcesInInventoryNow(state)
+        local nextProject = _G.act.project.lookup(state.projectList[1])
         local nextProjectTaskRunner = task.lookupTaskRunner(state.projectList[1])
-        local resourceCollectionTask = task.collectResources(state, nextProjectTaskRunner, resourcesInInventory)
+        local resourceCollectionTask = task.collectResources(state, nextProject, resourcesInInventory)
         if resourceCollectionTask ~= nil then
             state.primaryTask = resourceCollectionTask
         else

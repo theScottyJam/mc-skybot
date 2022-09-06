@@ -1,4 +1,5 @@
 local util = import('util.lua')
+local recipes = import('shared/recipes.lua')
 
 local module = {}
 
@@ -23,6 +24,7 @@ function module.initEntity()
 
     local cobblestoneGeneratorMill = createCobblestoneGeneratorMill({ homeLoc = homeLoc })
     local startingIslandTreeFarm = createStartingIslandTreeFarm({ bedrockPos = bedrockPos, homeLoc = homeLoc })
+    local craftingMills = createCraftingMills()
 
     return {
         -- locations
@@ -30,7 +32,7 @@ function module.initEntity()
         homeLoc = homeLoc,
 
         -- projects
-        startBuildingCobblestoneGenerator = startBuildingCobblestoneGeneratorProject({ homeLoc = homeLoc }),
+        startBuildingCobblestoneGenerator = startBuildingCobblestoneGeneratorProject({ homeLoc = homeLoc, craftingMills = craftingMills }),
         harvestInitialTreeAndPrepareTreeFarm = harvestInitialTreeAndPrepareTreeFarmProject({ bedrockPos = bedrockPos, homeLoc = homeLoc, startingIslandTreeFarm = startingIslandTreeFarm }),
         waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGeneratorProject({ homeLoc = homeLoc, cobblestoneGeneratorMill = cobblestoneGeneratorMill }),
         createCobbleTower1 = createCobbleTowerProject({ homeLoc = homeLoc, towerNumber = 1 }),
@@ -55,10 +57,6 @@ function harvestInitialTreeAndPrepareTreeFarmProject(opts)
     local bedrockCmps = space.createCompass(bedrockPos)
     local taskRunnerId = 'project:mainIsland:harvestInitialTreeAndPrepareTreeFarm'
     _G.act.task.registerTaskRunner(taskRunnerId, {
-        requiredResources = {
-            -- 2 for each "sappling-arm", and 2 for the dirt that hovers above the trees
-            ['minecraft:dirt'] = { quantity=6, at='INVENTORY' }
-        },
         enter = function(planner, taskState)
             location.travelToLocation(planner, homeLoc)
         end,
@@ -111,6 +109,10 @@ function harvestInitialTreeAndPrepareTreeFarmProject(opts)
         end,
     })
     return _G.act.project.create(taskRunnerId, {
+        requiredResources = {
+            -- 2 for each "sappling-arm", and 2 for the dirt that hovers above the trees
+            ['minecraft:dirt'] = { quantity=6, at='INVENTORY' }
+        },
         preConditions = function(currentConditions)
             return currentConditions.mainIsland
         end,
@@ -193,6 +195,7 @@ end
 
 function startBuildingCobblestoneGeneratorProject(opts)
     local homeLoc = opts.homeLoc
+    local craftingMills = opts.craftingMills
 
     local homeCmps = space.createCompass(homeLoc.pos)
     local taskRunnerId = 'project:mainIsland:startBuildingCobblestoneGenerator'
@@ -200,8 +203,13 @@ function startBuildingCobblestoneGeneratorProject(opts)
         enter = function(planner, taskState)
             location.travelToLocation(planner, homeLoc)
         end,
-        exit = function(planner, taskState)
+        exit = function(planner, taskState, info)
             navigate.assertPos(planner, homeLoc.pos)
+            if info.complete then
+                for _, mill in ipairs(craftingMills) do
+                    mill.activate(planner)
+                end
+            end
         end,
         nextPlan = function(planner, taskState)
             local startPos = util.copyTable(planner.turtlePos)
@@ -265,9 +273,6 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
     local homeCmps = space.createCompass(homeLoc.pos)
     local taskRunnerId = 'project:mainIsland:waitForIceToMeltAndfinishCobblestoneGenerator'
     _G.act.task.registerTaskRunner(taskRunnerId, {
-        requiredResources = {
-            ['minecraft:bucket'] = { quantity=1, at='INVENTORY' }
-        },
         enter = function(planner, taskState)
             location.travelToLocation(planner, homeLoc)
         end,
@@ -301,6 +306,9 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
         end,
     })
     return _G.act.project.create(taskRunnerId, {
+        requiredResources = {
+            ['minecraft:bucket'] = { quantity=1, at='INVENTORY' }
+        },
         preConditions = function(currentConditions)
             return (
                 currentConditions.mainIsland and
@@ -433,15 +441,57 @@ function createStartingIslandTreeFarm(opts)
     })
 end
 
+function createCraftingMills()
+    local millList = {}
+    for i, recipe in pairs(recipes) do
+        local taskRunnerId = 'mill:mainIsland:crafting:'..recipe.to..':'..i
+        _G.act.task.registerTaskRunner(taskRunnerId, {
+            createTaskState = function()
+                return { produced = 0 }
+            end,
+            nextPlan = function(planner, taskState, resourceRequests)
+                local newTaskState = util.copyTable(taskState)
+                local quantity = resourceRequests[recipe.to]
+                if quantity == nil then error('Must supply a request for '..recipe.to..' to use this mill') end
+                -- I don't have inventory management techniques in place to handle a larger quantity
+                if quantity > 64 * 8 then error('Can not handle that large of a quantity yet') end
+    
+                local amountNeeded = quantity - taskState.produced
+                local craftAmount = util.minNumber(64 * recipe.yields, amountNeeded)
+                highLevelCommands.craft(planner, recipe, craftAmount)
+                
+                newTaskState.produced = newTaskState.produced + craftAmount
+                return newTaskState, newTaskState.produced == quantity
+            end,
+        })
+        local mill = _G.act.mill.create(taskRunnerId, {
+            requiredResourcesPerUnit = (function (resourceRequests)
+                local craftQuantity = 1 / recipe.yields
+
+                local requirements = {}
+                for _, row in pairs(recipe.from) do
+                    for _, itemId in pairs(row) do
+                        if requirements[itemId] == nil then
+                            requirements[itemId] = { quantity=0, at='INVENTORY'}
+                        end
+                        requirements[itemId].quantity = requirements[itemId].quantity + craftQuantity
+                    end
+                end
+                return { [recipe.to] = requirements }
+            end)(),
+            supplies = { recipe.to },
+        })
+        table.insert(millList, mill)
+    end
+    return millList
+end
+
 function createCobbleTowerProject(opts)
     local homeLoc = opts.homeLoc
     local towerNumber = opts.towerNumber
 
     local homeCmps = space.createCompass(homeLoc.pos)
     local taskRunnerId = _G.act.task.registerTaskRunner('project:mainIsland:createCobbleTower:'..towerNumber, {
-        requiredResources = {
-            ['minecraft:cobblestone'] = { quantity=64 * 4, at='INVENTORY' }
-        },
         enter = function(planner, taskState)
             location.travelToLocation(planner, homeLoc)
         end,
@@ -451,8 +501,10 @@ function createCobbleTowerProject(opts)
         nextPlan = function(planner, taskState)
             local startPos = util.copyTable(planner.turtlePos)
 
+            local nextToTowers = homeCmps.compassAt({ right = -5 })
             local towerBaseCmps = homeCmps.compassAt({ right = -6 - (towerNumber*2) })
             
+            navigate.moveToCoord(planner, nextToTowers.coord, { 'forward', 'right', 'up' })
             for x = 0, 1 do
                 for z = 0, 3 do
                     navigate.moveToCoord(
@@ -460,8 +512,10 @@ function createCobbleTowerProject(opts)
                         towerBaseCmps.coordAt({ forward = -z, right = -x }),
                         { 'forward', 'right', 'up' }
                     )
-                    for i = 1, 32 do
-                        highLevelCommands.findAndSelectSlotWithItem(planner, 'minecraft:cobblestone')
+                    -- for i = 1, 32 do
+                    for i = 1, 4 do
+                        -- highLevelCommands.findAndSelectSlotWithItem(planner, 'minecraft:cobblestone')
+                        highLevelCommands.findAndSelectSlotWithItem(planner, 'minecraft:furnace')
                         commands.turtle.placeDown(planner)
                         commands.turtle.up(planner)
                     end
@@ -469,12 +523,17 @@ function createCobbleTowerProject(opts)
             end
             commands.turtle.select(planner, 1)
 
+            navigate.moveToCoord(planner, nextToTowers.coord, { 'forward', 'right', 'up' })
             navigate.moveToPos(planner, startPos, { 'right', 'forward', 'up' })
 
             return taskState, true
         end,
     })
     return _G.act.project.create(taskRunnerId, {
+        requiredResources = {
+            -- ['minecraft:cobblestone'] = { quantity=64 * 4, at='INVENTORY' }
+            ['minecraft:furnace'] = { quantity=32, at='INVENTORY' }
+        },
         preConditions = function(currentConditions)
             return currentConditions.mainIsland
         end,
