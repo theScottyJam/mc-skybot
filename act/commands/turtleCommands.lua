@@ -120,7 +120,6 @@ module.digDown = registerCommand('turtle:digDown', function(state, toolSide)
     turtle.digDown(toolSide)
 end)
 
--- amount is optional
 module.drop = registerCommand('turtle:drop', function(state, amount)
     turtle.drop(amount)
 end)

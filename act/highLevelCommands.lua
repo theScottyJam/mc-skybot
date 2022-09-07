@@ -117,7 +117,7 @@ module.craft = registerCommand(
             module.findAndSelectSlotWithItem(planner, 'minecraft:chest')
             commands.turtle.placeUp(planner)
             -- Put any remaining chests into the chest, to make sure we have at least one empty inventory slot
-            commands.turtle.dropUp(planner)
+            commands.turtle.dropUp(planner, 64)
             module.findAndSelectSlotWithItem(planner, 'minecraft:crafting_table')
             commands.turtle.equipRight(planner)
             commands.turtle.select(planner, 1)
@@ -185,7 +185,7 @@ module.craft = registerCommand(
         for i = 1, 16 do
             if not util.tableContains(usedRecipeCells, i) then
                 turtle.select(i)
-                turtle.dropUp()
+                turtle.dropUp(64)
                 numOfItemsInChest = numOfItemsInChest + 1
             end
         end
@@ -228,7 +228,7 @@ module.craft = registerCommand(
         while quantityUsing > 0 do
             turtle.craft(util.minNumber(64, quantityUsing * recipe.yields))
             quantityUsing = quantityUsing - turtle.getItemCount() / recipe.yields
-            turtle.dropUp()
+            turtle.dropUp(64)
             numOfItemsInChest = numOfItemsInChest + 1
         end
         turtle.select(1)

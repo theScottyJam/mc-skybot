@@ -433,7 +433,6 @@ function digAt(currentWorld, coordBeingDug, toolSide)
     return true
 end
 
--- amount is optional
 function module.drop(amount)
     time.tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
@@ -461,7 +460,11 @@ end
 local canDropTo = { 'minecraft:chest' }
 
 function dropAt(currentWorld, coordDroppingTo, amount)
-    if amount == nil then amount = 64 end
+    if amount == nil then
+        -- According to the docs, the `amount` param used to not be a thing.
+        -- Apparently now that it is a thing, it's also required.
+        error('`amount` param is required')
+    end
 
     local selectedSlot = currentWorld.turtle.selectedSlot
 
