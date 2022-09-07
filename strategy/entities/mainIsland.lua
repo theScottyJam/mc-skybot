@@ -331,14 +331,11 @@ function buildFurnacesProject(opts)
         nextPlan = function(planner, taskState)
             local startPos = util.copyTable(planner.turtlePos)
 
-            local aboveFirstFurnacePos = inFrontOfChestCmps.posAt({ forward=1, right=2, up=1, face='backward' })
-            navigate.moveToPos(planner, aboveFirstFurnacePos, { 'up', 'forward', 'right'})
-
-            for i = 1, 2 do
+            local aboveFirstFurnaceCmps = inFrontOfChestCmps.compassAt({ forward=1, right=2, up=2, face='right' })
+            for i = 0, 2 do
+                navigate.moveToPos(planner, aboveFirstFurnaceCmps.posAt({ right = i }), { 'up', 'forward', 'right'})
                 highLevelCommands.placeItemDown(planner, 'minecraft:furnace')
-                commands.turtle.forward(planner)
             end
-            highLevelCommands.placeItemDown(planner, 'minecraft:furnace')
 
             navigate.moveToPos(planner, startPos, { 'right', 'forward', 'up' })
 

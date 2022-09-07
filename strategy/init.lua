@@ -52,28 +52,14 @@ function debugProject(homeLoc)
     local taskRunnerId = 'project:init:debugProject'
     _G.act.task.registerTaskRunner(taskRunnerId, {
         enter = function(planner, taskState)
-            location.travelToLocation(planner, homeLoc)
+            -- location.travelToLocation(planner, homeLoc)
         end,
         nextPlan = function(planner, taskState)
-            local startPos = util.copyTable(planner.turtlePos)
-            local currentWorld = _G.mockComputerCraftApi._currentWorld
-
-            -- currentWorld.turtle.inventory[1] = { id = 'minecraft:chest', quantity = 1 }
-            -- for i = 3, 16 do
-            --     currentWorld.turtle.inventory[i] = { id = 'minecraft:cobblestone', quantity = 64 }
-            -- end
-            -- highLevelCommands.craft(planner, {
-            --     from = {
-            --         {'minecraft:cobblestone', 'minecraft:cobblestone', 'minecraft:cobblestone'},
-            --         {'minecraft:cobblestone', nil, 'minecraft:cobblestone'},
-            --         {'minecraft:cobblestone', 'minecraft:cobblestone', 'minecraft:cobblestone'},
-            --     },
-            --     to = 'minecraft:furnace',
-            --     yields = 1
-            -- })
+            -- local startPos = util.copyTable(planner.turtlePos)
+            -- local currentWorld = _G.mockComputerCraftApi._currentWorld
 
             -- navigate.moveToPos(planner, startPos)
-            return taskState, true
+            -- return taskState, true
         end,
     })
     return _G.act.project.create(taskRunnerId)

@@ -52,7 +52,7 @@ module.findAndSelectSlotWithItem = registerCommandWithFuture(
         if allowMissing then
             return false
         end
-        error('Failed to find the specific item.')
+        error('Failed to find the item '..itemIdToFind..' in the inventory')
     end,
     function(itemIdToFind, opts)
         return opts and opts.out
