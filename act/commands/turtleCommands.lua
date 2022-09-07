@@ -7,19 +7,28 @@ local registerMovementCommand = publicHelpers.registerMovementCommand
 local registerCommandWithFuture = publicHelpers.registerCommandWithFuture
 
 module.up = registerMovementCommand('turtle:up', function(state)
-    turtle.up()
+    local success = false
+    while not success do
+        success = turtle.up()
+    end
 end, function(turtlePos)
     turtlePos.up = turtlePos.up + 1
 end)
 
 module.down = registerMovementCommand('turtle:down', function(state)
-    turtle.down()
+    local success = false
+    while not success do
+        turtle.down()
+    end
 end, function(turtlePos)
     turtlePos.up = turtlePos.up - 1
 end)
 
 module.forward = registerMovementCommand('turtle:forward', function(state)
-    turtle.forward()
+    local success = false
+    while not success do
+        turtle.forward()
+    end
 end, function(turtlePos)
     if turtlePos.face == 'forward' then turtlePos.forward = turtlePos.forward + 1
     elseif turtlePos.face == 'backward' then turtlePos.forward = turtlePos.forward - 1
@@ -30,7 +39,10 @@ end, function(turtlePos)
 end)
 
 module.backward = registerMovementCommand('turtle:backward', function(state)
-    turtle.backward()
+    local success = false
+    while not success do
+        turtle.backward()
+    end
 end, function(turtlePos)
     if turtlePos.face == 'forward' then turtlePos.forward = turtlePos.forward - 1
     elseif turtlePos.face == 'backward' then turtlePos.forward = turtlePos.forward + 1
