@@ -10,7 +10,6 @@ module.up = registerMovementCommand('turtle:up', function(state)
     local success = false
     while not success do
         success = turtle.up()
-        if not success then _G.act.mockHooks.onFailToMove() end
     end
 end, function(turtlePos)
     turtlePos.up = turtlePos.up + 1
@@ -20,7 +19,6 @@ module.down = registerMovementCommand('turtle:down', function(state)
     local success = false
     while not success do
         success = turtle.down()
-        if not success then _G.act.mockHooks.onFailToMove() end
     end
 end, function(turtlePos)
     turtlePos.up = turtlePos.up - 1
@@ -30,7 +28,6 @@ module.forward = registerMovementCommand('turtle:forward', function(state)
     local success = false
     while not success do
         success = turtle.forward()
-        if not success then _G.act.mockHooks.onFailToMove() end
     end
 end, function(turtlePos)
     if turtlePos.face == 'forward' then turtlePos.forward = turtlePos.forward + 1
