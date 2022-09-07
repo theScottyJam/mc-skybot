@@ -120,9 +120,9 @@ else
 end
 
 if inputs.useMockLib then
-    mockComputerCraftApi.present.displayMap(world, { minX = -8, maxX = 5, minY = 0, maxY = 79, minZ = -5, maxZ = 4 }, { showKey = false })
-    -- mockComputerCraftApi.present.displayMap(world, { minX = -8, maxX = 5, minY = 65, maxY = 68, minZ = -5, maxZ = 4 }, { showKey = false })
-    -- mockComputerCraftApi.present.displayLayers(world, { minX = -8, maxX = 5, minY = 65, maxY = 75, minZ = -5, maxZ = 4 }, { showKey = false })
+    mockComputerCraftApi.present.displayMap(world, { minX = -12, maxX = 9, minY = 0, maxY = 79, minZ = -7, maxZ = 6 }, { showKey = false })
+    -- mockComputerCraftApi.present.displayMap(world, { minX = -12, maxX = 9, minY = 65, maxY = 68, minZ = -7, maxZ = 6 }, { showKey = false })
+    -- mockComputerCraftApi.present.displayLayers(world, { minX = -12, maxX = 9, minY = 65, maxY = 75, minZ = -7, maxZ = 6 }, { showKey = false })
     mockComputerCraftApi.present.showTurtlePosition(world)
     mockComputerCraftApi.present.inventory(world)
 end

@@ -24,7 +24,8 @@ function module.register(pos)
 
     if allLocations[pos.forward] == nil then allLocations[pos.forward] = {} end
     if allLocations[pos.forward][pos.right] == nil then allLocations[pos.forward][pos.right] = {} end
-    allLocations[pos.forward][pos.right][pos.up] = loc
+    if allLocations[pos.forward][pos.right][pos.up] == nil then allLocations[pos.forward][pos.right][pos.up] = {} end
+    allLocations[pos.forward][pos.right][pos.up][pos.face] = loc
     return loc
 end
 
@@ -53,15 +54,16 @@ function module.registerPath(loc1, loc2, midPoints)
     })
 end
 
-function lookupLoc(coord)
+function lookupLoc(pos)
     local loc = (
-        allLocations[coord.forward] and
-        allLocations[coord.forward][coord.right] and
-        allLocations[coord.forward][coord.right][coord.up]
+        allLocations[pos.forward] and
+        allLocations[pos.forward][pos.right] and
+        allLocations[pos.forward][pos.right][pos.up] and
+        allLocations[pos.forward][pos.right][pos.up][pos.face]
     )
 
     if loc == nil then
-        error('Failed to look up a location at a given coordinate')
+        error('Failed to look up a location at a given position')
     end
 
     return loc
@@ -85,7 +87,7 @@ function module.travelToLocation(planner, destLoc)
     local navigate = _G.act.navigate
 
     if space.comparePos(planner.turtlePos, destLoc.pos) then return end
-    local turtleLoc = lookupLoc(space.posToCoord(planner.turtlePos))
+    local turtleLoc = lookupLoc(planner.turtlePos)
     local route = findBestRoute(turtleLoc, destLoc).route
     if route == nil then error('Failed to naviage to a particular location - there was no route to this location.') end
 

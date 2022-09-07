@@ -18,9 +18,10 @@ function module.initEntity()
 
     -- homeLoc is right above the bedrock
     local homeLoc = location.register(space.resolveRelPos({ up=3 }, bedrockPos))
-    -- initialLoc is in front of the chest
-    local initialLoc = location.register(space.resolveRelPos({ right=3, face='left' }, homeLoc.pos))
-    _G.act.location.registerPath(initialLoc, homeLoc)
+    local inFrontOfChestLoc = location.register(space.resolveRelPos({ right=3 }, homeLoc.pos))
+    local initialLoc = location.register(space.resolveRelPos({ face='left' }, inFrontOfChestLoc.pos))
+    _G.act.location.registerPath(inFrontOfChestLoc, homeLoc)
+    _G.act.location.registerPath(inFrontOfChestLoc, initialLoc)
 
     local cobblestoneGeneratorMill = createCobblestoneGeneratorMill({ homeLoc = homeLoc })
     local startingIslandTreeFarm = createStartingIslandTreeFarm({ bedrockPos = bedrockPos, homeLoc = homeLoc })
@@ -28,6 +29,7 @@ function module.initEntity()
 
     return {
         -- locations
+        inFrontOfChestLoc = inFrontOfChestLoc,
         initialLoc = initialLoc,
         homeLoc = homeLoc,
 
@@ -35,6 +37,7 @@ function module.initEntity()
         startBuildingCobblestoneGenerator = startBuildingCobblestoneGeneratorProject({ homeLoc = homeLoc, craftingMills = craftingMills }),
         harvestInitialTreeAndPrepareTreeFarm = harvestInitialTreeAndPrepareTreeFarmProject({ bedrockPos = bedrockPos, homeLoc = homeLoc, startingIslandTreeFarm = startingIslandTreeFarm }),
         waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGeneratorProject({ homeLoc = homeLoc, cobblestoneGeneratorMill = cobblestoneGeneratorMill }),
+        buildFurnaces = buildFurnacesProject({ inFrontOfChestLoc = inFrontOfChestLoc }),
         createCobbleTower1 = createCobbleTowerProject({ homeLoc = homeLoc, towerNumber = 1 }),
         createCobbleTower2 = createCobbleTowerProject({ homeLoc = homeLoc, towerNumber = 2 }),
         createCobbleTower3 = createCobbleTowerProject({ homeLoc = homeLoc, towerNumber = 3 }),
@@ -306,6 +309,46 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
         preConditions = function(currentConditions)
             return currentConditions.mainIsland.startedCobblestoneGeneratorConstruction
         end,
+    })
+end
+
+function buildFurnacesProject(opts)
+    local inFrontOfChestLoc = opts.inFrontOfChestLoc
+    local cobblestoneGeneratorMill = opts.cobblestoneGeneratorMill
+
+    local inFrontOfChestCmps = space.createCompass(inFrontOfChestLoc.pos)
+    local taskRunnerId = 'project:mainIsland:buildFurnaces'
+    _G.act.task.registerTaskRunner(taskRunnerId, {
+        enter = function(planner, taskState)
+            location.travelToLocation(planner, inFrontOfChestLoc)
+        end,
+        exit = function(planner, taskState, info)
+            navigate.assertPos(planner, inFrontOfChestLoc.pos)
+            if info.complete then
+                -- furnaceMill.activate(planner)
+            end
+        end,
+        nextPlan = function(planner, taskState)
+            local startPos = util.copyTable(planner.turtlePos)
+
+            local aboveFirstFurnacePos = inFrontOfChestCmps.posAt({ forward=1, right=2, up=1, face='backward' })
+            navigate.moveToPos(planner, aboveFirstFurnacePos, { 'up', 'forward', 'right'})
+
+            for i = 1, 2 do
+                highLevelCommands.placeItemDown(planner, 'minecraft:furnace')
+                commands.turtle.forward(planner)
+            end
+            highLevelCommands.placeItemDown(planner, 'minecraft:furnace')
+
+            navigate.moveToPos(planner, startPos, { 'right', 'forward', 'up' })
+
+            return taskState, true
+        end,
+    })
+    return _G.act.project.create(taskRunnerId, {
+        requiredResources = {
+            ['minecraft:furnace'] = { quantity=3, at='INVENTORY' }
+        },
     })
 end
 

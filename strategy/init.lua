@@ -25,6 +25,7 @@ function initStrategy()
             mainIsland.startBuildingCobblestoneGenerator,
             mainIsland.harvestInitialTreeAndPrepareTreeFarm,
             mainIsland.waitForIceToMeltAndfinishCobblestoneGenerator,
+            mainIsland.buildFurnaces,
             -- mainIsland.createCobbleTower4,
             -- mainIsland.createCobbleTower3,
             -- mainIsland.createCobbleTower2,
