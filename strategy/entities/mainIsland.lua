@@ -92,10 +92,10 @@ function harvestInitialTreeAndPrepareTreeFarmProject(opts)
                 navigate.face(planner, bottomTreeLogCmps.facingAt({ face=direction }))
                 for i = 1, 2 do
                     commands.turtle.forward(planner)
-                    highLevelCommands.placeItemDown(planner, 'minecraft:dirt')
+                    highLevelCommands.placeItemDown(planner, 'minecraft:dirt', { allowMissing = true })
                 end
                 commands.turtle.up(planner)
-                highLevelCommands.placeItemDown(planner, 'minecraft:sapling')
+                highLevelCommands.placeItemDown(planner, 'minecraft:sapling', { allowMissing = true })
             end
 
             navigate.assertPos(planner, bottomTreeLogCmps.pos)
