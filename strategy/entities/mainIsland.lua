@@ -112,10 +112,7 @@ function harvestInitialTreeAndPrepareTreeFarmProject(opts)
         requiredResources = {
             -- 2 for each "sappling-arm", and 2 for the dirt that hovers above the trees
             ['minecraft:dirt'] = { quantity=6, at='INVENTORY' }
-        },
-        preConditions = function(currentConditions)
-            return currentConditions.mainIsland
-        end,
+        }
     })
 end
 
@@ -257,9 +254,6 @@ function startBuildingCobblestoneGeneratorProject(opts)
         end,
     })
     return _G.act.project.create(taskRunnerId, {
-        preConditions = function(currentConditions)
-            return currentConditions.mainIsland
-        end,
         postConditions = function(currentConditions)
             currentConditions.mainIsland.startedCobblestoneGeneratorConstruction = true
         end,
@@ -310,10 +304,7 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
             ['minecraft:bucket'] = { quantity=1, at='INVENTORY' }
         },
         preConditions = function(currentConditions)
-            return (
-                currentConditions.mainIsland and
-                currentConditions.mainIsland.startedCobblestoneGeneratorConstruction
-            )
+            return currentConditions.mainIsland.startedCobblestoneGeneratorConstruction
         end,
     })
 end
@@ -534,9 +525,6 @@ function createCobbleTowerProject(opts)
             -- ['minecraft:cobblestone'] = { quantity=64 * 4, at='INVENTORY' }
             ['minecraft:furnace'] = { quantity=32, at='INVENTORY' }
         },
-        preConditions = function(currentConditions)
-            return currentConditions.mainIsland
-        end,
     })
 end
 
