@@ -77,93 +77,86 @@ end
 
 -- Returns a task that will collect some of the required resources, or nil if there
 -- aren't any requirements left to fulfill.
-function module.collectResources(state, initialProject, resourcesInInventory)
+function module.collectResources(state, initialProject, resourcesInInventory_)
     local resourceMap = {}
+    local resourcesInInventory = util.copyTable(resourcesInInventory_)
 
     -- Collect the nested requirement tree into a flat mapping (resourceMap)
+    -- Factors in your inventory's contents to figure out what's needed.
     local requiredResourcesToProcess = {
         initialProject.requiredResources
     }
     while #requiredResourcesToProcess > 0 do
         local requiredResources = table.remove(requiredResourcesToProcess)
-        for resourceName, rawRequirements in pairs(requiredResources) do
-            if rawRequirements.at ~= 'INVENTORY' then error('Only at="INVENTORY" is supported right now.') end
+        for resourceName, requirementInfo in pairs(requiredResources) do
+            if requirementInfo.at ~= 'INVENTORY' then error('Only at="INVENTORY" is supported right now.') end
 
-            if resourceMap[resourceName] == nil and state.resourceSuppliers[resourceName] == nil then
-                resourceMap[resourceName] = {
-                    quantity = 0,
-                    taskRunner = nil, -- nil means there are no registered resource suppliers
-                    requiredResources = {},
-                }
-            elseif resourceMap[resourceName] == nil then
+            -- Factor in quantities from the inventory
+            local contributionFromInventory = 0
+            if resourcesInInventory[resourceName] ~= nil then
+                contributionFromInventory = util.minNumber(
+                    resourcesInInventory[resourceName],
+                    requirementInfo.quantity
+                )
+                resourcesInInventory[resourceName] = resourcesInInventory[resourceName] - contributionFromInventory
+                if resourcesInInventory[resourceName] == 0 then resourcesInInventory[resourceName] = nil end
+            end
+
+            -- If, after factoring in the inventory, there's still requirements to be fulfilled...
+            if contributionFromInventory < requirementInfo.quantity then
                 local supplier = state.resourceSuppliers[resourceName][1]
                 if supplier.type ~= 'mill' then error('Invalid supplier type') end
-                local subTaskRunner = module.lookupTaskRunner(supplier.taskRunnerId)
-                resourceMap[resourceName] = {
-                    quantity = 0,
-                    taskRunner = subTaskRunner,
-                    requiredResourcesPerUnit = supplier.requiredResourcesPerUnit,
-                }
-                local resourceRequest = { [resourceName] = rawRequirements.quantity }
+
+                if resourceMap[resourceName] == nil then
+                    if state.resourceSuppliers[resourceName] == nil then
+                        error(
+                            'Attempted to start a task that requires the resource '..resourceName..', '..
+                            'but there are no registered sources for this resource, nor is there enough of it on hand.'
+                        )
+                    end
+                    local subTaskRunner = module.lookupTaskRunner(supplier.taskRunnerId)
+                    resourceMap[resourceName] = {
+                        quantity = 0,
+                        taskRunner = subTaskRunner,
+                        requiredResourcesPerUnit = supplier.requiredResourcesPerUnit,
+                    }
+                end
+
+                local resourceRequest = { [resourceName] = requirementInfo.quantity }
                 local requiredResources = _G.act.mill.calculateRequredResources(
                     supplier.requiredResourcesPerUnit,
                     resourceRequest
                 )
                 table.insert(requiredResourcesToProcess, requiredResources)
+
+                resourceMap[resourceName].quantity = resourceMap[resourceName].quantity + requirementInfo.quantity
             end
-            resourceMap[resourceName].quantity = resourceMap[resourceName].quantity + rawRequirements.quantity
         end
     end
 
-    --------------------------------------------------
-    -- ERROR: It's fetching the 256 cobblestone twice.
-    -- This is because the following loop isn't recognizing the cobble-fetching task as done
-    -- after it's been turned into furnaces.
-    --
-    -- 1. Build resource tree and record initial quantities required
-    -- 2. Apply current inventory, subtracting values from the resource tree and their child nodes (potentially removing children)
-    -- 3. Find a leaf node without any dependencies and work on it. (Note for future: Do the closets one)
+    if util.tableSize(resourceMap) == 0 then
+        -- Return nil if there aren't any additional resources that need to be collected.
+        return nil
+    end
 
-    -- Loop over the mapping, removing things that are already satisfied, until
-    -- you find a resource that needs to be done, who's requirements are all fulfilled.
-    while util.tableSize(resourceMap) > 0 do
-        local fieldsToRemoveFromMap = {}
-        for resourceName, resourceInfo in pairs(resourceMap) do
-            local quantityNeeded = util.maxNumber(0, resourceInfo.quantity - (resourcesInInventory[resourceName] or 0))
-            if quantityNeeded == 0 then
-                table.insert(fieldsToRemoveFromMap, resourceName)
-            elseif resourceInfo.taskRunner == nil then
-                error(
-                    'Attempted to start a task that requires the resource '..resourceName..', '..
-                    'but there are no registered sources for this resource, nor is there enough of it on hand.'
-                )
-            else
-                local resourceRequest = { [resourceName] = resourceInfo.quantity }
-                local requiredResources = _G.act.mill.calculateRequredResources(
-                    resourceInfo.requiredResourcesPerUnit,
-                    resourceRequest
-                )
+    -- Loop over the mapping, looking for an entry that has all of its requirements satisfied.
+    -- Right now it uses the first found requirement. In the future we could use the closest task instead.
+    for resourceName, resourceInfo in pairs(resourceMap) do
 
-                local requirementsFulfilled = true
-                for subResourceName, subRawRequirements in pairs(requiredResources) do
-                    if resourceMap[subResourceName] ~= nil then
-                        requirementsFulfilled = false
-                        break
-                    end
-                end
-                if requirementsFulfilled then
-                    return module.create(resourceInfo.taskRunner.id, { [resourceName] = quantityNeeded })
-                end
+        local requirementsFulfilled = true
+        for subResourceName, _ in pairs(resourceInfo.requiredResourcesPerUnit[resourceName]) do
+            if resourceMap[subResourceName] ~= nil then
+                requirementsFulfilled = false
+                break
             end
         end
 
-        for _, fieldToRemove in pairs(fieldsToRemoveFromMap) do
-            resourceMap[fieldToRemove] = nil
+        if requirementsFulfilled then
+            return module.create(resourceInfo.taskRunner.id, { [resourceName] = resourceInfo.quantity })
         end
     end
 
-    -- Return nil if there aren't any additional resources that need to be collected.
-    return nil
+    error('Unreachable: Failed to find a dependent task that did not have any requirements.')
 end
 
 -- args is optional
