@@ -14,7 +14,14 @@ inputs:
     The requirements may contain fractional units.
     If a resource in opts.supplies is missing from the mapping's first layer,
     it's assumed to be free.
+    Example shape:
+        {
+            'minecraft:furnace' = {
+                'minecraft:cobblestone' = { quantity=8, at='INVENTORY' }
+            }
+        }
   opts.supplies is a list of resources the mill is capable of supplying.
+  opts.onActivated (optional) gets called when the mill is first activated
 Returns a mill instance
 --]]
 function module.create(taskRunnerId, opts)
@@ -22,6 +29,7 @@ function module.create(taskRunnerId, opts)
 
     local requiredResourcesPerUnit_ = opts.requiredResourcesPerUnit or {}
     local supplies = opts.supplies
+    local onActivated = opts.onActivated or function() end
 
     local requiredResourcesPerUnit = util.copyTable(requiredResourcesPerUnit_)
     for _, resourceName in ipairs(supplies) do
@@ -37,6 +45,7 @@ function module.create(taskRunnerId, opts)
                 requiredResourcesPerUnit = requiredResourcesPerUnit,
                 supplies = supplies,
             })
+            onActivated()
         end
     }
 end

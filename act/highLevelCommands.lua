@@ -1,3 +1,4 @@
+local strategy = import('./strategy.lua')
 local commands = import('./commands/init.lua')
 local util = import('util.lua')
 
@@ -8,6 +9,16 @@ local module = {}
 
 local moduleId = 'act:highLevelCommands'
 local genId = commands.createIdGenerator(moduleId)
+
+local findEmptyInventorySlots = function(inventory)
+    local emptySlots = {}
+    for i = 1, 16 do
+        if inventory[i] == nil then
+            table.insert(emptySlots, i)
+        end
+    end
+    return emptySlots
+end
 
 module.transferToFirstEmptySlot = registerCommand(
     'highLevelCommands:transferToFirstEmptySlot',
@@ -59,6 +70,30 @@ module.findAndSelectSlotWithItem = registerCommandWithFuture(
     end
 )
 
+module.findAndSelectEmptpySlot = registerCommandWithFuture(
+    'highLevelCommands:findAndSelectEmptpySlot',
+    function(state, opts)
+        -- A potential option I could add, is to auto-reorganize the inventory if an empty slot can't be found.
+        if opts == nil then opts = {} end
+        local allowMissing = opts.allowMissing or false
+        for i = 1, 16 do
+            local slotInfo = turtle.getItemDetail(i)
+            if slotInfo == nil then
+                turtle.select(i)
+                return true
+            end
+        end
+        if allowMissing then
+            return false
+        end
+        error('Failed to find an empty slot in the inventory')
+    end,
+    function(opts)
+        return opts and opts.out
+    end
+)
+
+local placeItemUsing
 function module.placeItem(planner, itemId, opts)
     placeItemUsing(planner, itemId, opts, commands.turtle.place)
 end
@@ -71,7 +106,7 @@ function module.placeItemDown(planner, itemId, opts)
     placeItemUsing(planner, itemId, opts, commands.turtle.placeDown)
 end
 
-function placeItemUsing(planner, itemId, opts, placeFn)
+placeItemUsing = function(planner, itemId, opts, placeFn)
     opts = opts or {}
     local allowMissing = opts.allowMissing or false
     local out = opts.out or genId('foundItem')
@@ -85,6 +120,52 @@ function placeItemUsing(planner, itemId, opts, placeFn)
         commands.turtle.select(planner, 1)
     end)
 end
+
+local dropItemAt
+function module.dropItem(planner, itemId, amount)
+    dropItemAt(planner, itemId, amount, 'forward')
+end
+
+function module.dropItemUp(planner, itemId, amount)
+    dropItemAt(planner, itemId, amount, 'up')
+end
+
+function module.dropItemDown(planner, itemId, amount)
+    dropItemAt(planner, itemId, amount, 'down')
+end
+
+dropItemAt = registerCommand(
+    'highLevelCommands:dropItemAt',
+    function(state, itemId, amount, direction)
+        local dropFn
+        if direction == 'forward' then
+            dropFn = turtle.drop
+        elseif direction == 'up' then
+            dropFn = turtle.dropUp
+        elseif direction == 'down' then
+            dropFn = turtle.dropDown
+        end
+
+        while amount > 0 do
+            strategy.atomicallyExecuteSubplan(state, function(planner)
+                module.findAndSelectSlotWithItem(planner, itemId)
+            end)
+            local quantityInSlot = turtle.getItemCount()
+            local amountToDrop = util.minNumber(quantityInSlot, amount)
+
+            if amountToDrop == 0 then
+                error('Internal error when using dropItemAt command.')
+            end
+
+            dropFn(amountToDrop)
+
+            amount = amount - amountToDrop
+        end
+        strategy.atomicallyExecuteSubplan(state, function(planner)
+            commands.turtle.select(planner, 1)
+        end)
+    end
+)
 
 -- recipe is a 3x3 grid of itemIds.
 -- `maxQuantity` is optional, and default to the max,
@@ -123,7 +204,7 @@ module.craft = registerCommand(
             commands.turtle.select(planner, 1)
         end)
 
-        function findLocationsOfItems(whereItemsAre, itemId)
+        local findLocationsOfItems = function(whereItemsAre, itemId)
             local itemLocations = {}
             for slotId, iterItemId in pairs(whereItemsAre) do
                 if itemId == iterItemId then
@@ -265,7 +346,7 @@ module.organizeInventory = registerCommand(
 
             -- Then, try to transfer it to an earlier empty slot
             if itemDetails ~= nil and #emptySpaces > 0 then
-                local emptySpace = table.delete(emptySpace, 1)
+                local emptySpace = table.remove(emptySpaces, 1)
                 turtle.select(i)
                 turtle.transferTo(emptySpace)
                 lastStackLocations[itemDetails.name] = emptySpace
@@ -273,7 +354,7 @@ module.organizeInventory = registerCommand(
             end
             
             -- If you were able to get it moved, then note the empty cell
-            -- otherwise, not down this ptoentially partial stack left behind.
+            -- otherwise, note down this ptoentially partial stack left behind.
             if itemDetails == nil then
                 table.insert(emptySpaces, i)
             else
@@ -312,15 +393,17 @@ function module.countResourcesInInventory(inventory, targetSlotIds)
     return resourcesInInventory
 end
 
-function findEmptyInventorySlots(inventory)
-    local emptySlots = {}
-    for i = 1, 16 do
-        if inventory[i] == nil then
-            table.insert(emptySlots, i)
-        end
+-- Do a 360. This causes a bit of time to pass,
+-- and visually shows that the turtle is actively waiting for something.
+module.busyWait = registerCommand(
+    'highLevelCommands:busyWait',
+    function(state)
+        table.insert(state.plan, 1, { command = 'turtle:turnRight', args = {} })
+        table.insert(state.plan, 1, { command = 'turtle:turnRight', args = {} })
+        table.insert(state.plan, 1, { command = 'turtle:turnRight', args = {} })
+        table.insert(state.plan, 1, { command = 'turtle:turnRight', args = {} })
     end
-    return emptySlots
-end
+)
 
 -- opts.expectedBlockId is the blockId you're waiting for
 -- opts.direction is 'up' or 'down' ('front' is not yet supported).

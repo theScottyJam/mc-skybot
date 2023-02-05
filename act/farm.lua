@@ -10,6 +10,27 @@ local module = {}
 local farms = {}
 local resourceValues = {}
 
+-- HELPER FUNCTIONS --
+
+-- `expectedYieldInfo` is what gets returned by a farm's calcExpectedYield() function.
+local scoreFromExpectedYieldInfo = function(expectedYieldInfo, resourcesInInventory)
+    local work = expectedYieldInfo.work
+    local expectedResources = expectedYieldInfo.yield
+
+    local score = 0
+    for resourceName, quantity in pairs(expectedResources) do
+        local getWorkToYieldThreshold = resourceValues[resourceName]
+        if getWorkToYieldThreshold ~= nil then
+            local threshold = getWorkToYieldThreshold(resourcesInInventory[resourceName] or 0)
+            local workToYield = work / quantity
+            score = score + util.maxNumber(0, threshold - workToYield)
+        end
+    end
+    return score
+end
+
+-- PUBLIC FUNCTIONS --
+
 -- resourceValues_ is a mapping of resource names to a function
 -- that takes, as input, the quanity of it owned.
 -- It's output should be a work-to-yield ratio threshold.
@@ -80,23 +101,6 @@ function module.checkForInterruptions(state, resourcesInInventory)
     else
         return nil
     end
-end
-
--- `expectedYieldInfo` is what gets returned by a farm's calcExpectedYield() function.
-function scoreFromExpectedYieldInfo(expectedYieldInfo, resourcesInInventory)
-    local work = expectedYieldInfo.work
-    local expectedResources = expectedYieldInfo.yield
-
-    local score = 0
-    for resourceName, quantity in pairs(expectedResources) do
-        local getWorkToYieldThreshold = resourceValues[resourceName]
-        if getWorkToYieldThreshold ~= nil then
-            local threshold = getWorkToYieldThreshold(resourcesInInventory[resourceName] or 0)
-            local workToYield = work / quantity
-            score = score + util.maxNumber(0, threshold - workToYield)
-        end
-    end
-    return score
 end
 
 -- Must be called after you've tended a farm.

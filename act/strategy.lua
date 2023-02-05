@@ -7,13 +7,42 @@ local module = {}
 local moduleId = 'act:highLevelCommands'
 local genId = commands.createIdGenerator(moduleId)
 
+-- HELPER FUNCTIONS --
+
+local executePlan = function(state, onStep, plan)
+    state.plan = plan
+    while #state.plan > 0 do
+        -- TODO: I need to actually save the state off to a file between each step, and
+        -- make it so it can automatically load where it's at from a file if it got interrupted.
+        local command = table.remove(state.plan, 1)
+        -- Executing a command can put more commands into the plan
+        _G.act.commands.execCommand(state, command)
+
+        if onStep ~= nil then onStep() end
+    end
+end
+
+local handleInterruption = function(state, interruptTask)
+    state.interruptTask = interruptTask
+    local taskRunnerBeingDone = state.interruptTask.getTaskRunner()
+    executePlan(state, onStep, taskRunnerBeingDone.enter(state, state.interruptTask))
+    while not state.interruptTask.completed do
+        executePlan(state, onStep, taskRunnerBeingDone.nextPlan(state, state.interruptTask))
+    end
+    executePlan(state, onStep, taskRunnerBeingDone.exit(state, state.interruptTask))
+    _G.act.farm.markFarmTaskAsCompleted(state, state.interruptTask.taskRunnerId)
+    state.interruptTask = nil
+end
+
+-- PUBLIC FUNCTIONS --
+
 -- onStep is optional
 -- A strategy is of the shape { initialTurtlePos=..., projectList=<list of taskRunnerIds> }
 function module.exec(strategy, onStep)
     local task = _G.act.task
     local highLevelCommands = _G.act.highLevelCommands
 
-    function countResourcesInInventoryNow()
+    local countResourcesInInventoryNow = function()
         return highLevelCommands.countResourcesInInventory(highLevelCommands.takeInventoryNow())
     end
 
@@ -58,31 +87,6 @@ function module.exec(strategy, onStep)
         executePlan(state, onStep, taskRunnerBeingDone.exit(state, state.primaryTask))
         state.primaryTask = nil
         state.limboVars = {}
-    end
-end
-
-function handleInterruption(state, interruptTask)
-    state.interruptTask = interruptTask
-    local taskRunnerBeingDone = state.interruptTask.getTaskRunner()
-    executePlan(state, onStep, taskRunnerBeingDone.enter(state, state.interruptTask))
-    while not state.interruptTask.completed do
-        executePlan(state, onStep, taskRunnerBeingDone.nextPlan(state, state.interruptTask))
-    end
-    executePlan(state, onStep, taskRunnerBeingDone.exit(state, state.interruptTask))
-    _G.act.farm.markFarmTaskAsCompleted(state, state.interruptTask.taskRunnerId)
-    state.interruptTask = nil
-end
-
-function executePlan(state, onStep, plan)
-    state.plan = plan
-    while #state.plan > 0 do
-        -- TODO: I need to actually save the state off to a file between each step, and
-        -- make it so it can automatically load where it's at from a file if it got interrupted.
-        local command = table.remove(state.plan, 1)
-        -- Executing a command can put more commands into the plan
-        _G.act.commands.execCommand(state, command)
-
-        if onStep ~= nil then onStep() end
     end
 end
 

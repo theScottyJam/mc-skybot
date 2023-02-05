@@ -33,6 +33,12 @@ function module.createInitialState(opts)
         -- A place to store vars if there are no active tasks. Should be occasionally cleared out.
         limboVars = {},
 
+        -- Returns the primary task, or if we're in the middle of an interruption, returns the interrupt task.
+        -- May return nil if there are currently no tasks being run.
+        getActiveTask = function()
+            return state.primaryTask or state.interruptTask
+        end,
+
         -- Returns the active task's vars. The caller can mutate this table as needed.
         -- Returns the limboVars table if there are no active tasks.
         getActiveTaskVars = function()

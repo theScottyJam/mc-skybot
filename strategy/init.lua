@@ -7,15 +7,15 @@ local entities = import('./entities/init.lua')
 local util = import('util.lua')
 
 -- onStep is optional
+local initStrategy
+local debugProject
 function module.run(onStep)
     local strategy = initStrategy()
     _G.act.strategy.exec(strategy, onStep)
 end
 
-function initStrategy()
+initStrategy = function()
     local project = _G.act.project
-
-    local projectList = {}
 
     local mainIsland = entities.mainIsland.initEntity()
 
@@ -26,11 +26,11 @@ function initStrategy()
             mainIsland.harvestInitialTreeAndPrepareTreeFarm,
             mainIsland.waitForIceToMeltAndfinishCobblestoneGenerator,
             mainIsland.buildFurnaces,
-            -- mainIsland.createCobbleTower4,
-            -- mainIsland.createCobbleTower3,
-            -- mainIsland.createCobbleTower2,
-            mainIsland.createCobbleTower1,
-            -- debugProject(mainIsland.homeLoc)
+            debugProject(mainIsland.homeLoc),
+            -- mainIsland.createTower4,
+            -- mainIsland.createTower3,
+            -- mainIsland.createTower2,
+            mainIsland.createTower1,
         }),
     }
 end
@@ -41,7 +41,7 @@ _G.act.farm.registerValueOfResources({
     end,
 })
 
-function debugProject(homeLoc)
+debugProject = function(homeLoc)
     local location = _G.act.location
     local navigate = _G.act.navigate
     local commands = _G.act.commands
@@ -57,9 +57,11 @@ function debugProject(homeLoc)
         nextPlan = function(planner, taskState)
             -- local startPos = util.copyTable(planner.turtlePos)
             -- local currentWorld = _G.mockComputerCraftApi._currentWorld
+            _G.debug.debugCommand(planner, { action='obtain', itemId='minecraft:charcoal', quantity=64 })
+            debug.showStepByStep = true
 
             -- navigate.moveToPos(planner, startPos)
-            -- return taskState, true
+            return taskState, true
         end,
     })
     return _G.act.project.create(taskRunnerId)

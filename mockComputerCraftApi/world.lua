@@ -4,6 +4,7 @@
 
 local module = {}
 
+local createStartingMap
 function module.createDefault()
     local world = {
         turtle = {
@@ -20,7 +21,7 @@ function module.createDefault()
     return world
 end
 
-function createStartingMap()
+createStartingMap = function()
     local map = {}
 
     local createLeaves = function() return { id = 'minecraft:leaves' } end
@@ -83,8 +84,11 @@ function createStartingMap()
     map[ 4][67][-3] = {
         id = 'minecraft:chest',
         contents = {
-            [1] = { id = 'minecraft:lava_bucket', quantity = 1 },
-            [2] = { id = 'minecraft:ice', quantity = 1 }
+            size = 9 * 3,
+            slots = {
+                [1] = { id = 'minecraft:lava_bucket', quantity = 1 },
+                [2] = { id = 'minecraft:ice', quantity = 1 }
+            }
         }
     }
     map[ 3][67] = {}

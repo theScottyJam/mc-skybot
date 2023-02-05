@@ -13,46 +13,32 @@ local space = _G.act.space
 local moduleId = 'entity:mainIsland'
 local genId = commands.createIdGenerator(moduleId)
 
-function module.initEntity()
-    local bedrockPos = util.mergeTables({ forward = 3, right = 0, up = 64, from = 'ORIGIN' }, { face = 'forward' })
+-- Starting from a corner of a square (of size sideLength), touch every cell in it by following
+-- a clockwise spiral to the center. You must start facing in a direction such that
+-- no turning is required before movement.
+-- The `onVisit` function is called at each cell visited.
+local spiralInwards = function(planner, opts)
+    local commands = _G.act.commands
 
-    -- homeLoc is right above the bedrock
-    local homeLoc = location.register(space.resolveRelPos({ up=3 }, bedrockPos))
-    local inFrontOfChestLoc = location.register(space.resolveRelPos({ right=3 }, homeLoc.pos))
-    local initialLoc = location.register(space.resolveRelPos({ face='left' }, inFrontOfChestLoc.pos))
-    _G.act.location.registerPath(inFrontOfChestLoc, homeLoc)
-    _G.act.location.registerPath(inFrontOfChestLoc, initialLoc)
+    local sideLength = opts.sideLength
+    local onVisit = opts.onVisit
 
-    local cobblestoneGeneratorMill = createCobblestoneGeneratorMill({ homeLoc = homeLoc })
-    local startingIslandTreeFarm = createStartingIslandTreeFarm({ bedrockPos = bedrockPos, homeLoc = homeLoc })
-    local craftingMills = createCraftingMills()
-
-    return {
-        -- locations
-        inFrontOfChestLoc = inFrontOfChestLoc,
-        initialLoc = initialLoc,
-        homeLoc = homeLoc,
-
-        -- projects
-        startBuildingCobblestoneGenerator = startBuildingCobblestoneGeneratorProject({ homeLoc = homeLoc, craftingMills = craftingMills }),
-        harvestInitialTreeAndPrepareTreeFarm = harvestInitialTreeAndPrepareTreeFarmProject({ bedrockPos = bedrockPos, homeLoc = homeLoc, startingIslandTreeFarm = startingIslandTreeFarm }),
-        waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGeneratorProject({ homeLoc = homeLoc, cobblestoneGeneratorMill = cobblestoneGeneratorMill }),
-        buildFurnaces = buildFurnacesProject({ inFrontOfChestLoc = inFrontOfChestLoc }),
-        createCobbleTower1 = createCobbleTowerProject({ homeLoc = homeLoc, towerNumber = 1 }),
-        createCobbleTower2 = createCobbleTowerProject({ homeLoc = homeLoc, towerNumber = 2 }),
-        createCobbleTower3 = createCobbleTowerProject({ homeLoc = homeLoc, towerNumber = 3 }),
-        createCobbleTower4 = createCobbleTowerProject({ homeLoc = homeLoc, towerNumber = 4 }),
-    }
+    for segmentLength = sideLength - 1, 1, -1 do
+        local firstIter = segmentLength == sideLength - 1
+        for i = 1, (firstIter and 3 or 2) do
+            for j = 1, segmentLength do
+                onVisit(planner)
+                commands.turtle.forward(planner)
+            end
+            commands.turtle.turnRight(planner)
+        end
+    end
+    onVisit(planner)
 end
 
-_G.act.project.registerStartingConditionInitializer(function(startingConditions)
-    startingConditions.mainIsland = {
-        startedCobblestoneGeneratorConstruction = false,
-    }
-end)
-
+local harvestTreeFromAbove
 -- Pre-condition: Must have two dirt in inventory
-function harvestInitialTreeAndPrepareTreeFarmProject(opts)
+local harvestInitialTreeAndPrepareTreeFarmProject = function(opts)
     local bedrockPos = opts.bedrockPos
     local homeLoc = opts.homeLoc
     local startingIslandTreeFarm = opts.startingIslandTreeFarm
@@ -91,7 +77,7 @@ function harvestInitialTreeAndPrepareTreeFarmProject(opts)
             harvestTreeFromAbove(planner, { bottomLogPos = bottomTreeLogCmps.pos })
 
             -- Prepare sapling planting area
-            function prepareSaplingDirtArm(planner, direction)
+            local prepareSaplingDirtArm = function(planner, direction)
                 navigate.face(planner, bottomTreeLogCmps.facingAt({ face=direction }))
                 for i = 1, 2 do
                     commands.turtle.forward(planner)
@@ -103,7 +89,7 @@ function harvestInitialTreeAndPrepareTreeFarmProject(opts)
 
             navigate.assertPos(planner, bottomTreeLogCmps.pos)
             prepareSaplingDirtArm(planner, 'left')
-            navigate.moveToPos(planner, bottomTreeLogCmps.posAt({ right=2 }), { 'forward', 'right', 'up' })
+            navigate.moveToCoord(planner, bottomTreeLogCmps.coordAt({ right=2 }), { 'forward', 'right', 'up' })
             prepareSaplingDirtArm(planner, 'right')
 
             navigate.moveToPos(planner, startPos, { 'forward', 'right', 'up' })
@@ -135,7 +121,7 @@ local harvestTreeFromAboveTransformers = _G.act.commands.registerFutureTransform
     }
 )
 
-function harvestTreeFromAbove(planner, opts)
+harvestTreeFromAbove = function(planner, opts)
     local bottomLogPos = opts.bottomLogPos
 
     local transformers = harvestTreeFromAboveTransformers
@@ -193,7 +179,7 @@ function harvestTreeFromAbove(planner, opts)
     planner.turtlePos = util.copyTable(bottomLogCmps.pos)
 end
 
-function startBuildingCobblestoneGeneratorProject(opts)
+local startBuildingCobblestoneGeneratorProject = function(opts)
     local homeLoc = opts.homeLoc
     local craftingMills = opts.craftingMills
 
@@ -263,7 +249,7 @@ function startBuildingCobblestoneGeneratorProject(opts)
     })
 end
 
-function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
+local waitForIceToMeltAndfinishCobblestoneGeneratorProject = function(opts)
     local homeLoc = opts.homeLoc
     local cobblestoneGeneratorMill = opts.cobblestoneGeneratorMill
 
@@ -312,9 +298,9 @@ function waitForIceToMeltAndfinishCobblestoneGeneratorProject(opts)
     })
 end
 
-function buildFurnacesProject(opts)
+local buildFurnacesProject = function(opts)
     local inFrontOfChestLoc = opts.inFrontOfChestLoc
-    local cobblestoneGeneratorMill = opts.cobblestoneGeneratorMill
+    local furnaceMill = opts.furnaceMill
 
     local inFrontOfChestCmps = space.createCompass(inFrontOfChestLoc.pos)
     local taskRunnerId = 'project:mainIsland:buildFurnaces'
@@ -325,7 +311,7 @@ function buildFurnacesProject(opts)
         exit = function(planner, taskState, info)
             navigate.assertPos(planner, inFrontOfChestLoc.pos)
             if info.complete then
-                -- furnaceMill.activate(planner)
+                furnaceMill.activate(planner)
             end
         end,
         nextPlan = function(planner, taskState)
@@ -349,7 +335,170 @@ function buildFurnacesProject(opts)
     })
 end
 
-function createCobblestoneGeneratorMill(opts)
+local createFurnaceMill = function(opts)
+    local inFrontOfChestLoc = opts.inFrontOfChestLoc
+
+    local inFrontOfChestCmps = space.createCompass(inFrontOfChestLoc.pos)
+    local inFrontOfFirstFurnaceCmps = inFrontOfChestCmps.compassAt({ forward=1, right=1, up=1, face='right' })
+    local inFrontOfFirstFurnaceLoc = location.register(inFrontOfFirstFurnaceCmps.pos) -- faces the furnace
+    local taskRunnerId = 'mill:mainIsland:furnace'
+    _G.act.task.registerTaskRunner(taskRunnerId, {
+        createTaskState = function()
+            return {
+                currentlyInFurnaces = { 0, 0, 0 },
+                collected = 0,
+            }
+        end,
+        enter = function(planner, taskState)
+            location.travelToLocation(planner, inFrontOfFirstFurnaceLoc)
+        end,
+        exit = function(planner, taskState)
+            navigate.moveToPos(planner, inFrontOfFirstFurnaceLoc.pos, { 'right', 'forward', 'up' })
+        end,
+        nextPlan = function(planner, taskState, resourceRequests)
+            local newTaskState = util.copyTable(taskState)
+
+            if util.tableSize(resourceRequests) ~= 1 then
+                error('Only supports smelting one item type at a time')
+            end
+
+            local targetResource
+            local quantity
+            for targetResource_, quantity_ in pairs(resourceRequests) do
+                targetResource = targetResource_
+                quantity = quantity_
+            end
+
+            targetRecipe = util.findInArrayTable(recipes.smelting, function(recipe)
+                return recipe.to == targetResource
+            end)
+            sourceResource = targetRecipe.from
+
+            -- I don't have inventory management techniques in place to handle a larger quantity
+            if quantity > 64 * 8 then error('Can not handle that large of a quantity yet') end
+
+            -- Index of first furnace that has 32 or more items being smelted, or nil if there is no such furnace.
+            -- Alternatively, if there isn't a need to restock, this is the index of the furnace with the most content.
+            local furnaceIndexToWaitOn = nil
+            local restockRequired = taskState.collected + util.sum(taskState.currentlyInFurnaces) < quantity
+            if restockRequired then
+                for i = 1, 3 do
+                    if taskState.currentlyInFurnaces[i] > 32 then
+                        furnaceIndexToWaitOn = i
+                        break
+                    end
+                end
+            else
+                _, furnaceIndexToWaitOn = util.maxNumber(table.unpack(taskState.currentlyInFurnaces))
+            end
+
+            -- Insert raw materials and fuel
+            if furnaceIndexToWaitOn == nil then
+                -- Calculate items to place
+                local willBeInFurnaces = util.copyTable(taskState.currentlyInFurnaces)
+                local willBeRemaining = quantity - newTaskState.collected - util.sum(willBeInFurnaces)
+                while true do
+                    local minStackValue, minStackIndex = util.minNumber(table.unpack(willBeInFurnaces))
+                    if minStackValue > 64 - 8 then break end
+                    if willBeRemaining == 0 then break end
+                    local adding = util.minNumber(willBeRemaining, 8)
+                    willBeInFurnaces[minStackIndex] = willBeInFurnaces[minStackIndex] + adding
+                    willBeRemaining = willBeRemaining - adding
+                end
+
+                local willBeAdded = {}
+                for i = 1, 3 do
+                    willBeAdded[i] = willBeInFurnaces[i] - taskState.currentlyInFurnaces[i]
+                end
+
+                -- Fill fuel from the bottom
+                local belowFirstFurnaceCmps = inFrontOfFirstFurnaceCmps.compassAt({ forward=1, up=-1 })
+                -- This movement will correctly move the turtle from any of its possible starting positions.
+                navigate.moveToPos(planner, belowFirstFurnaceCmps.posAt({ face='right' }), { 'up', 'forward', 'right' })
+                for i = 1, 2 do
+                    highLevelCommands.dropItemUp(planner, 'minecraft:charcoal', math.ceil(willBeAdded[i] / 8))
+                    commands.turtle.forward(planner)
+                end
+                highLevelCommands.dropItemUp(planner, 'minecraft:charcoal', math.ceil(willBeAdded[3] / 8))
+
+                navigate.moveToCoord(planner, belowFirstFurnaceCmps.coord)
+                navigate.moveToCoord(planner, inFrontOfFirstFurnaceCmps.pos, { 'forward', 'right', 'up' })
+
+                -- Fill raw materials from the top
+                local aboveFirstFurnaceCmps = inFrontOfFirstFurnaceCmps.compassAt({ forward=1, up=1 })
+                navigate.moveToPos(planner, aboveFirstFurnaceCmps.posAt({ face='right' }), { 'up', 'right' })
+                for i = 1, 2 do
+                    highLevelCommands.dropItemDown(planner, sourceResource, willBeAdded[i])
+                    commands.turtle.forward(planner)
+                end
+                highLevelCommands.dropItemDown(planner, sourceResource, willBeAdded[3])
+
+                navigate.moveToCoord(planner, aboveFirstFurnaceCmps.coord)
+                navigate.moveToPos(planner, inFrontOfFirstFurnaceCmps.pos, { 'forward', 'right', 'up' })
+
+                newTaskState.currentlyInFurnaces = willBeInFurnaces
+
+            -- Wait and collect results from a furnace
+            else
+                -- Move into position if needed
+                local belowFirstFurnaceCmps = inFrontOfFirstFurnaceCmps.compassAt({ forward=1, up=-1 })
+                local targetFurnaceCmps = belowFirstFurnaceCmps.compassAt({ right = furnaceIndexToWaitOn - 1 })
+                if space.comparePos(planner.turtlePos, inFrontOfFirstFurnaceCmps.pos) then
+                    navigate.moveToPos(planner, belowFirstFurnaceCmps.posAt({ face='right' }), { 'up', 'forward' })
+                end
+                navigate.moveToCoord(planner, targetFurnaceCmps.coord)
+
+                highLevelCommands.findAndSelectEmptpySlot(planner)
+                local collectionSuccess = commands.turtle.suckUp(planner, 64, { out=genId('collectionSuccess') })
+
+                commands.futures.if_(planner, collectionSuccess, function(planner)
+                    local amountSucked = commands.turtle.getItemCount(planner, { out=genId('amountSucked') })
+
+                    -- Inventory organization is a bit overkill - attempting to stack the just-found item
+                    -- would have been sufficient. I just didn't want to make a function for that yet.
+                    highLevelCommands.organizeInventory(planner)
+
+                    commands.futures.updateTaskState(planner, amountSucked, function (amountSuckedValue, currentTaskState)
+                        local updatedTaskState = util.copyTable(currentTaskState)
+                        updatedTaskState.currentlyInFurnaces = util.copyTable(taskState.currentlyInFurnaces)
+                        updatedTaskState.currentlyInFurnaces[furnaceIndexToWaitOn] = (
+                            updatedTaskState.currentlyInFurnaces[furnaceIndexToWaitOn] - amountSuckedValue
+                        )
+                        updatedTaskState.collected = updatedTaskState.collected + amountSuckedValue
+                        return updatedTaskState
+                    end)
+                end).else_(function(planner)
+                    highLevelCommands.busyWait(planner)
+                end)
+            end
+
+            return newTaskState, newTaskState.collected == quantity
+        end,
+    })
+
+    local requiredResourcesPerUnit = {}
+    for _, recipe in ipairs(recipes.smelting) do
+        requiredResourcesPerUnit[recipe.to] = {
+            [recipe.from] = { quantity=1, at='INVENTORY' },
+            ['minecraft:charcoal'] = { quantity=1/8, at='INVENTORY' },
+        }
+    end
+
+    return _G.act.mill.create(taskRunnerId, {
+        requiredResourcesPerUnit = requiredResourcesPerUnit,
+        supplies = util.mapArrayTable(recipes.smelting, function(recipe)
+            return recipe.to
+        end),
+        onActivated = function()
+            location.registerPath(inFrontOfChestLoc, inFrontOfFirstFurnaceLoc, {
+                inFrontOfChestCmps.coordAt({ right=1 }),
+                inFrontOfChestCmps.coordAt({ right=1, up=1 }),
+            })
+        end
+    })
+end
+
+local createCobblestoneGeneratorMill = function(opts)
     local homeLoc = opts.homeLoc
 
     local homeCmps = space.createCompass(homeLoc.pos)
@@ -400,7 +549,7 @@ local startingIslandTreeFarmTransformers = _G.act.commands.registerFutureTransfo
 )
 
 
-function createStartingIslandTreeFarm(opts)
+local createStartingIslandTreeFarm = function(opts)
     local homeLoc = opts.homeLoc
     local bedrockPos = opts.bedrockPos
 
@@ -414,13 +563,14 @@ function createStartingIslandTreeFarm(opts)
             navigate.assertPos(planner, homeLoc.pos)
         end,
         nextPlan = function(planner, taskState)
+            commands.turtle.select(planner, 1)
             location.travelToLocation(planner, homeLoc)
             local startPos = util.copyTable(planner.turtlePos)
 
             local mainCmps = homeCmps.compassAt({ forward=-5 })
             navigate.moveToCoord(planner, mainCmps.coord)
 
-            function tryHarvestTree(planner, inFrontOfTreeCmps)
+            local tryHarvestTree = function(planner, inFrontOfTreeCmps)
                 local blockInfo = commands.turtle.inspect(planner, { out=genId('blockInfo') })
                 local blockIsLog = transformers.isBlockALog(planner, { in_=blockInfo, out=genId('blockIsLog') })
                 commands.futures.if_(planner, blockIsLog, function(planner)
@@ -472,9 +622,9 @@ function createStartingIslandTreeFarm(opts)
     })
 end
 
-function createCraftingMills()
+local createCraftingMills = function()
     local millList = {}
-    for i, recipe in pairs(recipes) do
+    for i, recipe in pairs(recipes.crafting) do
         local taskRunnerId = 'mill:mainIsland:crafting:'..recipe.to..':'..i
         _G.act.task.registerTaskRunner(taskRunnerId, {
             createTaskState = function()
@@ -496,14 +646,14 @@ function createCraftingMills()
             end,
         })
         local mill = _G.act.mill.create(taskRunnerId, {
-            requiredResourcesPerUnit = (function (resourceRequests)
+            requiredResourcesPerUnit = (function ()
                 local craftQuantity = 1 / recipe.yields
 
                 local requirements = {}
                 for _, row in pairs(recipe.from) do
                     for _, itemId in pairs(row) do
                         if requirements[itemId] == nil then
-                            requirements[itemId] = { quantity=0, at='INVENTORY'}
+                            requirements[itemId] = { quantity=0, at='INVENTORY' }
                         end
                         requirements[itemId].quantity = requirements[itemId].quantity + craftQuantity
                     end
@@ -517,12 +667,12 @@ function createCraftingMills()
     return millList
 end
 
-function createCobbleTowerProject(opts)
+local createTowerProject = function(opts)
     local homeLoc = opts.homeLoc
     local towerNumber = opts.towerNumber
 
     local homeCmps = space.createCompass(homeLoc.pos)
-    local taskRunnerId = _G.act.task.registerTaskRunner('project:mainIsland:createCobbleTower:'..towerNumber, {
+    local taskRunnerId = _G.act.task.registerTaskRunner('project:mainIsland:createTower:'..towerNumber, {
         enter = function(planner, taskState)
             location.travelToLocation(planner, homeLoc)
         end,
@@ -546,7 +696,8 @@ function createCobbleTowerProject(opts)
                     -- for i = 1, 32 do
                     for i = 1, 4 do
                         -- highLevelCommands.findAndSelectSlotWithItem(planner, 'minecraft:cobblestone')
-                        highLevelCommands.findAndSelectSlotWithItem(planner, 'minecraft:furnace')
+                        -- highLevelCommands.findAndSelectSlotWithItem(planner, 'minecraft:furnace')
+                        highLevelCommands.findAndSelectSlotWithItem(planner, 'minecraft:stone')
                         commands.turtle.placeDown(planner)
                         commands.turtle.up(planner)
                     end
@@ -563,32 +714,49 @@ function createCobbleTowerProject(opts)
     return _G.act.project.create(taskRunnerId, {
         requiredResources = {
             -- ['minecraft:cobblestone'] = { quantity=64 * 4, at='INVENTORY' }
-            ['minecraft:furnace'] = { quantity=32, at='INVENTORY' }
+            -- ['minecraft:furnace'] = { quantity=32, at='INVENTORY' }
+            ['minecraft:stone'] = { quantity=32, at='INVENTORY' }
         },
     })
 end
 
--- Starting from a corner of a square (of size sideLength), touch every cell in it by following
--- a clockwise spiral to the center. You must start facing in a direction such that
--- no turning is required before movement.
--- The `onVisit` function is called at each cell visited.
-function spiralInwards(planner, opts)
-    local commands = _G.act.commands
+function module.initEntity()
+    local bedrockPos = util.mergeTables({ forward = 3, right = 0, up = 64, from = 'ORIGIN' }, { face = 'forward' })
 
-    local sideLength = opts.sideLength
-    local onVisit = opts.onVisit
+    -- homeLoc is right above the bedrock
+    local homeLoc = location.register(space.resolveRelPos({ up=3 }, bedrockPos))
+    local inFrontOfChestLoc = location.register(space.resolveRelPos({ right=3 }, homeLoc.pos))
+    local initialLoc = location.register(space.resolveRelPos({ face='left' }, inFrontOfChestLoc.pos))
+    location.registerPath(inFrontOfChestLoc, homeLoc)
+    location.registerPath(inFrontOfChestLoc, initialLoc)
 
-    for segmentLength = sideLength - 1, 1, -1 do
-        local firstIter = segmentLength == sideLength - 1
-        for i = 1, (firstIter and 3 or 2) do
-            for j = 1, segmentLength do
-                onVisit(planner)
-                commands.turtle.forward(planner)
-            end
-            commands.turtle.turnRight(planner)
-        end
-    end
-    onVisit(planner)
+    local cobblestoneGeneratorMill = createCobblestoneGeneratorMill({ homeLoc = homeLoc })
+    local startingIslandTreeFarm = createStartingIslandTreeFarm({ bedrockPos = bedrockPos, homeLoc = homeLoc })
+    local furnaceMill = createFurnaceMill({ inFrontOfChestLoc = inFrontOfChestLoc })
+    local craftingMills = createCraftingMills()
+
+    return {
+        -- locations
+        inFrontOfChestLoc = inFrontOfChestLoc,
+        initialLoc = initialLoc,
+        homeLoc = homeLoc,
+
+        -- projects
+        startBuildingCobblestoneGenerator = startBuildingCobblestoneGeneratorProject({ homeLoc = homeLoc, craftingMills = craftingMills }),
+        harvestInitialTreeAndPrepareTreeFarm = harvestInitialTreeAndPrepareTreeFarmProject({ bedrockPos = bedrockPos, homeLoc = homeLoc, startingIslandTreeFarm = startingIslandTreeFarm }),
+        waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGeneratorProject({ homeLoc = homeLoc, cobblestoneGeneratorMill = cobblestoneGeneratorMill }),
+        buildFurnaces = buildFurnacesProject({ inFrontOfChestLoc = inFrontOfChestLoc, furnaceMill = furnaceMill }),
+        createTower1 = createTowerProject({ homeLoc = homeLoc, towerNumber = 1 }),
+        createTower2 = createTowerProject({ homeLoc = homeLoc, towerNumber = 2 }),
+        createTower3 = createTowerProject({ homeLoc = homeLoc, towerNumber = 3 }),
+        createTower4 = createTowerProject({ homeLoc = homeLoc, towerNumber = 4 }),
+    }
 end
+
+_G.act.project.registerStartingConditionInitializer(function(startingConditions)
+    startingConditions.mainIsland = {
+        startedCobblestoneGeneratorConstruction = false,
+    }
+end)
 
 return module

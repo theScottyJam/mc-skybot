@@ -6,16 +6,175 @@ local module = {}
 
 local hookListeners = {}
 
-local MAX_INVENTORY_SIZE = 100
 math.randomseed(0)
 -- math.randomseed(os.time())
+
+-- HELPER FUNCTIONS --
+
+local posToCoord = function(pos)
+    return { x = pos.x, y = pos.y, z = pos.z }
+end
+
+-- coord is an {x, y, z} coordinate
+local lookupInMap = function(map, coord)
+    if map[coord.x] and map[coord.x][coord.y] and map[coord.x][coord.y][coord.z] then
+        return map[coord.x][coord.y][coord.z]
+    end
+    return nil
+end
+
+-- `amount` must be the size of a stack or less. Defaults to 1.
+-- Returns the quantity added successfuly.
+local addToInventory = function(turtle, itemId, amount)
+    if amount == nil then amount = 1 end
+    local addedSuccessfully = 0
+    for i = 0, 15 do
+        local slot = (i + turtle.selectedSlot - 1)%16 + 1
+        if turtle.inventory[slot] == nil then
+            turtle.inventory[slot] = { id = itemId, quantity = 0 }
+        end
+        if turtle.inventory[slot].id == itemId then
+            local availableSpaceInStack = 64 - turtle.inventory[slot].quantity
+            local stillNeedToAdd = amount - addedSuccessfully
+            if stillNeedToAdd > availableSpaceInStack then
+                addedSuccessfully = addedSuccessfully + availableSpaceInStack
+                turtle.inventory[slot].quantity = 64
+            else
+                turtle.inventory[slot].quantity = turtle.inventory[slot].quantity + stillNeedToAdd
+                return amount
+            end
+        end
+    end
+    return addedSuccessfully
+end
+
+-- removes `amount` of items from the selected inventory slot.
+-- Returns <item id>, <amount removed> or nil, 0 if nothing was removed.
+local removeFrominventory = function(turtle, amount)
+    local slot = turtle.inventory[turtle.selectedSlot]
+    if slot == nil then
+        return nil, 0
+    elseif slot.quantity > amount then
+        slot.quantity = slot.quantity - amount
+        return slot.id, amount
+    else
+        turtle.inventory[turtle.selectedSlot] = nil
+        return slot.id, slot.quantity
+    end
+end
+
+local getPosInFront = function(pos)
+    local newPos = util.copyTable(pos)
+    if pos.face == 'N' then
+        newPos.z = newPos.z - 1
+    elseif pos.face == 'S' then
+        newPos.z = newPos.z + 1
+    elseif pos.face == 'W' then
+        newPos.x = newPos.x - 1
+    elseif pos.face == 'E' then
+        newPos.x = newPos.x + 1
+    end
+    return newPos
+end
+
+local getPosBehind = function(pos)
+    local newPos = util.copyTable(pos)
+    if pos.face == 'N' then
+        newPos.z = newPos.z + 1
+    elseif pos.face == 'S' then
+        newPos.z = newPos.z - 1
+    elseif pos.face == 'W' then
+        newPos.x = newPos.x + 1
+    elseif pos.face == 'E' then
+        newPos.x = newPos.x - 1
+    end
+    return newPos
+end
+
+local assertNotInsideBlock = function(world, movementDirectionForError)
+    local cell = lookupInMap(world.map, posToCoord(world.turtle.pos))
+    if cell ~= nil then
+        local pos = world.turtle.pos
+        error('Ran into a block of '..cell.id..' at ('..pos.x..', '..pos.y..', '..pos.z..') while moving '..movementDirectionForError)
+    end
+end
+
+local assertEquiped = function(world, itemId)
+    local isOnLeft = world.turtle.equipedLeft ~= nil and world.turtle.equipedLeft.id == itemId
+    local isOnRight = world.turtle.equipedRight ~= nil and world.turtle.equipedRight.id == itemId
+    if not isOnLeft and not isOnRight then
+        error('Must have '..itemId..' equipped before doing this task')
+    end
+end
+
+-- value should at least be { id = ... }
+local setInMap = function(map, coord, value)
+    if map[coord.x] == nil then map[coord.x] = {} end
+    if map[coord.x][coord.y] == nil then map[coord.x][coord.y] = {} end
+    map[coord.x][coord.y][coord.z] = value
+end
+
+local spawnTreeAt = function(currentWorld, absCoord)
+    local trySetInMap = function(x, y, z, id)
+        local coord = { x = absCoord.x + x, y = absCoord.y + y, z = absCoord.z + z }
+        local existingCell = lookupInMap(currentWorld.map, coord)
+        if existingCell == nil then
+            setInMap(currentWorld.map, coord, { id = id })
+        end
+    end
+
+    local trunkLength = math.random(3, 5)
+
+    -- Remove existing sapling
+    setInMap(currentWorld.map, absCoord, nil)
+
+    for i = 0, trunkLength - 1 do
+        trySetInMap(0, i, 0, 'minecraft:log')
+    end
+
+    -- Creating 5x5 block of leaves with logs down the center
+    for x = -2, 2 do
+        for z = -2, 2 do
+            for y = 0, 1 do
+                if x == 0 and z == 0 then
+                    trySetInMap(x, trunkLength + y - 1, z, 'minecraft:log')
+                elseif y == 0 and math.abs(x) == 2 and math.abs(z) == 2 then
+                    -- do nothing
+                elseif y == 1 and math.abs(x) == 2 and math.abs(z) == 2 and math.random(0, 1) == 0 then
+                    -- do nothing
+                else
+                    trySetInMap(x, trunkLength + y - 1, z, 'minecraft:leaves')
+                end
+            end
+        end
+    end
+
+    -- Creating the top two layers
+    for x = -1, 1 do
+        for z = -1, 1 do
+            for y = 2, 3 do
+                if y == 2 and x == 0 and z == 0 then
+                    trySetInMap(x, trunkLength + y - 1, z, 'minecraft:log')
+                elseif y == 2 and math.abs(x) == 1 and math.abs(z) == 1 and math.random(0, 1) == 0 then
+                    -- do nothing
+                elseif y == 3 and math.abs(x) == 1 and math.abs(z) == 1 then
+                    -- do nothing
+                else
+                    trySetInMap(x, trunkLength + y - 1, z, 'minecraft:leaves')
+                end
+            end
+        end
+    end
+end
+
+-- PUBLIC FUNCTIONS --
 
 function module.craft()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     assertEquiped(currentWorld, 'minecraft:crafting_table')
     local inventory = currentWorld.turtle.inventory
 
-    function flattenRecipe(recipe)
+    local flattenRecipe = function(recipe)
         local flattenedRecipe = {}
         for i, row in pairs(recipe.from) do
             for j, itemId in pairs(row) do
@@ -27,7 +186,7 @@ function module.craft()
     end
 
     local matchingRecipe = nil
-    for _, recipe in pairs(recipes) do
+    for _, recipe in pairs(recipes.crafting) do
         local flattenedRecipe = flattenRecipe(recipe)
         matchingRecipe = recipe
         -- Does it line up with the recipe?
@@ -212,6 +371,7 @@ function module.equipRight()
     turtle.equipedRight = inventoryItem
 end
 
+local placeAt
 -- signText is optional
 function module.place(signText)
     time.tick()
@@ -245,11 +405,12 @@ local canPlace = {
     'minecraft:ice',
     'minecraft:sapling',
     'minecraft:cobblestone',
+    'minecraft:stone',
     'minecraft:chest',
     'minecraft:furnace'
 }
 
-function placeAt(currentWorld, placeCoord)
+placeAt = function(currentWorld, placeCoord)
     local targetCell = lookupInMap(currentWorld.map, placeCoord) -- may be nil
 
     local itemIdBeingPlaced, quantity = removeFrominventory(currentWorld.turtle, 1)
@@ -300,12 +461,15 @@ function placeAt(currentWorld, placeCoord)
 
     local itemBeingPlaced = { id = itemIdBeingPlaced }
     if itemIdBeingPlaced == 'minecraft:chest' then
-        itemBeingPlaced.contents = {}
+        itemBeingPlaced.contents = { size = 9 * 3, slots = {} } -- Only small chests are supported right now
     end
     if itemIdBeingPlaced == 'minecraft:furnace' then
-        itemBeingPlaced.inputSlot = nil
-        itemBeingPlaced.outputSlot = nil
-        itemBeingPlaced.fuelSlot = nil
+        itemBeingPlaced.inputSlot = { size = 1, slots = {} }
+        itemBeingPlaced.outputSlot = { size = 1, slots = {} }
+        itemBeingPlaced.fuelSlot = { size = 1, slots = {} }
+        -- The number of items that will be smelted, with the fuel that was just consumed.
+        -- Decreses by 1 every time the item gets smelted.
+        itemBeingPlaced.activelySmelting = 0
     end
 
     setInMap(currentWorld.map, placeCoord, itemBeingPlaced)
@@ -327,6 +491,7 @@ function module.detectDown()
     return blockFound
 end
 
+local inspectAt
 function module.inspect()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local inspectCoord = posToCoord(getPosInFront(currentWorld.turtle.pos))
@@ -347,7 +512,7 @@ function module.inspectDown()
     return inspectAt(currentWorld, inspectCoord)
 end
 
-function inspectAt(currentWorld, inspectCoord)
+inspectAt = function(currentWorld, inspectCoord)
     local targetCell = lookupInMap(currentWorld.map, inspectCoord)
 
     if targetCell == nil then
@@ -363,6 +528,7 @@ function inspectAt(currentWorld, inspectCoord)
     return true, blockInfo
 end
 
+local digAt
 function module.dig(toolSide)
     time.tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
@@ -396,14 +562,22 @@ local canDig = {
     'minecraft:chest',
 }
 
-function digAt(currentWorld, coordBeingDug, toolSide)
+digAt = function(currentWorld, coordBeingDug, toolSide)
     assertEquiped(currentWorld, 'minecraft:diamond_pickaxe')
     local dugCell = lookupInMap(currentWorld.map, coordBeingDug)
     if dugCell == nil then
         return false
     end
-    if dugCell.id == 'minecraft:chest' and util.tableSize(dugCell.contents) > 0 then
+    if dugCell.id == 'minecraft:chest' and util.tableSize(dugCell.contents.slots) > 0 then
         error('Can not pick up a chest filled with items')
+    end
+    if dugCell.id == 'minecraft:furnace' and (
+        util.tableSize(dugCell.inputSlot.slots) > 0 or
+        util.tableSize(dugCell.fuelSlot.slots) > 0 or
+        util.tableSize(dugCell.outputSlot.slots) > 0 or
+        dugCell.activelySmelting > 0
+    ) then
+        error('Can not pick up a furnace filled with items, or that is actively running')
     end
     if not util.tableContains(canDig, dugCell.id) then
         error('Can not dig block '..dugCell.id..' yet. Perhaps this requires using a tool, which is not supported.')
@@ -433,12 +607,13 @@ function digAt(currentWorld, coordBeingDug, toolSide)
     return true
 end
 
+local dropAt
 function module.drop(amount)
     time.tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
     local coordDroppingTo = posToCoord(getPosInFront(turtle.pos))
-    return dropAt(currentWorld, coordDroppingTo, amount)
+    return dropAt(currentWorld, coordDroppingTo, amount, 'front')
 end
 
 function module.dropUp(amount)
@@ -446,7 +621,7 @@ function module.dropUp(amount)
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
     local coordDroppingTo = { x = turtle.pos.x, y = turtle.pos.y + 1, z = turtle.pos.z }
-    return dropAt(currentWorld, coordDroppingTo, amount)
+    return dropAt(currentWorld, coordDroppingTo, amount, 'up')
 end
 
 function module.dropDown(amount)
@@ -454,12 +629,11 @@ function module.dropDown(amount)
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
     local coordDroppingTo = { x = turtle.pos.x, y = turtle.pos.y - 1, z = turtle.pos.z }
-    return dropAt(currentWorld, coordDroppingTo, amount)
+    return dropAt(currentWorld, coordDroppingTo, amount, 'down')
 end
 
-local canDropTo = { 'minecraft:chest' }
-
-function dropAt(currentWorld, coordDroppingTo, amount)
+local attemptToSmelt
+dropAt = function(currentWorld, coordDroppingTo, amount, dropDirection)
     if amount == nil then
         -- According to the docs, the `amount` param used to not be a thing.
         -- Apparently now that it is a thing, it's also required.
@@ -480,30 +654,40 @@ function dropAt(currentWorld, coordDroppingTo, amount)
         amount = currentWorld.turtle.inventory[selectedSlot].quantity
     end
 
-    if not util.tableContains(canDropTo, targetCell.id) then
+    local targetInventory
+    if targetCell.id == 'minecraft:chest' then
+        targetInventory = targetCell.contents
+    elseif targetCell.id == 'minecraft:furnace' then
+        if dropDirection == 'up' or dropDirection == 'front' then
+            targetInventory = targetCell.fuelSlot
+        elseif dropDirection == 'down' then
+            targetInventory = targetCell.inputSlot
+        else
+            error()
+        end
+    else
         error('Can not drop item into block '..targetCell.id..' yet.')
     end
 
-    local MAX_CHEST_SIZE = 9 * 3 -- Only small chests are supported right now
     local somethingMoved = false
-    for i = 1, MAX_CHEST_SIZE do
+    for i = 1, targetInventory.size do
         local inventory = currentWorld.turtle.inventory
-        if targetCell.contents[i] == nil then
-            targetCell.contents[i] = {
+        if targetInventory.slots[i] == nil then
+            targetInventory.slots[i] = {
                 id = inventory[selectedSlot].id,
                 quantity = 0
             }
         end
 
-        if targetCell.contents[i].id == inventory[selectedSlot].id then
-            local maxThatCanBeMoved = 64 - targetCell.contents[i].quantity
+        if targetInventory.slots[i].id == inventory[selectedSlot].id then
+            local maxThatCanBeMoved = 64 - targetInventory.slots[i].quantity
             local amountBeingMoved = util.minNumber(maxThatCanBeMoved, amount)
             if amountBeingMoved > 0 then
                 somethingMoved = true
             end
 
             amount = amount - amountBeingMoved
-            targetCell.contents[i].quantity = targetCell.contents[i].quantity + amountBeingMoved
+            targetInventory.slots[i].quantity = targetInventory.slots[i].quantity + amountBeingMoved
             inventory[selectedSlot].quantity = inventory[selectedSlot].quantity - amountBeingMoved
             if inventory[selectedSlot].quantity == 0 then
                 inventory[selectedSlot] = nil
@@ -513,15 +697,104 @@ function dropAt(currentWorld, coordDroppingTo, amount)
             end
         end
     end
+
+    if targetCell.id == 'minecraft:furnace' and somethingMoved then
+        attemptToSmelt(currentWorld, coordDroppingTo)
+    end
+
     return somethingMoved
 end
 
+attemptToSmelt = function(currentWorld, furnaceCoord)
+    local furnaceCell = lookupInMap(currentWorld.map, furnaceCoord)
+    local SMELT_TIME = 50
+
+    if furnaceCell.activelySmelting > 0 then
+        return
+    end
+
+    local input = furnaceCell.inputSlot.slots[1]
+    local fuel = furnaceCell.fuelSlot.slots[1]
+    if input == nil or fuel == nil then
+        return
+    end
+
+    if fuel.id == 'minecraft:charcoal' then
+        furnaceCell.activelySmelting = 8
+        fuel.quantity = fuel.quantity - 1
+    elseif fuel.id == 'minecraft:planks' then
+        furnaceCell.activelySmelting = 6
+        if fuel.quantity < 4 then
+            error('Must have a multiple of 4 planks in the fuel slot. Any other number is currently not supported')
+        end
+        fuel.quantity = fuel.quantity - 4
+    else
+        error(
+            'Invalid fuel type ' .. fuel.id .. ' found in fuel slot. ' ..
+            'This fuel type is either currently not supported, or can not be used as fuel.'
+        )
+    end
+
+    if fuel.quantity == 0 then
+        furnaceCell.fuelSlot.slots[1] = nil
+    end
+
+    local finishSmelt
+    finishSmelt = function()
+        local furnaceCell = lookupInMap(currentWorld.map, furnaceCoord)
+        if furnaceCell == nil or furnaceCell.id ~= 'minecraft:furnace' then
+            error('Finished smelting, but the target furnace was gone.')
+        end
+
+        local input = furnaceCell.inputSlot.slots[1]
+        if input == nil then
+            return
+        end
+        local recipe = util.findInArrayTable(recipes.smelting, function (recipe) return recipe.from == input.id end)
+        if recipe == nil then
+            error('Attempted to smelt ' .. input.id .. ' which currently does not have a smelting recipe')
+        end
+
+        if furnaceCell.outputSlot.slots[1] == nil then
+            furnaceCell.outputSlot.slots[1] = { id = recipe.to, quantity = 0 }
+        end
+        if furnaceCell.outputSlot.slots[1].id ~= recipe.to then
+            furnaceCell.activelySmelting = 0
+            return
+        end
+        if furnaceCell.outputSlot.slots[1].quantity == 64 then
+            furnaceCell.activelySmelting = 0
+            return
+        end
+        furnaceCell.outputSlot.slots[1].quantity = furnaceCell.outputSlot.slots[1].quantity + 1
+        furnaceCell.inputSlot.slots[1].quantity = furnaceCell.inputSlot.slots[1].quantity - 1
+
+        local moreToSmelt = true
+        if furnaceCell.inputSlot.slots[1].quantity == 0 then
+            furnaceCell.inputSlot.slots[1] = nil
+            moreToSmelt = false
+        end
+
+        furnaceCell.activelySmelting = furnaceCell.activelySmelting - 1
+        if furnaceCell.activelySmelting > 0 then
+            if moreToSmelt then
+                time.addTickListener(SMELT_TIME, finishSmelt)
+            end
+        else
+            attemptToSmelt(currentWorld, furnaceCoord)
+        end
+    end
+
+    time.addTickListener(SMELT_TIME, finishSmelt)
+end
+
+local suckAt
 function module.suck(amount)
     time.tick()
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
     local coordSuckingFrom = posToCoord(getPosInFront(turtle.pos))
-    return suckAt(currentWorld, coordSuckingFrom, amount)
+    return suckAt(currentWorld, coordSuckingFrom, amount, 'front')
 end
 
 function module.suckUp(amount)
@@ -529,7 +802,7 @@ function module.suckUp(amount)
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
     local coordSuckingFrom = { x = turtle.pos.x, y = turtle.pos.y + 1, z = turtle.pos.z }
-    return suckAt(currentWorld, coordSuckingFrom, amount)
+    return suckAt(currentWorld, coordSuckingFrom, amount, 'up')
 end
 
 function module.suckDown(amount)
@@ -537,12 +810,10 @@ function module.suckDown(amount)
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     local turtle = currentWorld.turtle
     local coordSuckingFrom = { x = turtle.pos.x, y = turtle.pos.y - 1, z = turtle.pos.z }
-    return suckAt(currentWorld, coordSuckingFrom, amount)
+    return suckAt(currentWorld, coordSuckingFrom, amount, 'down')
 end
 
-local canSuckFrom = { 'minecraft:chest' }
-
-function suckAt(currentWorld, coordSuckingFrom, amount)
+suckAt = function(currentWorld, coordSuckingFrom, amount, suckDirection)
     if amount == nil then
         -- According to the docs, the `amount` param used to not be a thing.
         -- Apparently now that it is a thing, it's also required.
@@ -554,19 +825,33 @@ function suckAt(currentWorld, coordSuckingFrom, amount)
         return false
     end
 
-    if not util.tableContains(canSuckFrom, cellSuckingFrom.id) then
+    local targetInventory
+    if cellSuckingFrom.id == 'minecraft:chest' then
+        targetInventory = cellSuckingFrom.contents
+    elseif cellSuckingFrom.id == 'minecraft:furnace' then
+        if suckDirection == 'up' then
+            targetInventory = cellSuckingFrom.outputSlot
+        elseif suckDirection == 'front' then
+            targetInventory = cellSuckingFrom.fuelSlot
+        elseif suckDirection == 'down' then
+            targetInventory = cellSuckingFrom.inputSlot
+        else
+            error()
+        end
+    else
         error('Can not suck from block '..cellSuckingFrom.id..' yet.')
     end
+
     if amount > 64 or amount <= 0 then
         error('amount argument out of range')
     end
 
-    function findItemsToRemove(applyChanges, limit)
+    local findItemsToRemove = function(applyChanges, limit)
         if limit == nil then limit = 64 end
         local suckingItemId = nil
         local quantity = 0
-        for i = 0, MAX_INVENTORY_SIZE do
-            local item = cellSuckingFrom.contents[i]
+        for i = 1, targetInventory.size do
+            local item = targetInventory.slots[i]
             if item ~= nil and suckingItemId == nil then
                 suckingItemId = item.id
             end
@@ -576,7 +861,7 @@ function suckAt(currentWorld, coordSuckingFrom, amount)
                     quantity = limit
                 else
                     quantity = quantity + item.quantity
-                    if applyChanges then cellSuckingFrom.contents[i] = nil end
+                    if applyChanges then targetInventory.slots[i] = nil end
                 end
                 if quantity == limit then break end
             end
@@ -589,7 +874,7 @@ function suckAt(currentWorld, coordSuckingFrom, amount)
     local quantityAdded = addToInventory(currentWorld.turtle, suckingItemId, quantityCanBePulled)
     findItemsToRemove(true, quantityAdded)
 
-    return quantityAdded == 0
+    return quantityAdded > 0
 end
 
 -- quantity is optional
@@ -647,7 +932,8 @@ function hookListeners.registerCobblestoneRegenerationBlock(deltaCoord)
         y = deltaCoord.up,
         z = -deltaCoord.forward
     }
-    function regenerateCobblestone()
+    local regenerateCobblestone
+    regenerateCobblestone = function()
         time.addTickListener(4, regenerateCobblestone)
         local currentWorld = _G.mockComputerCraftApi._currentWorld
         local cell = lookupInMap(currentWorld.map, coord)
@@ -656,164 +942,6 @@ function hookListeners.registerCobblestoneRegenerationBlock(deltaCoord)
     end
 
     time.addTickListener(4, regenerateCobblestone)
-end
-
----- HELPERS ----
-
--- `amount` must be the size of a stack or less. Defaults to 1.
--- Returns the quantity added successfuly.
-function addToInventory(turtle, itemId, amount)
-    if amount == nil then amount = 1 end
-    local addedSuccessfully = 0
-    for i = 0, 15 do
-        local slot = (i + turtle.selectedSlot - 1)%16 + 1
-        if turtle.inventory[slot] == nil then
-            turtle.inventory[slot] = { id = itemId, quantity = 0 }
-        end
-        if turtle.inventory[slot].id == itemId then
-            local availableSpaceInStack = 64 - turtle.inventory[slot].quantity
-            local stillNeedToAdd = amount - addedSuccessfully
-            if stillNeedToAdd > availableSpaceInStack then
-                addedSuccessfully = addedSuccessfully + availableSpaceInStack
-                turtle.inventory[slot].quantity = 64
-            else
-                turtle.inventory[slot].quantity = turtle.inventory[slot].quantity + stillNeedToAdd
-                return amount
-            end
-        end
-    end
-    return addedSuccessfully
-end
-
--- removes `amount` of items from the selected inventory slot.
--- Returns <item id>, <amount removed> or nil, 0 if nothing was removed.
-function removeFrominventory(turtle, amount)
-    local slot = turtle.inventory[turtle.selectedSlot]
-    if slot == nil then
-        return nil, 0
-    elseif slot.quantity > amount then
-        slot.quantity = slot.quantity - amount
-        return slot.id, amount
-    else
-        turtle.inventory[turtle.selectedSlot] = nil
-        return slot.id, slot.quantity
-    end
-end
-
-function getPosInFront(pos)
-    local newPos = util.copyTable(pos)
-    if pos.face == 'N' then
-        newPos.z = newPos.z - 1
-    elseif pos.face == 'S' then
-        newPos.z = newPos.z + 1
-    elseif pos.face == 'W' then
-        newPos.x = newPos.x - 1
-    elseif pos.face == 'E' then
-        newPos.x = newPos.x + 1
-    end
-    return newPos
-end
-
-function getPosBehind(pos)
-    local newPos = util.copyTable(pos)
-    if pos.face == 'N' then
-        newPos.z = newPos.z + 1
-    elseif pos.face == 'S' then
-        newPos.z = newPos.z - 1
-    elseif pos.face == 'W' then
-        newPos.x = newPos.x + 1
-    elseif pos.face == 'E' then
-        newPos.x = newPos.x - 1
-    end
-    return newPos
-end
-
-function assertNotInsideBlock(world, movementDirectionForError)
-    local cell = lookupInMap(world.map, posToCoord(world.turtle.pos))
-    if cell ~= nil then
-        local pos = world.turtle.pos
-        error('Ran into a block of '..cell.id..' at ('..pos.x..', '..pos.y..', '..pos.z..') while moving '..movementDirectionForError)
-    end
-end
-
-function assertEquiped(world, itemId)
-    local isOnLeft = world.turtle.equipedLeft ~= nil and world.turtle.equipedLeft.id == itemId
-    local isOnRight = world.turtle.equipedRight ~= nil and world.turtle.equipedRight.id == itemId
-    if not isOnLeft and not isOnRight then
-        error('Must have '..itemId..' equipped before doing this task')
-    end
-end
-
--- coord is an {x, y, z} coordinate
-function lookupInMap(map, coord)
-    if map[coord.x] and map[coord.x][coord.y] and map[coord.x][coord.y][coord.z] then
-        return map[coord.x][coord.y][coord.z]
-    end
-    return nil
-end
-
--- value should at least be { id = ... }
-function setInMap(map, coord, value)
-    if map[coord.x] == nil then map[coord.x] = {} end
-    if map[coord.x][coord.y] == nil then map[coord.x][coord.y] = {} end
-    map[coord.x][coord.y][coord.z] = value
-end
-
-function posToCoord(pos)
-    return { x = pos.x, y = pos.y, z = pos.z }
-end
-
-function spawnTreeAt(currentWorld, absCoord)
-    function trySetInMap(x, y, z, id)
-        local coord = { x = absCoord.x + x, y = absCoord.y + y, z = absCoord.z + z }
-        local existingCell = lookupInMap(currentWorld.map, coord)
-        if existingCell == nil then
-            setInMap(currentWorld.map, coord, { id = id })
-        end
-    end
-
-    local trunkLength = math.random(3, 5)
-
-    -- Remove existing sapling
-    setInMap(currentWorld.map, absCoord, nil)
-
-    for i = 0, trunkLength - 1 do
-        trySetInMap(0, i, 0, 'minecraft:log')
-    end
-
-    -- Creating 5x5 block of leaves with logs down the center
-    for x = -2, 2 do
-        for z = -2, 2 do
-            for y = 0, 1 do
-                if x == 0 and z == 0 then
-                    trySetInMap(x, trunkLength + y - 1, z, 'minecraft:log')
-                elseif y == 0 and math.abs(x) == 2 and math.abs(z) == 2 then
-                    -- do nothing
-                elseif y == 1 and math.abs(x) == 2 and math.abs(z) == 2 and math.random(0, 1) == 0 then
-                    -- do nothing
-                else
-                    trySetInMap(x, trunkLength + y - 1, z, 'minecraft:leaves')
-                end
-            end
-        end
-    end
-
-    -- Creating the top two layers
-    for x = -1, 1 do
-        for z = -1, 1 do
-            for y = 2, 3 do
-                if y == 2 and x == 0 and z == 0 then
-                    trySetInMap(x, trunkLength + y - 1, z, 'minecraft:log')
-                elseif y == 2 and math.abs(x) == 1 and math.abs(z) == 1 and math.random(0, 1) == 0 then
-                    -- do nothing
-                elseif y == 3 and math.abs(x) == 1 and math.abs(z) == 1 then
-                    -- do nothing
-                else
-                    trySetInMap(x, trunkLength + y - 1, z, 'minecraft:leaves')
-                end
-            end
-        end
-    end
 end
 
 return { module, hookListeners }

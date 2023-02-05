@@ -56,7 +56,7 @@ module.activateFarm = registerCommand(
     end
 )
 
-module.debug = registerCommand('general:debug', function(state, opts)
+registerCommand('general:debug', function(state, opts)
     debug.onDebugCommand(state, opts)
 end)
 

@@ -2,6 +2,8 @@ local module = {}
 
 local commandListeners = {}
 
+local moduleId = 'act:commands:publicHelpers'
+
 function module.execCommand(state, cmd)
     local type = cmd.command
     local args = cmd.args or {}
@@ -56,7 +58,7 @@ end
 
 -- A convinient shorthand to cause the command to return a future
 function module.registerCommandWithFuture(id, execute_, extractFutureId)
-    function execute(state, ...)
+    local execute = function(state, ...)
         local futureId = extractFutureId(table.unpack({ ... }))
         local result = execute_(state, table.unpack({ ... }))
         if futureId ~= nil then
@@ -89,5 +91,14 @@ function module.registerFutureTransformers(baseId, transformers)
     end
     return processedTransformers
 end
+
+module.commonTransformers = module.registerFutureTransformers(
+    moduleId..':commonTransformers',
+    {
+        not_ = function(value)
+            return not value
+        end,
+    }
+)
 
 return module

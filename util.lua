@@ -65,6 +65,16 @@ function module.mapMapTable(curTable, mapFn)
     return newTable
 end
 
+function module.findInArrayTable(curTable, predicate)
+    for i, value in ipairs(curTable) do
+        local isFound = predicate(value, i)
+        if isFound then
+            return value
+        end
+    end
+    return nil
+end
+
 -- You can't use `#table` syntax to get the size of a table
 -- if the table contains key-value pairs. (The result is undefined).
 function module.tableSize(table)
@@ -112,18 +122,34 @@ end
 
 function module.minNumber(first, ...)
     local min = first
-    for _, value in pairs({ ... }) do
-        if min > value then min = value end
+    local minIndex = 1
+    for i, value in ipairs({ ... }) do
+        if min > value then
+            min = value
+            minIndex = i + 1
+        end
     end
-    return min
+    return min, minIndex
 end
 
 function module.maxNumber(first, ...)
     local max = first
-    for _, value in pairs({ ... }) do
-        if max < value then max = value end
+    local maxIndex = 1
+    for i, value in ipairs({ ... }) do
+        if max < value then
+            max = value
+            maxIndex = i + 1
+        end
     end
-    return max
+    return max, maxIndex
+end
+
+function module.sum(curTable)
+    local total = 0
+    for _, value in ipairs(curTable) do
+        total = total + value
+    end
+    return total
 end
 
 function module.assert(condition, message)

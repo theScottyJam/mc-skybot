@@ -20,6 +20,41 @@ local util = import('util.lua')
 
 local module = {}
 
+-- HELPER FUNCTIONS --
+
+local rotateRelCoordClockwiseAroundOrigin = function(coord, count)
+    if count == nil then count = 1 end
+    for i = 1, count do
+        coord = { right = coord.forward, forward = -coord.right, up = coord.up }
+    end
+    return coord
+end
+
+-- A "navUnit" is a position, coordinate, or facing.
+-- Returns a list, where the first item is the passed-in pos/coord/facing,
+-- the second it that value's "from" field, the third is the "from"'s "from" field,
+-- and so on. Useful to make iteration easier.
+-- opts.limit can be provided to have it return all fields up to and excluding the limit
+local listFromFieldChain = function(navUnit, opts)
+    local limit = (opts or {}).limit -- may be nil
+    local result = { navUnit }
+    repeat
+        navUnit = navUnit.from
+        if navUnit == limit then break end
+        table.insert(result, navUnit)
+    until navUnit == 'ORIGIN'
+    return result
+end
+
+assertValidFace = function(face)
+    local isValid = util.tableContains({'forward', 'right', 'backward', 'left'}, face)
+    if not isValid then
+        error('Bad face value')
+    end
+end
+
+-- PUBLIC FUNCTIONS --
+
 function module.posToFacing(pos)
     return { face = pos.face, from = pos.from }
 end
@@ -143,14 +178,6 @@ function module.relativePosTo(targetAbsPos, basePos)
     )
 end
 
-function rotateRelCoordClockwiseAroundOrigin(coord, count)
-    if count == nil then count = 1 end
-    for i = 1, count do
-        coord = { right = coord.forward, forward = -coord.right, up = coord.up }
-    end
-    return coord
-end
-
 -- A "navUnit" is a position, coordinate, or facing.
 -- Returns the "from" field that's common between the two.
 function module.findCommonFromField(navUnit1, navUnit2)
@@ -201,29 +228,6 @@ function module.squashFromFields(pos, opts)
     end
 
     return result
-end
-
--- A "navUnit" is a position, coordinate, or facing.
--- Returns a list, where the first item is the passed-in pos/coord/facing,
--- the second it that value's "from" field, the third is the "from"'s "from" field,
--- and so on. Useful to make iteration easier.
--- opts.limit can be provided to have it return all fields up to and excluding the limit
-function listFromFieldChain(navUnit, opts)
-    local limit = (opts or {}).limit -- may be nil
-    local result = { navUnit }
-    repeat
-        navUnit = navUnit.from
-        if navUnit == limit then break end
-        table.insert(result, navUnit)
-    until navUnit == 'ORIGIN'
-    return result
-end
-
-function assertValidFace(face)
-    local isValid = util.tableContains({'forward', 'right', 'backward', 'left'}, face)
-    if not isValid then
-        error('Bad face value')
-    end
 end
 
 -- Meant to provide quick access to some of the above functions

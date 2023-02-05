@@ -16,6 +16,7 @@ local completeMapKey = {
     ['minecraft:grass'] = 'D',
     ['minecraft:chest'] = 'C',
     ['minecraft:cobblestone'] = 'c',
+    ['minecraft:stone'] = 'S',
     ['minecraft:leaves'] = 'l',
     ['minecraft:sapling'] = 's',
     ['minecraft:log'] = 'L',
@@ -40,7 +41,7 @@ function module.displayMap(world, bounds, opts)
     local maxY = bounds.maxY
     if maxY == nil then maxY = 9999 end
 
-    function insertCellIntoViewIfAble(x, y, z, view, cell)
+    local insertCellIntoViewIfAble = function(x, y, z, view, cell)
         if view[x] == nil then view[x] = {} end
         local inVerticalBounds = minY <= y and maxY >= y
         local higherThanLastFoundValue = view[x][z] == nil or view[x][z].y < y

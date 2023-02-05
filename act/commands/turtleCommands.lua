@@ -69,6 +69,23 @@ module.select = registerCommand('turtle:select', function(state, slotNum)
     turtle.select(slotNum)
 end)
 
+-- (opts) or (slotNum, opts)
+-- opts looks like { out=... }
+module.getItemCount = registerCommandWithFuture('turtle:getItemCount', function(state, arg1, arg2)
+    local slotNum = nil
+    if arg2 ~= nil then
+        slotNum = arg1
+    end
+
+    return turtle.getItemCount(slotNum)
+end, function (arg1, arg2)
+    if arg2 == nil then
+        return arg1.out
+    else
+        return arg2.out
+    end
+end)
+
 module.equipLeft = registerCommand('turtle:equipLeft', function(state)
     turtle.equipLeft()
 end)
@@ -94,19 +111,19 @@ end)
 module.inspect = registerCommandWithFuture('turtle:inspect', function(state, opts)
     local success, blockInfo = turtle.inspect()
     return { success, blockInfo }
-end, function (opts) return opts.out end)
+end, function(opts) return opts.out end)
 
 -- opts looks like { out=... }
 module.inspectUp = registerCommandWithFuture('turtle:inspectUp', function(state, opts)
     local success, blockInfo = turtle.inspectUp()
     return { success, blockInfo }
-end, function (opts) return opts.out end)
+end, function(opts) return opts.out end)
 
 -- opts looks like { out=... }
 module.inspectDown = registerCommandWithFuture('turtle:inspectDown', function(state, opts)
     local success, blockInfo = turtle.inspectDown()
     return { success, blockInfo }
-end, function (opts) return opts.out end)
+end, function(opts) return opts.out end)
 
 module.dig = registerCommand('turtle:dig', function(state, toolSide)
     turtle.dig(toolSide)
@@ -132,16 +149,43 @@ module.dropDown = registerCommand('turtle:dropDown', function(state, amount)
     turtle.dropDown(amount)
 end)
 
-module.suck = registerCommand('turtle:suck', function(state, amount)
-    turtle.suck(amount)
+-- (amount, opts?)
+-- opts looks like { out=... }
+module.suck = registerCommandWithFuture('turtle:suck', function(state, amount, opts)
+    local success = turtle.suck(amount)
+    return success
+end, function (amount, opts)
+    if opts ~= nil then
+        return opts.out
+    else
+        return nil
+    end
 end)
 
-module.suckUp = registerCommand('turtle:suckUp', function(state, amount)
-    turtle.suckUp(amount)
+-- (amount, opts?)
+-- opts looks like { out=... }
+module.suckUp = registerCommandWithFuture('turtle:suckUp', function(state, amount, opts)
+    local success = turtle.suckUp(amount)
+    return success
+end, function (amount, opts)
+    if opts ~= nil then
+        return opts.out
+    else
+        return nil
+    end
 end)
 
-module.suckDown = registerCommand('turtle:suckDown', function(state, amount)
-    turtle.suckDown(amount)
+-- (amount, opts?)
+-- opts looks like { out=... }
+module.suckDown = registerCommandWithFuture('turtle:suckDown', function(state, amount, opts)
+    local success = turtle.suckDown(amount)
+    return success
+end, function (amount, opts)
+    if opts ~= nil then
+        return opts.out
+    else
+        return nil
+    end
 end)
 
 -- quantity is optional
