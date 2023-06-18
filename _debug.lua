@@ -54,7 +54,7 @@ function debugModule.onDebugCommand(state, opts)
 end
 
 function module.registerGlobal()
-    _G.debug = debugModule
+    _G._debug = debugModule
 end
 
 return module

@@ -21,6 +21,12 @@ function module.copyTable(curTable)
     return newTable
 end
 
+function module.extendsArrayTableInPlace(curTable, entriesToAdd)
+    for i, value in ipairs(entriesToAdd) do
+        table.insert(curTable, value)
+    end
+end
+
 function module.tableContains(curTable, entry)
     for key, value in pairs(curTable) do
         if entry == value then
@@ -65,6 +71,16 @@ function module.mapMapTable(curTable, mapFn)
     return newTable
 end
 
+function module.flatArrayTable(curTable)
+    local newTable = {}
+    for i, array in ipairs(curTable) do
+        for j, entry in ipairs(array) do
+            table.insert(newTable, entry)
+        end
+    end
+    return newTable
+end
+
 function module.findInArrayTable(curTable, predicate)
     for i, value in ipairs(curTable) do
         local isFound = predicate(value, i)
@@ -95,7 +111,7 @@ function module.subtractArrayTables(table1, table2)
     return resultTable
 end
 
-function module.coundOccurancesOfValuesInTable(curTable)
+function module.countOccurancesOfValuesInTable(curTable)
     local occurancesOfValues = {}
     for key, value in pairs(curTable) do
         if value ~= nil then
@@ -118,6 +134,19 @@ function module.splitString(inputstr, sep)
         table.insert(newTable, str)
     end
     return newTable
+end
+
+function module.joinArrayTable(curTable, sep)
+    if sep == nil then sep = ', ' end
+
+    local result = ''
+    for i, str in ipairs(curTable) do
+        result = result..str
+        if i ~= #curTable then
+            result = result..sep
+        end
+    end
+    return result
 end
 
 function module.minNumber(first, ...)

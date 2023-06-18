@@ -10,8 +10,8 @@ local taskRegistry = {}
 
 --[[
 inputs:
-  opts.createTaskState() (optional) returns any arbitrary record.
-    If not provided, it default to an empty record.
+  opts.createTaskState() (optional) returns any arbitrary table.
+    If not provided, it default to an empty table.
   opts.enter() (optional) takes a planner and a taskState. It will run before the task
     starts and whenever the task continues after an interruption, and is supposed
     to bring the turtle from anywhere in the world to a desired position.

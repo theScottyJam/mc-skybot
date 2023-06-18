@@ -1,8 +1,11 @@
+#!/usr/bin/env lua
+
 local parseTerminalArgs = function(tArgs)
     local parsedArgs = {
         basePath = nil,
         showHelp = false,
-        useMockLib = false
+        useMockLib = false,
+        runTests = false,
     }
 
     local expectFlagValueFor = nil
@@ -19,6 +22,11 @@ local parseTerminalArgs = function(tArgs)
             end
         elseif tArg == '--base' then
             expectFlagValueFor = tArg
+        elseif tArg == '--test' then
+            parsedArgs.runTests = true
+            if parsedArgs.basePath == nil then
+                parsedArgs.basePath = './'
+            end
         end
     end
 
@@ -40,14 +48,26 @@ do
     local dirName
     local moduleCache = {}
     local importStack = { 'run' }
-    _G.import = function (path)
+
+    -- Can be used to help with circular dependencies.
+    -- Returns an object with a `.load()` function, that can be
+    -- called to retrieve the actual module at the point where you need it.
+    _G.lazyImport = function (path)
         local absPath = resolvePotentiallyRelativePath(path)
-        if moduleCache[absPath] == nil then
-            table.insert(importStack, absPath)
-            moduleCache[absPath] = dofile(BASE_PATH..absPath)
-            table.remove(importStack)
-        end
-        return moduleCache[absPath]
+        return {
+            load = function()
+                if moduleCache[absPath] == nil then
+                    table.insert(importStack, absPath)
+                    moduleCache[absPath] = dofile(BASE_PATH..absPath)
+                    table.remove(importStack)
+                end
+                return moduleCache[absPath]
+            end
+        }
+    end
+
+    _G.import = function (path)
+        return _G.lazyImport(path).load()
     end
 
     resolvePotentiallyRelativePath = function(path)
@@ -94,12 +114,33 @@ if inputs.showHelp then
     print('          relative to this path.')
     print('          The provided path should end')
     print('          with a "/".')
+    print('          If not provided, will default to "./"')
+    print('          or "/disk/computer-craft/", depending on')
+    print('          the other flags provided (it tries to guess')
+    print('          if you are developing or running it')
+    print('          within Minecraft.')
+    print('  --test: Run automated tests')
     return
 end
 
 -- Don't do any imports until after we've had the chance to show the help,
 -- since the help explains required flags that may be needed to make imports work.
 import('_debug.lua').registerGlobal()
+
+-- Temporary code for testing turtle script.
+-- do
+--     local turtlescript = import('turtlescript/init.lua')
+--     turtlescript.run([[
+--         --! TURTLE SCRIPT
+--         print(2 + 3)
+--     ]])
+--     return
+-- end
+
+if inputs.runTests then
+    import('turtlescript/test.lua')
+    return
+end
 
 if inputs.useMockLib then
     import('mockComputerCraftApi/init.lua').registerGlobals()
@@ -110,13 +151,13 @@ end
 
 local step = 0
 local onStep = function()
-    if inputs.useMockLib and (debug.showStepByStep --[[or true]]) then
+    if inputs.useMockLib and (_debug.showStepByStep --[[or true]]) then
         step = step + 1
         if step < 163 then return end
         -- _G.mockComputerCraftApi.present.displayMap(world, { minX = -8, maxX = 5, minY = 0, maxY = 999, minZ = -5, maxZ = 5 }, { showKey = false })
         -- _G.mockComputerCraftApi.present.displayCentered(world)
         -- mockComputerCraftApi.present.showTurtlePosition(world)
-        -- debug.busySleep(0.05)
+        -- _debug.busySleep(0.05)
     end
 end
 

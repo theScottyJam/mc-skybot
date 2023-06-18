@@ -98,7 +98,7 @@ module.while_ = function(planner, opts, block)
 
     planner.turtlePos = createPosInterprettingDifferencesAsUnknowns(planner.turtlePos, innerPlanner.turtlePos)
 
-    -- Second run of block() is used to determin the actual list of block commands to record.
+    -- Second run of block() is used to determin the actual list of block commands to table.
     -- This time around, the turtlePos has been updated to have UNKNOWN positions where appropriate.
     local innerPlanner2 = _G.act.planner.copy(planner)
     innerPlanner2.plan = {}

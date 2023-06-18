@@ -1,7 +1,7 @@
 --[[
     Utilities related to 3d space
     Terms:
-    * facing: A record with a "face" and "from" field.
+    * facing: A table with a "face" and "from" field.
     * coordinate: a forward,right,up coordinate which a `from` field.
         `from` is either `ORIGIN` or another coordinate where at least one of its fields is set to 'UNKNOWN'.
     * position: A coordinate and facing combined - it has the fields from both.

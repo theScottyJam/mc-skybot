@@ -275,7 +275,7 @@ module.craft = registerCommand(
         -- Evently spread the recipe resources
         local updatedInventory = module.takeInventoryNow()
         local resourcesInInventory = module.countResourcesInInventory(updatedInventory, craftSlotIds)
-        local recipeResourcessToSlotCount = util.coundOccurancesOfValuesInTable(flattenedRecipe)
+        local recipeResourcessToSlotCount = util.countOccurancesOfValuesInTable(flattenedRecipe)
         local minStackSize = 999
         for i, slotId in ipairs(craftSlotIds) do
             local resourceName = flattenedRecipe[slotId]

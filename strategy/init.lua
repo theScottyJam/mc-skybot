@@ -57,8 +57,8 @@ debugProject = function(homeLoc)
         nextPlan = function(planner, taskState)
             -- local startPos = util.copyTable(planner.turtlePos)
             -- local currentWorld = _G.mockComputerCraftApi._currentWorld
-            _G.debug.debugCommand(planner, { action='obtain', itemId='minecraft:charcoal', quantity=64 })
-            debug.showStepByStep = true
+            _G._debug.debugCommand(planner, { action='obtain', itemId='minecraft:charcoal', quantity=64 })
+            _debug.showStepByStep = true
 
             -- navigate.moveToPos(planner, startPos)
             return taskState, true
