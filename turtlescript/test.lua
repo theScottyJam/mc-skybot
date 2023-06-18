@@ -208,6 +208,11 @@ do
         local value = runContent('local x = 2\nx = 3\nreturn x')
         assert.equal(value, 3)
     end)
+
+    test(prefix..'can not assign to an undeclared variable', function()
+        local error = getErrorMessage(runContent, 'x = 2')
+        assert.equal(error, 'Runtime error at <string input>:2: Attempted to assign to an undeclared variable "x".')
+    end)
 end
 
 -- strings --

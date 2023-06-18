@@ -122,7 +122,7 @@ stateOps = {
     end,
     assignVar = function(state, varName, newValue)
         if state.variables[varName] == nil then
-            state.variables[varName] = {}
+            runtimeError('Attempted to assign to an undeclared variable "' .. varName .. '".', state)
         end
         state.variables[varName].content = newValue
     end,
