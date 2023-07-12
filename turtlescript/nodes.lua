@@ -81,30 +81,43 @@ stateOps = {
     -- child nodes. When this returns true, it's expected that the caller will do an early return,
     -- to allow the program runner to start executing at a particular child node.
     updateStateToHandleDescendants = function(state, children, opts)
-        if opts == nil then opts = {} end
-        local assignmentTarget = opts.assignmentTarget or false
-        local newCallStackFrameInfo = opts.newCallStackFrameInfo or nil
-
         local subNodeValues = state.nodeStack[#state.nodeStack].subNodeValues
         for _, childNode in ipairs(children) do
             if subNodeValues[childNode.nodeId] == nil then
-                if newCallStackFrameInfo ~= nil then
-                    table.insert(state.callStack, {
-                        variables = state.variables,
-                    })
-                    state.variables = util.copyTable(newCallStackFrameInfo.localVars)
-                end
-
-                table.insert(state.nodeStack, {
-                    nodeId = childNode.nodeId,
-                    subNodeValues = {},
-                    assignmentTarget = assignmentTarget,
-                    beginsCallStackFrame = newCallStackFrameInfo ~= nil,
-                })
+                stateOps.forceUpdateStateToHandleDesendent(state, childNode, opts)
                 return true
             end
         end
         return false
+    end,
+    -- Similar to updateStateToHandleDescendants(), except:
+    -- * You can only update one child with this, not a list of children
+    -- * Even if the desendent has already been evaluated, its previous completion
+    --   value will be wiped out and it will be re-evaluated.
+    -- * You must have your calling function return after calling this, so that
+    --   the desendent can be handled. This is different from updateStateToHandleDescendants()
+    --   which returns a boolean asking you return or not depending on the value of the bool.
+    --   Control won't go back to the outer function until the desendent has been fully evaluated.
+    --
+    -- The `opts` parameter is the same as `updateStateToHandleDescendants()`
+    forceUpdateStateToHandleDesendent = function(state, child, opts)
+        if opts == nil then opts = {} end
+        local assignmentTarget = opts.assignmentTarget or false
+        local newCallStackFrameInfo = opts.newCallStackFrameInfo or nil
+
+        if newCallStackFrameInfo ~= nil then
+            table.insert(state.callStack, {
+                variables = state.variables,
+            })
+            state.variables = util.copyTable(newCallStackFrameInfo.localVars)
+        end
+
+        table.insert(state.nodeStack, {
+            nodeId = child.nodeId,
+            subNodeValues = {},
+            assignmentTarget = assignmentTarget,
+            beginsCallStackFrame = newCallStackFrameInfo ~= nil,
+        })
     end,
     -- After a sub-node has evaluated, you can use this to fetch its completion value.
     getSubExprValue = function(state, childNode)
@@ -597,6 +610,39 @@ registerNodeType('ifThen', {
             if stateOps.updateStateToHandleDescendants(state, {innerNodes.elseBlock}) then return end
         end
         stateOps.completeExec(state)
+    end
+})
+
+registerNodeType('cStyleForLoop', {
+    -- opts should be of the shape
+    -- { loopVar = ..., start = ..., end_ = ..., block = ... }
+    init = function(opts)
+        return opts
+    end,
+    children = function(innerNodes)
+        return {innerNodes.start, innerNodes.end_, innerNodes.block}
+    end,
+    exec = function(state, innerNodes, children)
+        if stateOps.updateStateToHandleDescendants(state, {innerNodes.start, innerNodes.end_}) then return end
+        local loopVarName = innerNodes.loopVar
+        local startValue = stateOps.getSubExprValue(state, innerNodes.start)
+        local endValue = stateOps.getSubExprValue(state, innerNodes.end_)
+
+        local declaring = stateOps.lookupVarRef(state, loopVarName) == nil
+        if declaring then
+            stateOps.declareVar(state, loopVarName, startValue)
+        end
+        local loopVar = stateOps.lookupVar(state, loopVarName)
+
+        if loopVar + 1 > endValue then
+            stateOps.completeExec(state)
+        else
+            if not declaring then
+                stateOps.assignVar(state, loopVarName, loopVar + 1)
+            end
+    
+            stateOps.forceUpdateStateToHandleDesendent(state, innerNodes.block)
+        end
     end
 })
 

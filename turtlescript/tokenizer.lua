@@ -147,7 +147,9 @@ local getNextToken = function(charStream)
         'then'..b,
         'elseif'..b,
         'else'..b,
-        'end'..b
+        'end'..b,
+        'for'..b,
+        'do'..b,
     })
     if extracted ~= nil then
         return extracted.intoToken('KEYWORD')

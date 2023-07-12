@@ -104,6 +104,34 @@ function parse.statement(tokenStream)
                 current = nodes.ifThen(chainLink.pos, chainLink.condition, chainLink.ifBlock, current)
             end
             return current
+        elseif keyword == 'for' then
+            local forLoopPos = keywordToken.range.start
+            local loopVarToken = tokenStream.next()
+            if loopVarToken.type ~= 'IDENTIFIER' then
+                syntaxError('Expected to find an identifier after "for", but found «' .. loopVarToken.value .. '»', loopVarToken.range)
+            end
+            local equalToken = tokenStream.next()
+            if equalToken.value ~= '=' then
+                syntaxError('Expected to find an equal sign ("="), but found «' .. equalToken.value .. '»', equalToken.range)
+            end
+            local startExpr = parse.expression1(tokenStream)
+            local commaToken = tokenStream.next()
+            if commaToken.value ~= ',' then
+                syntaxError('Expected to find a comma (",") to separate the start and end of the range, but found «' .. commaToken.value .. '»', commaToken.range)
+            end
+            local endExpr = parse.expression1(tokenStream)
+            local doToken = tokenStream.next()
+            if doToken.value ~= 'do' then
+                syntaxError('Expected to find "do" to start the for loop\'s block, but found «' .. doToken.value .. '»', doToken.range)
+            end
+            local block = parse.block(tokenStream, { endsWith = {'end'} })
+
+            return nodes.cStyleForLoop(forLoopPos, {
+                loopVar = loopVarToken.value,
+                start = startExpr,
+                end_ = endExpr,
+                block = block,
+            })
         else
             error('Unexpected keyword: ' .. keyword)
         end

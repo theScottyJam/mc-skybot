@@ -476,6 +476,39 @@ do
     end)
 end
 
+-- c-style for loops --
+do
+    local prefix = 'c-style for loops: '
+    -- syntax --
+
+    test(prefix..'attempt to use a non-identifier as the loop variable"', function()
+        local error = getErrorMessage(runContent, "for local = 3, 5 do end")
+        assert.equal(error, 'Expected to find an identifier after "for", but found «local»\nat <string input> 2:5')
+    end)
+
+    test(prefix..'Omit the equals sign"', function()
+        local error = getErrorMessage(runContent, "for x 3, 5 do end")
+        assert.equal(error, 'Expected to find an equal sign ("="), but found «3»\nat <string input> 2:7')
+    end)
+
+    test(prefix..'Omit the comma sign"', function()
+        local error = getErrorMessage(runContent, "for x = 3 5 do end")
+        assert.equal(error, 'Expected to find a comma (",") to separate the start and end of the range, but found «5»\nat <string input> 2:11')
+    end)
+
+    test(prefix..'Omit the "do""', function()
+        local error = getErrorMessage(runContent, "for x = 3, 5 end")
+        assert.equal(error, 'Expected to find "do" to start the for loop\'s block, but found «end»\nat <string input> 2:14')
+    end)
+
+    -- behavior --
+
+    test(prefix..'TODO', function()
+        local value = runContent('local x = 0\nfor i = 3, 5 do x = x + i end return x')
+        assert.equal(value, 12)
+    end)
+end
+
 -- function call --
 do
     local prefix = 'function call: '
