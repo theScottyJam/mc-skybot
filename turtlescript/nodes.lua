@@ -29,13 +29,25 @@ local stateOps
 stateOps = {
     init = function(rootNodeId, nodeLookup, opts)
         opts = opts or {}
-        local initialLocalVars = util.copyTable(opts.initialLocalVars or {})
+        local initialLocalVars = {}
+        for key, value in pairs(opts.initialLocalVars or {}) do
+            initialLocalVars[key] = {value}
+        end
 
         return {
             -- `returnValue` is nil, until the program is finished and there's (maybe) something to return.
             returnValue = nil,
+            -- Used to create IDs for the nodeStack
+            nextFrameId = 1,
+            -- Used for undeclaring variables when we reach the end of a block.
+            -- Has the shape { [frameId] = { [varName] = true } }
+            -- The innter table values are always set to true - this makes the data set-like,
+            -- allowing for quick lookup of specific variables
+            frameIdsToVarNames = { [0] = {} },
             nodeStack = {
                 {
+                    frameId = 0,
+                    frameIdOfCurrentBlock = 0,
                     nodeId = rootNodeId,
                     subNodeValues = {},
                     -- Can either be `false` or `{ receivingValue = ... }`
@@ -48,7 +60,8 @@ stateOps = {
             -- so it can be recovered when you leave the function.
             -- Has the shape { variables=... }[]
             callStack = {},
-            -- Values are of the shape { content=... }
+            -- Values are of the shape {{ content=... }, { content=... }}.
+            -- Further elements in the list represent variables shadowing earlier elements.
             -- Only contains variables that are currently in scope
             variables = initialLocalVars,
             -- Not actual state, just reference data
@@ -109,10 +122,22 @@ stateOps = {
             table.insert(state.callStack, {
                 variables = state.variables,
             })
-            state.variables = util.copyTable(newCallStackFrameInfo.localVars)
+            state.variables = {}
+            for key, value in pairs(newCallStackFrameInfo.localVars) do
+                state.variables[key] = {value}
+            end
         end
 
+        local frameId = state.nextFrameId
+        state.nextFrameId = state.nextFrameId + 1
+        local frameIdOfCurrentBlock = state.nodeStack[#state.nodeStack].frameIdOfCurrentBlock
+        if child.isBlock then
+            frameIdOfCurrentBlock = frameId
+            state.frameIdsToVarNames[frameIdOfCurrentBlock] = {}
+        end
         table.insert(state.nodeStack, {
+            frameId = frameId,
+            frameIdOfCurrentBlock = frameIdOfCurrentBlock,
             nodeId = child.nodeId,
             subNodeValues = {},
             assignmentTarget = assignmentTarget,
@@ -128,16 +153,23 @@ stateOps = {
         return valueEntry.content
     end,
     declareVar = function(state, varName, newValue)
-        if state.variables[varName] ~= nil then
+        local frameIdOfCurrentBlock = state.nodeStack[#state.nodeStack].frameIdOfCurrentBlock
+        if state.frameIdsToVarNames[frameIdOfCurrentBlock][varName] then
             runtimeError('Variable "' .. varName .. '" got re-declared', state)
         end
-        state.variables[varName] = { content = newValue }
+
+        if state.variables[varName] == nil then
+            state.variables[varName] = {}
+        end
+        table.insert(state.variables[varName], { content = newValue })
+        state.frameIdsToVarNames[frameIdOfCurrentBlock][varName] = true
     end,
     assignVar = function(state, varName, newValue)
         if state.variables[varName] == nil then
             runtimeError('Attempted to assign to an undeclared variable "' .. varName .. '".', state)
         end
-        state.variables[varName].content = newValue
+        local varShadowList = state.variables[varName]
+        varShadowList[#varShadowList].content = newValue
     end,
     -- Returns a { content = ... } object or nil if it is not found.
     -- Having a ref can be useful, because you'll always have your hands
@@ -146,7 +178,8 @@ stateOps = {
     -- variables, long after they would have normally been cleaned up).
     lookupVarRef = function(state, varName)
         if state.variables[varName] ~= nil then
-            return state.variables[varName]
+            local varShadowList = state.variables[varName]
+            return varShadowList[#varShadowList]
         end
         if _G[varName] ~= nil then
             return { content = _G[varName] }
@@ -178,8 +211,11 @@ stateOps = {
         -- If this is the end of a function
         if state.nodeStack[#state.nodeStack].beginsCallStackFrame then
             stateOps.returnFromFunctionOrModule(state)
-            return
         else
+            -- Only calling this helper in the `else`, because
+            -- returnFromFunctionOrModule() will call this.
+            stateOps._undeclareVarsInNodeStackFrame(state)
+
             local topStackEntry = table.remove(state.nodeStack)
             -- Only set the completion value if there's a node stack frame
             -- able to receive it. Might not happen if we're at the root of an
@@ -198,6 +234,7 @@ stateOps = {
     end,
     -- returnValue is optional, and defaults to `nil`
     returnFromFunctionOrModule = function(state, returnValue)
+        stateOps._undeclareVarsInNodeStackFrame(state)
         if #state.callStack == 0 then
             -- return from the module
             state.nodeStack = {}
@@ -220,9 +257,44 @@ stateOps = {
         state.variables = callStackFrame.variables
         local subNodeValues = state.nodeStack[#state.nodeStack].subNodeValues
         subNodeValues[topStackEntry.nodeId] = { content = returnValue }
-    end
+    end,
+    -- Helper function to undeclare any variables that were declared in the
+    -- current block. Does nothing unless the current block is about to be popped.
+    _undeclareVarsInNodeStackFrame = function(state)
+        local nodeStackEntry = state.nodeStack[#state.nodeStack]
+        local frameIdOfCurrentBlock = nodeStackEntry.frameIdOfCurrentBlock
+        if frameIdOfCurrentBlock ~= nodeStackEntry.frameId then
+            return
+        end
+
+        for varName, _ in pairs(state.frameIdsToVarNames[frameIdOfCurrentBlock]) do
+            table.remove(state.variables[varName])
+            if #state.variables[varName] == 0 then
+                state.variables[varName] = nil
+            end
+        end
+
+        state.frameIdsToVarNames[frameIdOfCurrentBlock] = nil
+    end,
 }
 
+-- opts is of the shape
+-- {
+--   -- Converts parameters into a state object that
+--   -- will be provided to other functions.
+--   init = ...
+--   -- Converts the state object to a complete list of children
+--   children = ...
+--   -- Execute this node.
+--   exec = ...
+--   -- true if this node will capture variables from the outer scope
+--   closureBoundary = ...
+--   -- true if variables declared inside this node should be local to this node
+--   isBlock = ...
+--   -- Returns a list of variables this expression depends on.
+--   -- Used to figure out what needs to be captured.
+--   getVariablesNeeded = ...
+-- }
 local registerNodeType = function(name, opts)
     if nodeTypes[name] then error('Node with name ' .. name .. ' already exists') end
     local canBeAssignmentTarget = false
@@ -233,6 +305,7 @@ local registerNodeType = function(name, opts)
         init = opts.init,
         getVariablesNeeded = opts.getVariablesNeeded or nil,
         closureBoundary = opts.closureBoundary or false,
+        isBlock = opts.isBlock or false,
         children = opts.children,
         exec = opts.exec,
     }
@@ -279,6 +352,7 @@ local registerNodeType = function(name, opts)
                 })
             end,
             canBeAssignmentTarget = canBeAssignmentTarget,
+            isBlock = opts.isBlock or false,
         }
         return node
     end
@@ -297,6 +371,7 @@ local buildArgNameToValueMapping = function(paramNames, argValues)
 end
 
 registerNodeType('root', {
+    isBlock = true,
     init = function(innerNode)
         return innerNode
     end,
@@ -310,6 +385,7 @@ registerNodeType('root', {
 })
 
 registerNodeType('block', {
+    isBlock = true,
     init = function(statementNodes)
         return statementNodes
     end,
@@ -436,10 +512,10 @@ registerNodeType('table', {
 })
 
 registerNodeType('function_', {
+    closureBoundary = true,
     init = function(paramNames, body)
         return { paramNames = paramNames, body = body }
     end,
-    closureBoundary = true,
     children = function(innerNodes)
         return {innerNodes.body}
     end,
@@ -591,6 +667,7 @@ registerNodeType('dynamicPropertyAccess', {
 })
 
 registerNodeType('ifThen', {
+    isBlock = true,
     init = function(condition, ifBlock, elseBlock)
         return { condition = condition, ifBlock = ifBlock, elseBlock = elseBlock }
     end,
@@ -614,6 +691,7 @@ registerNodeType('ifThen', {
 })
 
 registerNodeType('cStyleForLoop', {
+    isBlock = true,
     -- opts should be of the shape
     -- { loopVar = ..., start = ..., end_ = ..., block = ... }
     init = function(opts)
@@ -666,7 +744,11 @@ registerNodeType('callFn', {
             local fnAst = functionToAst[fn]
             local argNamesToValueRefs = buildArgNameToValueMapping(fnAst.paramNames, args)
             local newCallStackFrameInfo = { localVars = util.mergeTables(argNamesToValueRefs, fnAst.closedOverVars) }
-            if stateOps.updateStateToHandleDescendants(state, { fnAst.body }, { newCallStackFrameInfo = newCallStackFrameInfo }) then return end
+            if
+                stateOps.updateStateToHandleDescendants(state, { fnAst.body }, {
+                    newCallStackFrameInfo = newCallStackFrameInfo,
+                })
+            then return end
             local completionValue = stateOps.getSubExprValue(state, fnAst.body)
             stateOps.completeExec(state, completionValue)
         else

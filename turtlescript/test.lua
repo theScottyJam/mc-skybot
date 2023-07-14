@@ -466,13 +466,30 @@ do
     end)
 
     test(prefix..'larger if-else chain (test 2)', function()
-        local value = runContent('local x\nif false then return "bad" elseif true then return "good" end')
+        local value = runContent('if false then return "bad" elseif true then return "good" end')
         assert.equal(value, 'good')
     end)
 
     test(prefix..'larger if-else chain (test 3)', function()
         local value = runContent('local x\nif true then x = 1 elseif true then return "bad" end\n return x')
         assert.equal(value, 1)
+    end)
+
+    -- scoping rules --
+
+    test(prefix..'An if block will temporarily shadow outer variables', function()
+        local value = runContent('local x = 2\nif true then local x = 3 end\n return x')
+        assert.equal(value, 2)
+    end)
+
+    test(prefix..'An else block will temporarily shadow outer variables', function()
+        local value = runContent('local x = 2\nif false then nil else local x = 3 end\n return x')
+        assert.equal(value, 2)
+    end)
+
+    test(prefix..'can not access a variable outside an if block that was declared from inside', function()
+        local error = getErrorMessage(runContent, 'if true then local x = 2 end\n return x')
+        assert.equal(error, 'Runtime error at <string input>:3: Failed to find variable x in the current scope')
     end)
 end
 
@@ -503,9 +520,31 @@ do
 
     -- behavior --
 
-    test(prefix..'TODO', function()
+    test(prefix..'able to iterate', function()
         local value = runContent('local x = 0\nfor i = 3, 5 do x = x + i end return x')
         assert.equal(value, 12)
+    end)
+
+    -- scoping rules --
+
+    test(prefix..'A for block will temporarily shadow outer variables', function()
+        local value = runContent('local x = 2\nfor i = 0, 1 do local x = 3 end\n return x')
+        assert.equal(value, 2)
+    end)
+
+    test(prefix..'A for block will temporarily shadow an outer iterator variables', function()
+        local value = runContent('local i = 9\nfor i = 0, 1 do nil end\n return i')
+        assert.equal(value, 9)
+    end)
+
+    test(prefix..'can not access a variable outside a for block that was declared from inside', function()
+        local error = getErrorMessage(runContent, 'for i = 0, 1 do local x = 2 end\n return x')
+        assert.equal(error, 'Runtime error at <string input>:3: Failed to find variable x in the current scope')
+    end)
+
+    test(prefix..'can not access the iterator variable outside of its for block', function()
+        local error = getErrorMessage(runContent, 'for i = 0, 1 do nil end\n return i')
+        assert.equal(error, 'Runtime error at <string input>:3: Failed to find variable i in the current scope')
     end)
 end
 
