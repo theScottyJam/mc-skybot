@@ -754,10 +754,9 @@ registerNodeType('callFn', {
     exec = function(state, innerNodes, children)
         if stateOps.updateStateToHandleDescendants(state, children) then return end
         local fn = stateOps.getSubExprValue(state, innerNodes.fn)
-        local args = {}
-        for i, argNode in ipairs(innerNodes.args) do
-            table.insert(args, stateOps.getSubExprValue(state, argNode))
-        end
+        local args = util.flatArrayTable(util.mapArrayTable(innerNodes.args, function(node)
+            return stateOps.getSubExprValues(state, node)
+        end))
 
         -- If this function is defined by turtlescript
         if functionToAst[fn] ~= nil then

@@ -689,6 +689,16 @@ do
         assert.equal(a, 2)
         assert.equal(b, 3)
     end)
+
+    test(prefix..'can spread into a turtlescript function call', function()
+        local value = runContent('local fn = function(a, b, c) return a + b + c end\nreturn fn(table.unpack({1, 2}), 3)')
+        assert.equal(value, 6)
+    end)
+
+    test(prefix..'can spread into a native function call', function()
+        local value = runContent('local t = {}\ntable.insert(table.unpack({t, 2}))\n return t[1]')
+        assert.equal(value, 2)
+    end)
 end
 
 runTests()
