@@ -31,9 +31,12 @@ end
 
 function module.runFromAstTree(astTree)
     while true do
-        local done, returnValue = astTree.nextStep()
+        local done, returnValues = astTree.nextStep()
         if done then
-            return returnValue
+            if returnValues == nil then
+                return nil
+            end
+            return table.unpack(returnValues)
         end
     end
 end

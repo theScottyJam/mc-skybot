@@ -672,4 +672,23 @@ do
     end)
 end
 
+-- multiple return --
+do
+    local prefix = 'multiple return: '
+
+    -- behavior --
+
+    test(prefix..'can call a native function with multiple returns', function()
+        local a, b = runContent('return table.unpack({2, 3})')
+        assert.equal(a, 2)
+        assert.equal(b, 3)
+    end)
+
+    test(prefix..'can call a turtlescript function with multiple returns', function()
+        local a, b = runContent('local fn = function() return 2, 3 end\nreturn fn()')
+        assert.equal(a, 2)
+        assert.equal(b, 3)
+    end)
+end
+
 runTests()

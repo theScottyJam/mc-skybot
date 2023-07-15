@@ -66,7 +66,16 @@ function parse.statement(tokenStream)
         local keywordToken = tokenStream.next()
         local keyword = keywordToken.value
         if keyword == 'return' then
-            return nodes.return_(keywordToken.range.start, parse.expression1(tokenStream))
+            local returnValueNodes = {}
+            while true do
+                table.insert(returnValueNodes, parse.expression1(tokenStream))
+                if tokenStream.peek().value == ',' then
+                    tokenStream.next()
+                else
+                    break
+                end
+            end
+            return nodes.return_(keywordToken.range.start, returnValueNodes)
         elseif keyword == 'local' then
             local identifier = tokenStream.next()
             if identifier.type ~= 'IDENTIFIER' then

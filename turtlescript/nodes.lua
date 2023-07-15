@@ -35,8 +35,9 @@ stateOps = {
         end
 
         return {
-            -- `returnValue` is nil, until the program is finished and there's (maybe) something to return.
-            returnValue = nil,
+            -- `returnValues` is nil, until the program is finished and there's (maybe) something to return.
+            -- (Even once the program has finished running, it seems it can stil be `nil`)
+            returnValues = nil,
             -- Used to create IDs for the nodeStack
             nextFrameId = 1,
             -- Used for undeclaring variables when we reach the end of a block.
@@ -49,6 +50,8 @@ stateOps = {
                     frameId = 0,
                     frameIdOfCurrentBlock = 0,
                     nodeId = rootNodeId,
+                    -- Maps node IDs to completion value lists
+                    -- This gets populated as child nodes execute.
                     subNodeValues = {},
                     -- Can either be `false` or `{ receivingValue = ... }`
                     assignmentTarget = false,
@@ -144,13 +147,21 @@ stateOps = {
             beginsCallStackFrame = newCallStackFrameInfo ~= nil,
         })
     end,
+    -- Returns the list of completion values, instead of just the first one
+    getSubExprValues = function(state, childNode)
+        local valueEntry = state.nodeStack[#state.nodeStack].subNodeValues[childNode.nodeId]
+        if valueEntry == nil then
+            error('Value not found for '..childNode.nodeId)
+        end
+        return valueEntry
+    end,
     -- After a sub-node has evaluated, you can use this to fetch its completion value.
     getSubExprValue = function(state, childNode)
         local valueEntry = state.nodeStack[#state.nodeStack].subNodeValues[childNode.nodeId]
         if valueEntry == nil then
             error('Value not found for '..childNode.nodeId)
         end
-        return valueEntry.content
+        return valueEntry[1]
     end,
     declareVar = function(state, varName, newValue)
         local frameIdOfCurrentBlock = state.nodeStack[#state.nodeStack].frameIdOfCurrentBlock
@@ -206,8 +217,9 @@ stateOps = {
             runtimeError(errorMessage, state)
         end
     end,
-    -- completionValue is optional, and defaults to `nil`
-    completeExec = function (state, completionValue)
+    -- completionValues is optional, and defaults to `{nil}`
+    completeExec = function (state, completionValues)
+        if completionValues == nil then completionValues = {nil} end
         -- If this is the end of a function
         if state.nodeStack[#state.nodeStack].beginsCallStackFrame then
             stateOps.returnFromFunctionOrModule(state)
@@ -222,23 +234,29 @@ stateOps = {
             -- externally-called function call.
             if #state.nodeStack > 0 then
                 local subNodeValues = state.nodeStack[#state.nodeStack].subNodeValues
-                subNodeValues[topStackEntry.nodeId] = { content = completionValue }
+                subNodeValues[topStackEntry.nodeId] = completionValues
             end
         end
     end,
     -- getCompletionValue should either return the completion value, or throw
     -- an error, which will be auto-converted into a proper runtime error (by using runUnsafeFn())
     safeCompleteExec = function(state, getCompletionValue)
-        local completionValue = stateOps.runUnsafeFn(state, getCompletionValue)
-        stateOps.completeExec(state, completionValue)
+        local completionValues = stateOps.runUnsafeFn(state, getCompletionValue)
+        if completionValues == nil then
+            completionValues = {nil}
+        end
+        stateOps.completeExec(state, completionValues)
     end,
     -- returnValue is optional, and defaults to `nil`
-    returnFromFunctionOrModule = function(state, returnValue)
+    returnFromFunctionOrModule = function(state, returnValues)
+        if returnValues == nil then
+            returnValues = {nil}
+        end
         stateOps._undeclareVarsInNodeStackFrame(state)
         if #state.callStack == 0 then
             -- return from the module
             state.nodeStack = {}
-            state.returnValue = returnValue
+            state.returnValues = returnValues
             return
         end
 
@@ -256,7 +274,7 @@ stateOps = {
         local callStackFrame = table.remove(state.callStack)
         state.variables = callStackFrame.variables
         local subNodeValues = state.nodeStack[#state.nodeStack].subNodeValues
-        subNodeValues[topStackEntry.nodeId] = { content = returnValue }
+        subNodeValues[topStackEntry.nodeId] = returnValues
     end,
     -- Helper function to undeclare any variables that were declared in the
     -- current block. Does nothing unless the current block is about to be popped.
@@ -410,22 +428,24 @@ registerNodeType('add', {
         local leftValue = stateOps.getSubExprValue(state, innerNodes.left)
         local rightValue = stateOps.getSubExprValue(state, innerNodes.right)
         stateOps.safeCompleteExec(state, function()
-            return leftValue + rightValue
+            return {leftValue + rightValue}
         end)
     end,
 })
 
 registerNodeType('return_', {
-    init = function(exprNode)
-        return exprNode
+    init = function(returnValueNodes)
+        return returnValueNodes
     end,
-    children = function(exprNode)
-        return {exprNode}
+    children = function(returnValueNodes)
+        return returnValueNodes
     end,
-    exec = function(state, exprNode, children)
+    exec = function(state, returnValueNodes, children)
         if stateOps.updateStateToHandleDescendants(state, children) then return end
-        local innerValue = stateOps.getSubExprValue(state, exprNode)
-        stateOps.returnFromFunctionOrModule(state, innerValue)
+        local innerValues = util.flatArrayTable(util.mapArrayTable(returnValueNodes, function(node)
+            return stateOps.getSubExprValues(state, node)
+        end))
+        stateOps.returnFromFunctionOrModule(state, innerValues)
     end,
 })
 
@@ -437,7 +457,7 @@ registerNodeType('nil_', {
         return {}
     end,
     exec = function(state, value, children)
-        stateOps.completeExec(state, nil)
+        stateOps.completeExec(state, {nil})
     end,
 })
 
@@ -449,7 +469,7 @@ registerNodeType('boolean', {
         return {}
     end,
     exec = function(state, value, children)
-        stateOps.completeExec(state, value)
+        stateOps.completeExec(state, {value})
     end,
 })
 
@@ -461,7 +481,7 @@ registerNodeType('number', {
         return {}
     end,
     exec = function(state, value, children)
-        stateOps.completeExec(state, value)
+        stateOps.completeExec(state, {value})
     end,
 })
 
@@ -473,7 +493,7 @@ registerNodeType('string', {
         return {}
     end,
     exec = function(state, value, children)
-        stateOps.completeExec(state, value)
+        stateOps.completeExec(state, {value})
     end,
 })
 
@@ -507,7 +527,7 @@ registerNodeType('table', {
                 newTable[newKey] = newValue
             end)
         end
-        stateOps.completeExec(state, newTable)
+        stateOps.completeExec(state, {newTable})
     end,
 })
 
@@ -547,7 +567,7 @@ registerNodeType('function_', {
             body = innerNodes.body,
             closedOverVars = closedOverVars,
         }
-        stateOps.completeExec(state, fn)
+        stateOps.completeExec(state, {fn})
     end,
 })
 
@@ -607,7 +627,7 @@ registerNodeType('variableLookup', {
             stateOps.completeExec(state)
         else
             local value = stateOps.lookupVar(state, varName)
-            stateOps.completeExec(state, value)
+            stateOps.completeExec(state, {value})
         end
     end
 })
@@ -632,7 +652,7 @@ registerNodeType('staticPropertyAccess', {
         else
             local leftValue = stateOps.getSubExprValue(state, innerNodes.left)
             stateOps.safeCompleteExec(state, function()
-                return leftValue[innerNodes.rightIdentifier]
+                return {leftValue[innerNodes.rightIdentifier]}
             end)
         end
     end,
@@ -660,7 +680,7 @@ registerNodeType('dynamicPropertyAccess', {
             local leftValue = stateOps.getSubExprValue(state, innerNodes.left)
             local keyValue = stateOps.getSubExprValue(state, innerNodes.key)
             stateOps.safeCompleteExec(state, function()
-                return leftValue[keyValue]
+                return {leftValue[keyValue]}
             end)
         end
     end,
@@ -749,11 +769,11 @@ registerNodeType('callFn', {
                     newCallStackFrameInfo = newCallStackFrameInfo,
                 })
             then return end
-            local completionValue = stateOps.getSubExprValue(state, fnAst.body)
-            stateOps.completeExec(state, completionValue)
+            local completionValues = stateOps.getSubExprValues(state, fnAst.body)
+            stateOps.completeExec(state, completionValues)
         else
             stateOps.safeCompleteExec(state, function()
-                return fn(table.unpack(args))
+                return table.pack(fn(table.unpack(args)))
             end)
         end
     end
@@ -783,7 +803,7 @@ function module.astTreeApi(rootNode, opts)
             end
 
             activeNode.exec(state)
-            return stateOps.isDone(state), state.returnValue
+            return stateOps.isDone(state), state.returnValues
         end,
     }
 end
