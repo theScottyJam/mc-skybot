@@ -111,6 +111,17 @@ function module.subtractArrayTables(table1, table2)
     return resultTable
 end
 
+-- Converts {1, 2, 3, 4} to iterator<(1, 2), (3, 4)>
+-- Meant to be used while iterating
+function module.paired(curTable)
+    local i = -1
+    return function()
+        i = i + 2
+        if i > #curTable then return nil end
+        return curTable[i], curTable[i + 1]
+    end
+end
+
 function module.countOccurancesOfValuesInTable(curTable)
     local occurancesOfValues = {}
     for key, value in pairs(curTable) do

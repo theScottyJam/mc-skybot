@@ -142,17 +142,70 @@ test('it can directly access fields from the global table', function()
     assert.equal(runContent('return table'), table)
 end)
 
--- add --
 do
-    local prefix = 'add: '
+    local prefix = 'operators: '
 
-    test(prefix..'can add numbers', function()
+    -- behavior --
+
+    test(prefix..'add', function()
         assert.equal(runContent('return 1 + 2 + 3'), 6)
     end)
 
     test(prefix..'can not add with nil', function()
         local error = getErrorMessage(runContent, 'return 1 + nil')
-        assert.equal(error, "Runtime error at <string input>:2: attempt to perform arithmetic on a nil value (upvalue 'rightValue')")
+        assert.equal(error, "Runtime error at <string input>:2: attempt to perform arithmetic on a nil value (local 'rightValue')")
+    end)
+
+    test(prefix..'subtract', function()
+        assert.equal(runContent('return 6 - 2'), 4)
+    end)
+
+    test(prefix..'can not subtract with nil', function()
+        local error = getErrorMessage(runContent, 'return 5 - nil')
+        assert.equal(error, "Runtime error at <string input>:2: attempt to perform arithmetic on a nil value (local 'rightValue')")
+    end)
+
+    test(prefix..'subtract is left-assosiative', function()
+        assert.equal(runContent('return 6 - 3 - 1'), 2)
+    end)
+
+    test(prefix..'multiply', function()
+        assert.equal(runContent('return 2 * 3'), 6)
+    end)
+
+    test(prefix..'can not multiply with nil', function()
+        local error = getErrorMessage(runContent, 'return 2 * nil')
+        assert.equal(error, "Runtime error at <string input>:2: attempt to perform arithmetic on a nil value (local 'rightValue')")
+    end)
+
+    test(prefix..'divide', function()
+        assert.equal(runContent('return 6 / 3'), 2)
+    end)
+
+    test(prefix..'can not divide with nil', function()
+        local error = getErrorMessage(runContent, 'return 2 / nil')
+        assert.equal(error, "Runtime error at <string input>:2: attempt to perform arithmetic on a nil value (local 'rightValue')")
+    end)
+
+    test(prefix..'divide is left-assosiative', function()
+        assert.equal(runContent('return 12 / 3 / 2'), 2)
+    end)
+
+    test(prefix..'concat', function()
+        assert.equal(runContent('return "ab" .. "cd"'), 'abcd')
+    end)
+
+    test(prefix..'can not concat with nil', function()
+        local error = getErrorMessage(runContent, 'return "x" .. nil')
+        assert.equal(error, "Runtime error at <string input>:2: attempt to concatenate a nil value (local 'rightValue')")
+    end)
+
+    test(prefix..'order of operations (test 1)', function()
+        assert.equal(runContent('return 2 * 3 + 8 * 1 / 2 - 7'), 3)
+    end)
+
+    test(prefix..'order of operations (test 2)', function()
+        assert.equal(runContent('return 2 * 3 + 8 .. "x"'), '14x')
     end)
 end
 

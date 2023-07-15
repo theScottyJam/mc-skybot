@@ -376,6 +376,25 @@ local registerNodeType = function(name, opts)
     end
 end
 
+local registerOperator = function(name, exec_)
+    return registerNodeType(name, {
+        init = function(left, right)
+            return { left = left, right = right }
+        end,
+        children = function(innerNodes)
+            return {innerNodes.left, innerNodes.right}
+        end,
+        exec = function(state, innerNodes, children)
+            if stateOps.updateStateToHandleDescendants(state, children) then return end
+            local leftValue = stateOps.getSubExprValue(state, innerNodes.left)
+            local rightValue = stateOps.getSubExprValue(state, innerNodes.right)
+            stateOps.safeCompleteExec(state, function()
+                return {exec_(leftValue, rightValue)}
+            end)
+        end,
+    })
+end
+
 local buildArgNameToValueMapping = function(paramNames, argValues)
     local argNamesToValueRefs = {}
     for i, paramName in ipairs(paramNames) do
@@ -416,22 +435,15 @@ registerNodeType('block', {
     end,
 })
 
-registerNodeType('add', {
-    init = function(left, right)
-        return { left = left, right = right }
-    end,
-    children = function(innerNodes)
-        return {innerNodes.left, innerNodes.right}
-    end,
-    exec = function(state, innerNodes, children)
-        if stateOps.updateStateToHandleDescendants(state, children) then return end
-        local leftValue = stateOps.getSubExprValue(state, innerNodes.left)
-        local rightValue = stateOps.getSubExprValue(state, innerNodes.right)
-        stateOps.safeCompleteExec(state, function()
-            return {leftValue + rightValue}
-        end)
-    end,
-})
+registerOperator('add', function(leftValue, rightValue) return leftValue + rightValue end)
+
+registerOperator('subtract', function(leftValue, rightValue) return leftValue - rightValue end)
+
+registerOperator('multiply', function(leftValue, rightValue) return leftValue * rightValue end)
+
+registerOperator('divide', function(leftValue, rightValue) return leftValue / rightValue end)
+
+registerOperator('concat', function(leftValue, rightValue) return leftValue .. rightValue end)
 
 registerNodeType('return_', {
     init = function(returnValueNodes)

@@ -131,7 +131,7 @@ local getNextToken = function(charStream)
         })
     end
 
-    extracted = charStream.extract({'+', '=', '{', '}', '%[', '%]', '%(', '%)', ',', '%.'})
+    extracted = charStream.extract({'+', '-', '*', '/', '=', '{', '}', '%[', '%]', '%(', '%)', ',', '%.%.', '%.'})
     if extracted ~= nil then
         return extracted.intoToken('OPERATOR')
     end

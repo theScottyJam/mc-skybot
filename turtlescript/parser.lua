@@ -157,19 +157,66 @@ function parse.statement(tokenStream)
     end
 end
 
+-- Returns an array of nodes with operator tokens in between
+local gatherAtSamePrecedence = function(tokenStream, operators, parseNextPrecedence)
+    local result = {}
+
+    while true do
+        table.insert(result, parseNextPrecedence(tokenStream))
+
+        if not util.tableContains(operators, tokenStream.peek().value) then
+            break
+        end
+
+        table.insert(result, tokenStream.next())
+    end
+
+    return result
+end
+
 function parse.expression1(tokenStream)
     local leftExpr = parse.expression2(tokenStream)
 
-    if tokenStream.peek().type == 'OPERATOR' and tokenStream.peek().value == '+' then
-        local addToken = tokenStream.next()
-        return nodes.add(addToken.range.start, leftExpr, parse.expression1(tokenStream))
+    if tokenStream.peek().value == '..' then
+        local concatToken = tokenStream.next()
+        return nodes.concat(concatToken.range.start, leftExpr, parse.expression1(tokenStream))
     end
 
     return leftExpr
 end
 
 function parse.expression2(tokenStream)
-    local expr = parse.expression3(tokenStream)
+    local subNodesAndOperators = gatherAtSamePrecedence(tokenStream, {'+', '-'}, parse.expression3)
+
+    local curNode = table.remove(subNodesAndOperators, 1)
+    for operatorToken, rightNode in util.paired(subNodesAndOperators) do
+        if operatorToken.value == '+' then
+            curNode = nodes.add(operatorToken.range.start, curNode, rightNode)
+        elseif operatorToken.value == '-' then
+            curNode = nodes.subtract(operatorToken.range.start, curNode, rightNode)
+        else error('unreachable') end
+    end
+
+    return curNode
+end
+
+function parse.expression3(tokenStream)
+    local subNodesAndOperators = gatherAtSamePrecedence(tokenStream, {'*', '/'}, parse.expression4)
+
+    local curNode = table.remove(subNodesAndOperators, 1)
+    for operatorToken, rightNode in util.paired(subNodesAndOperators) do
+        if operatorToken.value == '*' then
+            curNode = nodes.multiply(operatorToken.range.start, curNode, rightNode)
+        elseif operatorToken.value == '/' then
+            curNode = nodes.divide(operatorToken.range.start, curNode, rightNode)
+        else error('unreachable') end
+    end
+
+    return curNode
+end
+
+function parse.expression4(tokenStream)
+    local expr = parse.expression5(tokenStream)
 
     while true do
         if tokenStream.peek().value == '.' then
@@ -215,7 +262,7 @@ function parse.expression2(tokenStream)
     return expr
 end
 
-function parse.expression3(tokenStream)
+function parse.expression5(tokenStream)
     local nextToken = tokenStream.next()
     if nextToken.value == 'nil' then
         return nodes.nil_(nextToken.range.start)
