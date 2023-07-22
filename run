@@ -153,16 +153,17 @@ local step = 0
 local onStep = function()
     if inputs.useMockLib and (_debug.showStepByStep or true) then
         step = step + 1
-        -- if step < 163 then return end
+        if step < 163 then return end
+
         -- _G.mockComputerCraftApi.present.displayMap(world, { minX = -8, maxX = 5, minY = 0, maxY = 999, minZ = -5, maxZ = 5 }, { showKey = false })
         _G.mockComputerCraftApi.present.displayCentered(world)
-        -- _G.mockComputerCraftApi.present.inventory(world)
+        _G.mockComputerCraftApi.present.inventory(world)
         -- _G.mockComputerCraftApi.present.showTurtlePosition(world)
         _debug.busySleep(0.05)
-        -- _debug.busySleep(0.005)
+        -- _debug.busySleep(0.02)
     end
 end
--- _debug.registerStepListener(onStep)
+_debug.registerStepListener(onStep)
 
 if turtle == nil then
     print('Built-in APIs are missing. Did you intend to use --mock?')

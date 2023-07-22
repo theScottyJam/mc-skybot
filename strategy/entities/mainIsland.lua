@@ -432,7 +432,6 @@ local createFurnaceMill = function(opts)
                     -- would have been sufficient. I just didn't want to make a function for that yet.
                     highLevelCommands.organizeInventory(commands, state)
 
-                    local newTaskState = util.copyTable(newTaskState)
                     newTaskState.currentlyInFurnaces = util.copyTable(taskState.currentlyInFurnaces)
                     newTaskState.currentlyInFurnaces[furnaceIndexToWaitOn] = (
                         newTaskState.currentlyInFurnaces[furnaceIndexToWaitOn] - amountSucked
