@@ -36,7 +36,7 @@ function debugModule.triggerStepListener()
 end
 
 -- Executes arbitrary debugging-related code.
-function debugModule.debugCommand(commands, miniState, opts)
+function debugModule.debugCommand(commands, state, opts)
     local present = _G.mockComputerCraftApi.present
     local world = _G.mockComputerCraftApi._currentWorld
     local highLevelCommands = _G.act.highLevelCommands
@@ -46,7 +46,7 @@ function debugModule.debugCommand(commands, miniState, opts)
         local itemId = opts.itemId
         local quantity = opts.quantity
         if quantity == nil then quantity = 1 end
-        highLevelCommands.findAndSelectEmptpySlot(commands, miniState)
+        highLevelCommands.findAndSelectEmptpySlot(commands, state)
         world.turtle.inventory[world.turtle.selectedSlot] = { id = itemId, quantity = quantity }
         return
     end

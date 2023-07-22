@@ -39,29 +39,4 @@ function module.createInitialState(opts)
     return state
 end
 
--- "miniState" is passed around to tasks that don't need the full-blown state,
--- and who might be receiving a fake state as well if we're trying to sense it's behavior
--- without actually running it.
-
-function module.asMiniState(state)
-    local space = _G.act.space
-
-    local miniState
-    miniState = {
-        turtlePos = util.copyTable(state.turtlePos),
-        resourceSuppliers = util.copyTable(state.resourceSuppliers),
-        activeFarms = util.copyTable(state.activeFarms),
-        turtleCmps = function()
-            return space.createCompass(util.copyTable(miniState.turtlePos))
-        end,
-    }
-    return miniState
-end
-
-function module.joinMiniStateToState(miniState, state)
-    state.turtlePos = miniState.turtlePos
-    state.resourceSuppliers = miniState.resourceSuppliers
-    state.activeFarms = miniState.activeFarms
-end
-
 return module

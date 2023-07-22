@@ -116,21 +116,21 @@ function module.registerPath(loc1, loc2, midPoints)
 end
 
 -- Finds the shortest route to a location among the registered paths and travels there.
-function module.travelToLocation(commands, miniState, destLoc)
+function module.travelToLocation(commands, state, destLoc)
     local navigate = _G.act.navigate
 
-    if miniState.turtleCmps().compareCmps(destLoc.cmps) then return end
-    local turtleLoc = lookupLoc(miniState.turtlePos)
+    if state.turtleCmps().compareCmps(destLoc.cmps) then return end
+    local turtleLoc = lookupLoc(state.turtlePos)
     local route = findBestRoute(turtleLoc, destLoc).route
     if route == nil then error('Failed to naviage to a particular location - there was no route to this location.') end
 
     for _, path in ipairs(route) do
         for i, coord in ipairs(path.midPoints) do
-            navigate.moveToCoord(commands, miniState, coord)
+            navigate.moveToCoord(commands, state, coord)
         end
-        navigate.moveToCoord(commands, miniState, path.to.cmps.coord)
+        navigate.moveToCoord(commands, state, path.to.cmps.coord)
     end
-    navigate.face(commands, miniState, destLoc.cmps.facing)
+    navigate.face(commands, state, destLoc.cmps.facing)
 end
 
 -- I can implement these when I need them

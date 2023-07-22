@@ -37,13 +37,13 @@ function module.create(taskRunnerId, opts)
     end
 
     return {
-        activate = function(commands, miniState)
+        activate = function(commands, state)
             for _, resourceName in ipairs(supplies) do
-                if miniState.resourceSuppliers[resourceName] == nil then
-                    miniState.resourceSuppliers[resourceName] = {}
+                if state.resourceSuppliers[resourceName] == nil then
+                    state.resourceSuppliers[resourceName] = {}
                 end
     
-                table.insert(miniState.resourceSuppliers[resourceName], 1, {
+                table.insert(state.resourceSuppliers[resourceName], 1, {
                     type='mill',
                     taskRunnerId = taskRunnerId,
                     requiredResourcesPerUnit = requiredResourcesPerUnit,

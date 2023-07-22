@@ -13,7 +13,7 @@ local space = _G.act.space
 -- a clockwise spiral to the center. You must start facing in a direction such that
 -- no turning is required before movement.
 -- The `onVisit` function is called at each cell visited.
-local spiralInwards = function(commands, miniState, opts)
+local spiralInwards = function(commands, state, opts)
     local sideLength = opts.sideLength
     local onVisit = opts.onVisit
 
@@ -21,13 +21,13 @@ local spiralInwards = function(commands, miniState, opts)
         local firstIter = segmentLength == sideLength - 1
         for i = 1, (firstIter and 3 or 2) do
             for j = 1, segmentLength do
-                onVisit(commands, miniState)
-                commands.turtle.forward(miniState)
+                onVisit(commands, state)
+                commands.turtle.forward(state)
             end
-            commands.turtle.turnRight(miniState)
+            commands.turtle.turnRight(state)
         end
     end
-    onVisit(commands, miniState)
+    onVisit(commands, state)
 end
 
 local harvestTreeFromAbove
@@ -40,17 +40,17 @@ local harvestInitialTreeAndPrepareTreeFarmProject = function(opts)
     local bedrockCmps = space.createCompass(bedrockPos)
     local taskRunnerId = 'project:mainIsland:harvestInitialTreeAndPrepareTreeFarm'
     _G.act.task.registerTaskRunner(taskRunnerId, {
-        enter = function(commands, miniState, taskState)
-            location.travelToLocation(commands, miniState, homeLoc)
+        enter = function(commands, state, taskState)
+            location.travelToLocation(commands, state, homeLoc)
         end,
-        exit = function(commands, miniState, taskState, info)
-            navigate.assertPos(miniState, homeLoc.cmps.pos)
+        exit = function(commands, state, taskState, info)
+            navigate.assertPos(state, homeLoc.cmps.pos)
             if info.complete then
-                startingIslandTreeFarm.activate(commands, miniState)
+                startingIslandTreeFarm.activate(commands, state)
             end
         end,
-        nextPlan = function(commands, miniState, taskState)
-            local startPos = util.copyTable(miniState.turtlePos)
+        nextPlan = function(commands, state, taskState)
+            local startPos = util.copyTable(state.turtlePos)
 
             local bottomTreeLogCmps = bedrockCmps.compassAt({ forward=-4, right=-1, up=3 })
             local aboveTreeCmps = bottomTreeLogCmps.compassAt({ up=9 })
@@ -58,35 +58,35 @@ local harvestInitialTreeAndPrepareTreeFarmProject = function(opts)
             local aboveFutureTree2Cmps = aboveTreeCmps.compassAt({ right=4 })
 
             -- Place dirt up top
-            highLevelCommands.findAndSelectSlotWithItem(commands, miniState, 'minecraft:dirt')
-            navigate.moveToCoord(commands, miniState, aboveFutureTree2Cmps.coord, { 'up', 'forward', 'right' })
-            commands.turtle.placeDown(miniState)
-            highLevelCommands.findAndSelectSlotWithItem(commands, miniState, 'minecraft:dirt')
-            navigate.moveToCoord(commands, miniState, aboveFutureTree1Cmps.coord, { 'up', 'forward', 'right' })
-            commands.turtle.placeDown(miniState)
-            commands.turtle.select(miniState, 1)
+            highLevelCommands.findAndSelectSlotWithItem(commands, state, 'minecraft:dirt')
+            navigate.moveToCoord(commands, state, aboveFutureTree2Cmps.coord, { 'up', 'forward', 'right' })
+            commands.turtle.placeDown(state)
+            highLevelCommands.findAndSelectSlotWithItem(commands, state, 'minecraft:dirt')
+            navigate.moveToCoord(commands, state, aboveFutureTree1Cmps.coord, { 'up', 'forward', 'right' })
+            commands.turtle.placeDown(state)
+            commands.turtle.select(state, 1)
 
             -- Harvest tree
-            navigate.moveToCoord(commands, miniState, aboveTreeCmps.coord, { 'up', 'forward', 'right' })
-            harvestTreeFromAbove(commands, miniState, { bottomLogPos = bottomTreeLogCmps.pos })
+            navigate.moveToCoord(commands, state, aboveTreeCmps.coord, { 'up', 'forward', 'right' })
+            harvestTreeFromAbove(commands, state, { bottomLogPos = bottomTreeLogCmps.pos })
 
             -- Prepare sapling planting area
-            local prepareSaplingDirtArm = function(miniState, direction)
-                navigate.face(commands, miniState, bottomTreeLogCmps.facingAt({ face=direction }))
+            local prepareSaplingDirtArm = function(state, direction)
+                navigate.face(commands, state, bottomTreeLogCmps.facingAt({ face=direction }))
                 for i = 1, 2 do
-                    commands.turtle.forward(miniState)
-                    highLevelCommands.placeItemDown(commands, miniState, 'minecraft:dirt', { allowMissing = true })
+                    commands.turtle.forward(state)
+                    highLevelCommands.placeItemDown(commands, state, 'minecraft:dirt', { allowMissing = true })
                 end
-                commands.turtle.up(miniState)
-                highLevelCommands.placeItemDown(commands, miniState, 'minecraft:sapling', { allowMissing = true })
+                commands.turtle.up(state)
+                highLevelCommands.placeItemDown(commands, state, 'minecraft:sapling', { allowMissing = true })
             end
 
-            navigate.assertPos(miniState, bottomTreeLogCmps.pos)
-            prepareSaplingDirtArm(miniState, 'left')
-            navigate.moveToCoord(commands, miniState, bottomTreeLogCmps.coordAt({ right=2 }), { 'forward', 'right', 'up' })
-            prepareSaplingDirtArm(miniState, 'right')
+            navigate.assertPos(state, bottomTreeLogCmps.pos)
+            prepareSaplingDirtArm(state, 'left')
+            navigate.moveToCoord(commands, state, bottomTreeLogCmps.coordAt({ right=2 }), { 'forward', 'right', 'up' })
+            prepareSaplingDirtArm(state, 'right')
 
-            navigate.moveToPos(commands, miniState, startPos, { 'forward', 'right', 'up' })
+            navigate.moveToPos(commands, state, startPos, { 'forward', 'right', 'up' })
 
             return taskState, true
         end,
@@ -99,60 +99,60 @@ local harvestInitialTreeAndPrepareTreeFarmProject = function(opts)
     })
 end
 
-harvestTreeFromAbove = function(commands, miniState, opts)
+harvestTreeFromAbove = function(commands, state, opts)
     local bottomLogPos = opts.bottomLogPos
     local bottomLogCmps = space.createCompass(bottomLogPos)
 
-    navigate.assertCoord(miniState, bottomLogCmps.coordAt({ up=9 }))
-    navigate.face(commands, miniState, bottomLogCmps.facingAt({ face='forward' }))
-    commands.turtle.forward(miniState)
+    navigate.assertCoord(state, bottomLogCmps.coordAt({ up=9 }))
+    navigate.face(commands, state, bottomLogCmps.facingAt({ face='forward' }))
+    commands.turtle.forward(state)
 
     -- Move down until you hit leaves
     while true do
-        commands.turtle.down(miniState)
-        local isThereABlockBelow, blockBelowInfo = commands.turtle.inspectDown(miniState)
+        commands.turtle.down(state)
+        local isThereABlockBelow, blockBelowInfo = commands.turtle.inspectDown(state)
         if isThereABlockBelow and blockBelowInfo.name == 'minecraft:leaves' then
             break
         end
     end
 
     -- Harvest top-half of leaves
-    local topLeafCmps = miniState.turtleCmps().compassAt({ forward=-1, up=-1 })
+    local topLeafCmps = state.turtleCmps().compassAt({ forward=-1, up=-1 })
     local cornerPos = topLeafCmps.posAt({ forward = 1, right = 1, face='backward' })
-    navigate.moveToPos(commands, miniState, cornerPos, { 'right', 'forward', 'up' })
-    spiralInwards(commands, miniState, {
+    navigate.moveToPos(commands, state, cornerPos, { 'right', 'forward', 'up' })
+    spiralInwards(commands, state, {
         sideLength = 3,
-        onVisit = function(commands, miniState)
-            commands.turtle.dig(miniState)
-            commands.turtle.digDown(miniState)
+        onVisit = function(commands, state)
+            commands.turtle.dig(state)
+            commands.turtle.digDown(state)
         end
     })
 
     -- Harvest bottom-half of leaves
     local aboveCornerPos = topLeafCmps.posAt({ forward = 2, right = 2, up = -1, face='backward' })
-    navigate.moveToPos(commands, miniState, aboveCornerPos, { 'right', 'forward', 'up' })
-    commands.turtle.digDown(miniState)
-    commands.turtle.down(miniState)
-    spiralInwards(commands, miniState, {
+    navigate.moveToPos(commands, state, aboveCornerPos, { 'right', 'forward', 'up' })
+    commands.turtle.digDown(state)
+    commands.turtle.down(state)
+    spiralInwards(commands, state, {
         sideLength = 5,
-        onVisit = function(commands, miniState)
-            commands.turtle.dig(miniState)
-            commands.turtle.digDown(miniState)
+        onVisit = function(commands, state)
+            commands.turtle.dig(state)
+            commands.turtle.digDown(state)
         end
     })
-    navigate.face(commands, miniState, topLeafCmps.facingAt({ face='forward' }))
+    navigate.face(commands, state, topLeafCmps.facingAt({ face='forward' }))
 
     -- Harvest trunk
     while true do
-        commands.turtle.digDown(miniState)
-        commands.turtle.down(miniState)
-        local isThereABlockBelow, blockBelowInfo = commands.turtle.inspectDown(miniState)
+        commands.turtle.digDown(state)
+        commands.turtle.down(state)
+        local isThereABlockBelow, blockBelowInfo = commands.turtle.inspectDown(state)
         if not isThereABlockBelow or blockBelowInfo.name ~= 'minecraft:log' then
             break
         end
     end
 
-    navigate.assertPos(miniState, bottomLogCmps.pos)
+    navigate.assertPos(state, bottomLogCmps.pos)
 end
 
 local startBuildingCobblestoneGeneratorProject = function(opts)
@@ -161,58 +161,58 @@ local startBuildingCobblestoneGeneratorProject = function(opts)
 
     local taskRunnerId = 'project:mainIsland:startBuildingCobblestoneGenerator'
     _G.act.task.registerTaskRunner(taskRunnerId, {
-        enter = function(commands, miniState, taskState)
-            location.travelToLocation(commands, miniState, homeLoc)
+        enter = function(commands, state, taskState)
+            location.travelToLocation(commands, state, homeLoc)
         end,
-        exit = function(commands, miniState, taskState, info)
-            navigate.assertPos(miniState, homeLoc.cmps.pos)
+        exit = function(commands, state, taskState, info)
+            navigate.assertPos(state, homeLoc.cmps.pos)
             if info.complete then
                 for _, mill in ipairs(craftingMills) do
-                    mill.activate(commands, miniState)
+                    mill.activate(commands, state)
                 end
             end
         end,
-        nextPlan = function(commands, miniState, taskState)
-            local startPos = util.copyTable(miniState.turtlePos)
+        nextPlan = function(commands, state, taskState)
+            local startPos = util.copyTable(state.turtlePos)
 
             -- Dig out east branch
-            navigate.face(commands, miniState, homeLoc.cmps.facingAt({ face='right' }))
+            navigate.face(commands, state, homeLoc.cmps.facingAt({ face='right' }))
             for i = 1, 2 do
-                commands.turtle.forward(miniState)
-                commands.turtle.digDown(miniState)
+                commands.turtle.forward(state)
+                commands.turtle.digDown(state)
             end
 
             -- Grab stuff from chest
-            commands.turtle.forward(miniState)
-            commands.turtle.suck(miniState, 1)
-            commands.turtle.suck(miniState, 1)
+            commands.turtle.forward(state)
+            commands.turtle.suck(state, 1)
+            commands.turtle.suck(state, 1)
 
             -- Pick up chest
-            commands.turtle.dig(miniState)
+            commands.turtle.dig(state)
 
             -- Place lava down
-            navigate.moveToCoord(commands, miniState, homeLoc.cmps.coordAt({ right=2 }))
-            highLevelCommands.placeItemDown(commands, miniState, 'minecraft:lava_bucket')
+            navigate.moveToCoord(commands, state, homeLoc.cmps.coordAt({ right=2 }))
+            highLevelCommands.placeItemDown(commands, state, 'minecraft:lava_bucket')
 
             -- -- Dig out west branch
-            navigate.moveToPos(commands, miniState, homeLoc.cmps.posAt({ face='backward' }))
-            commands.turtle.forward(miniState)
-            commands.turtle.digDown(miniState)
-            commands.turtle.down(miniState)
-            commands.turtle.digDown(miniState)
-            commands.turtle.dig(miniState)
-            commands.turtle.up(miniState)
+            navigate.moveToPos(commands, state, homeLoc.cmps.posAt({ face='backward' }))
+            commands.turtle.forward(state)
+            commands.turtle.digDown(state)
+            commands.turtle.down(state)
+            commands.turtle.digDown(state)
+            commands.turtle.dig(state)
+            commands.turtle.up(state)
 
             -- Place ice down
             -- (We're placing ice here, instead of in it's final spot, so it can be closer to the lava
             -- so the lava can melt it)
-            highLevelCommands.placeItemDown(commands, miniState, 'minecraft:ice')
+            highLevelCommands.placeItemDown(commands, state, 'minecraft:ice')
 
             -- Dig out place for player to stand
-            navigate.moveToCoord(commands, miniState, homeLoc.cmps.coordAt({ right=-1 }))
-            commands.turtle.digDown(miniState)
+            navigate.moveToCoord(commands, state, homeLoc.cmps.coordAt({ right=-1 }))
+            commands.turtle.digDown(state)
 
-            navigate.moveToPos(commands, miniState, startPos)
+            navigate.moveToPos(commands, state, startPos)
 
             return taskState, true
         end,
@@ -230,34 +230,34 @@ local waitForIceToMeltAndfinishCobblestoneGeneratorProject = function(opts)
 
     local taskRunnerId = 'project:mainIsland:waitForIceToMeltAndfinishCobblestoneGenerator'
     _G.act.task.registerTaskRunner(taskRunnerId, {
-        enter = function(commands, miniState, taskState)
-            location.travelToLocation(commands, miniState, homeLoc)
+        enter = function(commands, state, taskState)
+            location.travelToLocation(commands, state, homeLoc)
         end,
-        exit = function(commands, miniState, taskState, info)
-            navigate.assertPos(miniState, homeLoc.cmps.pos)
+        exit = function(commands, state, taskState, info)
+            navigate.assertPos(state, homeLoc.cmps.pos)
             if info.complete then
                 _G.act.mockHooks.registerCobblestoneRegenerationBlock(homeLoc.cmps.coordAt({ up=-1 }))
-                cobblestoneGeneratorMill.activate(commands, miniState)
+                cobblestoneGeneratorMill.activate(commands, state)
             end
         end,
-        nextPlan = function(commands, miniState, taskState)
-            local startPos = util.copyTable(miniState.turtlePos)
+        nextPlan = function(commands, state, taskState)
+            local startPos = util.copyTable(state.turtlePos)
 
             -- Wait for ice to melt
-            navigate.moveToCoord(commands, miniState, homeLoc.cmps.coordAt({ forward=-1 }))
-            highLevelCommands.waitUntilDetectBlock(commands, miniState, {
+            navigate.moveToCoord(commands, state, homeLoc.cmps.coordAt({ forward=-1 }))
+            highLevelCommands.waitUntilDetectBlock(commands, state, {
                 expectedBlockId = 'minecraft:water',
                 direction = 'down',
                 endFacing = homeLoc.cmps.facingAt({ face='backward' }),
             })
             
             -- Move water
-            highLevelCommands.placeItemDown(commands, miniState, 'minecraft:bucket') -- pick up water
-            commands.turtle.forward(miniState)
-            highLevelCommands.placeItemDown(commands, miniState, 'minecraft:water_bucket')
+            highLevelCommands.placeItemDown(commands, state, 'minecraft:bucket') -- pick up water
+            commands.turtle.forward(state)
+            highLevelCommands.placeItemDown(commands, state, 'minecraft:water_bucket')
 
-            navigate.moveToPos(commands, miniState, startPos)
-            commands.turtle.digDown(miniState)
+            navigate.moveToPos(commands, state, startPos)
+            commands.turtle.digDown(state)
 
             return taskState, true
         end,
@@ -278,25 +278,25 @@ local buildFurnacesProject = function(opts)
 
     local taskRunnerId = 'project:mainIsland:buildFurnaces'
     _G.act.task.registerTaskRunner(taskRunnerId, {
-        enter = function(commands, miniState, taskState)
-            location.travelToLocation(commands, miniState, inFrontOfChestLoc)
+        enter = function(commands, state, taskState)
+            location.travelToLocation(commands, state, inFrontOfChestLoc)
         end,
-        exit = function(commands, miniState, taskState, info)
-            navigate.assertPos(miniState, inFrontOfChestLoc.cmps.pos)
+        exit = function(commands, state, taskState, info)
+            navigate.assertPos(state, inFrontOfChestLoc.cmps.pos)
             if info.complete then
-                furnaceMill.activate(commands, miniState)
+                furnaceMill.activate(commands, state)
             end
         end,
-        nextPlan = function(commands, miniState, taskState)
-            local startPos = util.copyTable(miniState.turtlePos)
+        nextPlan = function(commands, state, taskState)
+            local startPos = util.copyTable(state.turtlePos)
 
             local aboveFirstFurnaceCmps = inFrontOfChestLoc.cmps.compassAt({ forward=1, right=2, up=2, face='right' })
             for i = 0, 2 do
-                navigate.moveToPos(commands, miniState, aboveFirstFurnaceCmps.posAt({ right = i }), { 'up', 'forward', 'right'})
-                highLevelCommands.placeItemDown(commands, miniState, 'minecraft:furnace')
+                navigate.moveToPos(commands, state, aboveFirstFurnaceCmps.posAt({ right = i }), { 'up', 'forward', 'right'})
+                highLevelCommands.placeItemDown(commands, state, 'minecraft:furnace')
             end
 
-            navigate.moveToPos(commands, miniState, startPos, { 'right', 'forward', 'up' })
+            navigate.moveToPos(commands, state, startPos, { 'right', 'forward', 'up' })
 
             return taskState, true
         end,
@@ -321,13 +321,13 @@ local createFurnaceMill = function(opts)
                 collected = 0,
             }
         end,
-        enter = function(commands, miniState, taskState)
-            location.travelToLocation(commands, miniState, inFrontOfFirstFurnaceLoc)
+        enter = function(commands, state, taskState)
+            location.travelToLocation(commands, state, inFrontOfFirstFurnaceLoc)
         end,
-        exit = function(commands, miniState, taskState)
-            navigate.moveToPos(commands, miniState, inFrontOfFirstFurnaceLoc.pos, { 'right', 'forward', 'up' })
+        exit = function(commands, state, taskState)
+            navigate.moveToPos(commands, state, inFrontOfFirstFurnaceLoc.pos, { 'right', 'forward', 'up' })
         end,
-        nextPlan = function(commands, miniState, taskState, resourceRequests)
+        nextPlan = function(commands, state, taskState, resourceRequests)
             local newTaskState = util.copyTable(taskState)
 
             if util.tableSize(resourceRequests) ~= 1 then
@@ -386,27 +386,27 @@ local createFurnaceMill = function(opts)
                 -- Fill fuel from the bottom
                 local belowFirstFurnaceCmps = inFrontOfFirstFurnaceCmps.compassAt({ forward=1, up=-1 })
                 -- This movement will correctly move the turtle from any of its possible starting positions.
-                navigate.moveToPos(commands, miniState, belowFirstFurnaceCmps.posAt({ face='right' }), { 'up', 'forward', 'right' })
+                navigate.moveToPos(commands, state, belowFirstFurnaceCmps.posAt({ face='right' }), { 'up', 'forward', 'right' })
                 for i = 1, 2 do
-                    highLevelCommands.dropItemUp(commands, miniState, 'minecraft:charcoal', math.ceil(willBeAdded[i] / 8))
-                    commands.turtle.forward(miniState)
+                    highLevelCommands.dropItemUp(commands, state, 'minecraft:charcoal', math.ceil(willBeAdded[i] / 8))
+                    commands.turtle.forward(state)
                 end
-                highLevelCommands.dropItemUp(commands, miniState, 'minecraft:charcoal', math.ceil(willBeAdded[3] / 8))
+                highLevelCommands.dropItemUp(commands, state, 'minecraft:charcoal', math.ceil(willBeAdded[3] / 8))
 
-                navigate.moveToCoord(commands, miniState, belowFirstFurnaceCmps.coord)
-                navigate.moveToCoord(commands, miniState, inFrontOfFirstFurnaceCmps.pos, { 'forward', 'right', 'up' })
+                navigate.moveToCoord(commands, state, belowFirstFurnaceCmps.coord)
+                navigate.moveToCoord(commands, state, inFrontOfFirstFurnaceCmps.pos, { 'forward', 'right', 'up' })
 
                 -- Fill raw materials from the top
                 local aboveFirstFurnaceCmps = inFrontOfFirstFurnaceCmps.compassAt({ forward=1, up=1 })
-                navigate.moveToPos(commands, miniState, aboveFirstFurnaceCmps.posAt({ face='right' }), { 'up', 'right' })
+                navigate.moveToPos(commands, state, aboveFirstFurnaceCmps.posAt({ face='right' }), { 'up', 'right' })
                 for i = 1, 2 do
-                    highLevelCommands.dropItemDown(commands, miniState, sourceResource, willBeAdded[i])
-                    commands.turtle.forward(miniState)
+                    highLevelCommands.dropItemDown(commands, state, sourceResource, willBeAdded[i])
+                    commands.turtle.forward(state)
                 end
-                highLevelCommands.dropItemDown(commands, miniState, sourceResource, willBeAdded[3])
+                highLevelCommands.dropItemDown(commands, state, sourceResource, willBeAdded[3])
 
-                navigate.moveToCoord(commands, miniState, aboveFirstFurnaceCmps.coord)
-                navigate.moveToPos(commands, miniState, inFrontOfFirstFurnaceCmps.pos, { 'forward', 'right', 'up' })
+                navigate.moveToCoord(commands, state, aboveFirstFurnaceCmps.coord)
+                navigate.moveToPos(commands, state, inFrontOfFirstFurnaceCmps.pos, { 'forward', 'right', 'up' })
 
                 newTaskState.currentlyInFurnaces = willBeInFurnaces
 
@@ -415,20 +415,20 @@ local createFurnaceMill = function(opts)
                 -- Move into position if needed
                 local belowFirstFurnaceCmps = inFrontOfFirstFurnaceCmps.compassAt({ forward=1, up=-1 })
                 local targetFurnaceCmps = belowFirstFurnaceCmps.compassAt({ right = furnaceIndexToWaitOn - 1 })
-                if inFrontOfFirstFurnaceCmps.compareCmps(miniState.turtleCmps()) then
-                    navigate.moveToPos(commands, miniState, belowFirstFurnaceCmps.posAt({ face='right' }), { 'up', 'forward' })
+                if inFrontOfFirstFurnaceCmps.compareCmps(state.turtleCmps()) then
+                    navigate.moveToPos(commands, state, belowFirstFurnaceCmps.posAt({ face='right' }), { 'up', 'forward' })
                 end
-                navigate.moveToCoord(commands, miniState, targetFurnaceCmps.coord)
+                navigate.moveToCoord(commands, state, targetFurnaceCmps.coord)
 
-                highLevelCommands.findAndSelectEmptpySlot(commands, miniState)
-                local collectionSuccess = commands.turtle.suckUp(miniState, 64)
+                highLevelCommands.findAndSelectEmptpySlot(commands, state)
+                local collectionSuccess = commands.turtle.suckUp(state, 64)
 
                 if collectionSuccess then
-                    local amountSucked = commands.turtle.getItemCount(miniState)
+                    local amountSucked = commands.turtle.getItemCount(state)
 
                     -- Inventory organization is a bit overkill - attempting to stack the just-found item
                     -- would have been sufficient. I just didn't want to make a function for that yet.
-                    highLevelCommands.organizeInventory(commands, miniState)
+                    highLevelCommands.organizeInventory(commands, state)
 
                     local newTaskState = util.copyTable(newTaskState)
                     newTaskState.currentlyInFurnaces = util.copyTable(taskState.currentlyInFurnaces)
@@ -437,7 +437,7 @@ local createFurnaceMill = function(opts)
                     )
                     newTaskState.collected = newTaskState.collected + amountSucked
                 else
-                    highLevelCommands.busyWait(commands, miniState)
+                    highLevelCommands.busyWait(commands, state)
                 end
             end
 
@@ -475,26 +475,26 @@ local createCobblestoneGeneratorMill = function(opts)
         createTaskState = function()
             return { harvested = 0 }
         end,
-        enter = function(commands, miniState, taskState)
-            location.travelToLocation(commands, miniState, homeLoc)
+        enter = function(commands, state, taskState)
+            location.travelToLocation(commands, state, homeLoc)
         end,
-        exit = function(commands, miniState, taskState)
-            navigate.face(commands, miniState, homeLoc.cmps.facing)
-            navigate.assertPos(miniState, homeLoc.cmps.pos)
+        exit = function(commands, state, taskState)
+            navigate.face(commands, state, homeLoc.cmps.facing)
+            navigate.assertPos(state, homeLoc.cmps.pos)
         end,
-        nextPlan = function(commands, miniState, taskState, resourceRequests)
+        nextPlan = function(commands, state, taskState, resourceRequests)
             local newTaskState = util.copyTable(taskState)
             local quantity = resourceRequests['minecraft:cobblestone']
             if quantity == nil then error('Must supply a request for cobblestone to use this mill') end
             -- I don't have inventory management techniques in place to handle a larger quantity
             if quantity > 64 * 8 then error('Can not handle that large of a quantity yet') end
 
-            highLevelCommands.waitUntilDetectBlock(commands, miniState, {
+            highLevelCommands.waitUntilDetectBlock(commands, state, {
                 expectedBlockId = 'minecraft:cobblestone',
                 direction = 'down',
                 endFacing = 'ANY',
             })
-            commands.turtle.digDown(miniState)
+            commands.turtle.digDown(state)
             newTaskState.harvested = newTaskState.harvested + 1
             
             return newTaskState, newTaskState.harvested == quantity
@@ -510,43 +510,43 @@ local createStartingIslandTreeFarm = function(opts)
     local bedrockPos = opts.bedrockPos
 
     local taskRunnerId = _G.act.task.registerTaskRunner('farm:mainIsland:startingIslandTreeFarm', {
-        enter = function(commands, miniState, taskState)
-            location.travelToLocation(commands, miniState, homeLoc)
+        enter = function(commands, state, taskState)
+            location.travelToLocation(commands, state, homeLoc)
         end,
-        exit = function(commands, miniState, taskState)
-            navigate.assertPos(commands, miniState, homeLoc.cmps.pos)
+        exit = function(commands, state, taskState)
+            navigate.assertPos(commands, state, homeLoc.cmps.pos)
         end,
-        nextPlan = function(commands, miniState, taskState)
-            commands.turtle.select(miniState, 1)
-            location.travelToLocation(commands, miniState, homeLoc)
-            local startPos = util.copyTable(miniState.turtlePos)
+        nextPlan = function(commands, state, taskState)
+            commands.turtle.select(state, 1)
+            location.travelToLocation(commands, state, homeLoc)
+            local startPos = util.copyTable(state.turtlePos)
 
             local mainCmps = homeLoc.cmps.compassAt({ forward=-5 })
-            navigate.moveToCoord(commands, miniState, mainCmps.coord)
+            navigate.moveToCoord(commands, state, mainCmps.coord)
 
-            local tryHarvestTree = function(commands, miniState, inFrontOfTreeCmps)
-                local success, blockInfo = commands.turtle.inspect(miniState)
+            local tryHarvestTree = function(commands, state, inFrontOfTreeCmps)
+                local success, blockInfo = commands.turtle.inspect(state)
 
                 local blockIsLog = success and blockInfo.name == 'minecraft:log'
                 if blockIsLog then
                     local bottomLogCmps = inFrontOfTreeCmps.compassAt({ forward=1 })
-                    navigate.moveToCoord(commands, miniState, inFrontOfTreeCmps.coordAt({ forward=-2 }))
-                    navigate.moveToPos(commands, miniState, bottomLogCmps.posAt({ up=9 }), { 'up', 'forward', 'right' })
-                    harvestTreeFromAbove(commands, miniState, { bottomLogPos = bottomLogCmps.pos })
-                    navigate.moveToPos(commands, miniState, inFrontOfTreeCmps.pos)
-                    highLevelCommands.placeItem(commands, miniState, 'minecraft:sapling', { allowMissing = true })
+                    navigate.moveToCoord(commands, state, inFrontOfTreeCmps.coordAt({ forward=-2 }))
+                    navigate.moveToPos(commands, state, bottomLogCmps.posAt({ up=9 }), { 'up', 'forward', 'right' })
+                    harvestTreeFromAbove(commands, state, { bottomLogPos = bottomLogCmps.pos })
+                    navigate.moveToPos(commands, state, inFrontOfTreeCmps.pos)
+                    highLevelCommands.placeItem(commands, state, 'minecraft:sapling', { allowMissing = true })
                 end
             end
 
             local inFrontOfTree1Cmps = mainCmps.compassAt({ right=-3 })
-            navigate.moveToPos(commands, miniState, inFrontOfTree1Cmps.pos)
-            tryHarvestTree(commands, miniState, inFrontOfTree1Cmps)
+            navigate.moveToPos(commands, state, inFrontOfTree1Cmps.pos)
+            tryHarvestTree(commands, state, inFrontOfTree1Cmps)
 
             local inFrontOfTree2Cmps = mainCmps.compassAt({ right=3 })
-            navigate.moveToPos(commands, miniState, inFrontOfTree2Cmps.pos)
-            tryHarvestTree(commands, miniState, inFrontOfTree2Cmps)
+            navigate.moveToPos(commands, state, inFrontOfTree2Cmps.pos)
+            tryHarvestTree(commands, state, inFrontOfTree2Cmps)
 
-            navigate.moveToPos(commands, miniState, startPos, { 'up', 'right', 'forward' })
+            navigate.moveToPos(commands, state, startPos, { 'up', 'right', 'forward' })
 
             return taskState, true
         end,
@@ -585,7 +585,7 @@ local createCraftingMills = function()
             createTaskState = function()
                 return { produced = 0 }
             end,
-            nextPlan = function(commands, miniState, taskState, resourceRequests)
+            nextPlan = function(commands, state, taskState, resourceRequests)
                 local newTaskState = util.copyTable(taskState)
                 local quantity = resourceRequests[recipe.to]
                 if quantity == nil then error('Must supply a request for '..recipe.to..' to use this mill') end
@@ -594,7 +594,7 @@ local createCraftingMills = function()
     
                 local amountNeeded = quantity - taskState.produced
                 local craftAmount = util.minNumber(64 * recipe.yields, amountNeeded)
-                highLevelCommands.craft(commands, miniState, recipe, craftAmount)
+                highLevelCommands.craft(commands, state, recipe, craftAmount)
                 
                 newTaskState.produced = newTaskState.produced + craftAmount
                 return newTaskState, newTaskState.produced == quantity
@@ -627,41 +627,41 @@ local createTowerProject = function(opts)
     local towerNumber = opts.towerNumber
 
     local taskRunnerId = _G.act.task.registerTaskRunner('project:mainIsland:createTower:'..towerNumber, {
-        enter = function(commands, miniState, taskState)
-            location.travelToLocation(commands, miniState, homeLoc)
+        enter = function(commands, state, taskState)
+            location.travelToLocation(commands, state, homeLoc)
         end,
-        exit = function(commands, miniState, taskState)
-            navigate.assertPos(miniState, homeLoc.cmps.pos)
+        exit = function(commands, state, taskState)
+            navigate.assertPos(state, homeLoc.cmps.pos)
         end,
-        nextPlan = function(commands, miniState, taskState)
-            local startPos = util.copyTable(miniState.turtlePos)
+        nextPlan = function(commands, state, taskState)
+            local startPos = util.copyTable(state.turtlePos)
 
             local nextToTowers = homeLoc.cmps.compassAt({ right = -5 })
             local towerBaseCmps = homeLoc.cmps.compassAt({ right = -6 - (towerNumber*2) })
             
-            navigate.moveToCoord(commands, miniState, nextToTowers.coord, { 'forward', 'right', 'up' })
+            navigate.moveToCoord(commands, state, nextToTowers.coord, { 'forward', 'right', 'up' })
             for x = 0, 1 do
                 for z = 0, 3 do
                     navigate.moveToCoord(
                         commands,
-                        miniState,
+                        state,
                         towerBaseCmps.coordAt({ forward = -z, right = -x }),
                         { 'forward', 'right', 'up' }
                     )
                     -- for i = 1, 32 do
                     for i = 1, 4 do
-                        highLevelCommands.findAndSelectSlotWithItem(commands, miniState, 'minecraft:cobblestone')
-                        -- highLevelCommands.findAndSelectSlotWithItem(commands, miniState, 'minecraft:furnace')
-                        -- highLevelCommands.findAndSelectSlotWithItem(commands, miniState, 'minecraft:stone')
-                        commands.turtle.placeDown(miniState)
-                        commands.turtle.up(miniState)
+                        highLevelCommands.findAndSelectSlotWithItem(commands, state, 'minecraft:cobblestone')
+                        -- highLevelCommands.findAndSelectSlotWithItem(commands, state, 'minecraft:furnace')
+                        -- highLevelCommands.findAndSelectSlotWithItem(commands, state, 'minecraft:stone')
+                        commands.turtle.placeDown(state)
+                        commands.turtle.up(state)
                     end
                 end
             end
-            commands.turtle.select(miniState, 1)
+            commands.turtle.select(state, 1)
 
-            navigate.moveToCoord(commands, miniState, nextToTowers.coord, { 'forward', 'right', 'up' })
-            navigate.moveToPos(commands, miniState, startPos, { 'right', 'forward', 'up' })
+            navigate.moveToCoord(commands, state, nextToTowers.coord, { 'forward', 'right', 'up' })
+            navigate.moveToPos(commands, state, startPos, { 'right', 'forward', 'up' })
 
             return taskState, true
         end,

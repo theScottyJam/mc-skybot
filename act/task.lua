@@ -14,15 +14,15 @@ local taskRegistry = {}
 inputs:
   opts.createTaskState() (optional) returns any arbitrary table.
     If not provided, it default to an empty table.
-  opts.enter() (optional) takes commands, miniState, and taskState. It will run before the task
+  opts.enter() (optional) takes commands, state, and taskState. It will run before the task
     starts and whenever the task continues after an interruption, and is supposed
     to bring the turtle from anywhere in the world to a desired position.
-  opts.exit() (optional) takes commands, miniState, taskState, and an info object. The info object
+  opts.exit() (optional) takes commands, state, taskState, and an info object. The info object
     contains a "complete" boolean property that indicates if the task has been completed at this point.
     This function will run after the task finishes and whenever the task needs to pause
     for an interruption, and is supposed to bring the turtle to the position of a registered location.
     After completing a mill or farm, you may also activate those in this function.
-  opts.nextPlan() takes commands, miniState, a taskState, and any other arbitrary
+  opts.nextPlan() takes commands, state, a taskState, and any other arbitrary
     arguments it might need and returns a tuple containing an updated task state and
     a "complete" boolean, which, when true, indicates that the plan finished
     (i.e. it is not at an interruption point).
@@ -44,20 +44,14 @@ function module.registerTaskRunner(id, opts)
                 currentTask.taskState = createTaskState()
             end
 
-            local miniState = stateModule.asMiniState(state)
-            enter(commands, miniState, currentTask.taskState)
+            enter(commands, state, currentTask.taskState)
             currentTask.entered = true
-
-            stateModule.joinMiniStateToState(miniState, state)
         end,
 
         -- Takes a state and a reference to this task.
         exit = function(state, currentTask)
-            local miniState = stateModule.asMiniState(state)
-            exit(commands, miniState, currentTask.taskState, { complete = currentTask.completed })
+            exit(commands, state, currentTask.taskState, { complete = currentTask.completed })
             currentTask.entered = false
-
-            stateModule.joinMiniStateToState(miniState, state)
         end,
 
         -- Takes a state and a reference to this task.
@@ -66,12 +60,9 @@ function module.registerTaskRunner(id, opts)
                 error('This task is already finished')
             end
 
-            local miniState = stateModule.asMiniState(state)
-            local newTaskState, complete = nextPlan(commands, miniState, currentTask.taskState, currentTask.args)
+            local newTaskState, complete = nextPlan(commands, state, currentTask.taskState, currentTask.args)
             currentTask.taskState = newTaskState
             currentTask.completed = complete
-
-            stateModule.joinMiniStateToState(miniState, state)
         end
     }
     return id

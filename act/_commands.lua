@@ -1,16 +1,16 @@
 local module = {}
 
 local commandWithStateChanges = function(execute, updateState)
-    return function(miniState, ...)
+    return function(state, ...)
         -- A sanity check, because I mess this up a lot.
-        if miniState == nil or miniState.turtlePos == nil then
-            error('Forgot to pass in a proper miniState object into a command')
+        if state == nil or state.turtlePos == nil then
+            error('Forgot to pass in a proper state object into a command')
         end
 
-        local result = table.pack(execute(miniState, table.unpack({ ... })))
+        local result = table.pack(execute(state, table.unpack({ ... })))
 
         if updateState ~= nil then
-            updateState(miniState.turtlePos, table.unpack({...}))
+            updateState(state.turtlePos, table.unpack({...}))
         end
 
         _G._debug.triggerStepListener()
@@ -25,11 +25,11 @@ local ignoreFirstArg = function(fn)
     end
 end
 
-module.craft = commandWithStateChanges(function(miniState)
+module.craft = commandWithStateChanges(function(state)
     turtle.craft()
 end)
 
-module.up = commandWithStateChanges(function(miniState)
+module.up = commandWithStateChanges(function(state)
     local success = false
     while not success do
         success = turtle.up()
@@ -38,7 +38,7 @@ end, function(turtlePos)
     turtlePos.up = turtlePos.up + 1
 end)
 
-module.down = commandWithStateChanges(function(miniState)
+module.down = commandWithStateChanges(function(state)
     local success = false
     while not success do
         success = turtle.down()
@@ -47,7 +47,7 @@ end, function(turtlePos)
     turtlePos.up = turtlePos.up - 1
 end)
 
-module.forward = commandWithStateChanges(function(miniState)
+module.forward = commandWithStateChanges(function(state)
     local success = false
     while not success do
         success = turtle.forward()
@@ -61,7 +61,7 @@ end, function(turtlePos)
     end
 end)
 
-module.backward = commandWithStateChanges(function(miniState)
+module.backward = commandWithStateChanges(function(state)
     local success = false
     while not success do
         success = turtle.backward()
@@ -76,13 +76,13 @@ end, function(turtlePos)
     end
 end)
 
-module.turnLeft = commandWithStateChanges(function(miniState)
+module.turnLeft = commandWithStateChanges(function(state)
     turtle.turnLeft()
 end, function(turtlePos)
     turtlePos.face = _G.act.space.rotateFaceCounterClockwise(turtlePos.face)
 end)
 
-module.turnRight = commandWithStateChanges(function(miniState)
+module.turnRight = commandWithStateChanges(function(state)
     turtle.turnRight()
 end, function(turtlePos)
     turtlePos.face = _G.act.space.rotateFaceClockwise(turtlePos.face)

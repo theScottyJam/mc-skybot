@@ -57,18 +57,18 @@ function module.register(taskRunnerId, opts)
 
     local farm = {
         calcExpectedYield = calcExpectedYield,
-        activate = function(commands, miniState)
-            table.insert(miniState.activeFarms, {
+        activate = function(commands, state)
+            table.insert(state.activeFarms, {
                 taskRunnerId = taskRunnerId,
                 lastVisited = time.get(),
             })
     
             for _, resourceName in ipairs(supplies) do
-                if miniState.resourceSuppliers[resourceName] == nil then
-                    miniState.resourceSuppliers[resourceName] = {}
+                if state.resourceSuppliers[resourceName] == nil then
+                    state.resourceSuppliers[resourceName] = {}
                 end
     
-                table.insert(miniState.resourceSuppliers[resourceName], 1, {
+                table.insert(state.resourceSuppliers[resourceName], 1, {
                     type='farm',
                     taskRunnerId = taskRunnerId,
                 })

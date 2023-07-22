@@ -47,13 +47,13 @@ debugProject = function(homeLoc)
 
     local taskRunnerId = 'project:init:debugProject'
     _G.act.task.registerTaskRunner(taskRunnerId, {
-        enter = function(commands, miniState, taskState)
+        enter = function(commands, state, taskState)
             -- location.travelToLocation(planner, homeLoc)
         end,
-        nextPlan = function(commands, miniState, taskState)
+        nextPlan = function(commands, state, taskState)
             -- local startPos = util.copyTable(planner.turtlePos)
             -- local currentWorld = _G.mockComputerCraftApi._currentWorld
-            _G._debug.debugCommand(commands, miniState, { action='obtain', itemId='minecraft:charcoal', quantity=64 })
+            _G._debug.debugCommand(commands, state, { action='obtain', itemId='minecraft:charcoal', quantity=64 })
             _G._debug.showStepByStep = true
 
             -- navigate.moveToPos(planner, startPos)

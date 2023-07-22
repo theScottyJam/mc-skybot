@@ -26,10 +26,7 @@ function module.exec(strategy)
     local highLevelCommands = _G.act.highLevelCommands
 
     local countResourcesInInventory = function(state)
-        local miniState = stateModule.asMiniState(state)
-        local result = highLevelCommands.countResourcesInInventory(highLevelCommands.takeInventory(commands, miniState))
-        stateModule.joinMiniStateToState(miniState, state)
-        return result
+        return highLevelCommands.countResourcesInInventory(highLevelCommands.takeInventory(commands, state))
     end
 
     local state = stateModule.createInitialState({
