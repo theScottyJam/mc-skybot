@@ -7,16 +7,15 @@ local util = import('util.lua')
 
 local module = {}
 
-function module.assertFace(planner, expectedFace)
-    local currentFace = planner.turtlePos.face
+function module.assertFace(miniState, expectedFace)
+    local currentFace = miniState.turtlePos.face
     if currentFace ~= expectedFace then
         error('Expected current face '..currentFace..' to be expected face '..expectedFace)
     end
 end
 
-function module.assertCoord(planner, expectedCoord)
-    local space = _G.act.space
-    local currentCoord = space.posToCoord(planner.turtlePos)
+function module.assertCoord(miniState, expectedCoord)
+    local currentCoord = miniState.turtleCmps().coord
     currentCoordStr = '(f='..currentCoord.forward..',r='..currentCoord.right..',u='..currentCoord.up..')'
     expectedCoordStr = '(f='..expectedCoord.forward..',r='..expectedCoord.right..',u='..expectedCoord.up..')'
     if currentCoordStr ~= expectedCoordStr then
@@ -24,8 +23,8 @@ function module.assertCoord(planner, expectedCoord)
     end
 end
 
-function module.assertPos(planner, expectedPos)
-    local currentPos = planner.turtlePos
+function module.assertPos(miniState, expectedPos)
+    local currentPos = miniState.turtlePos
     currentPosStr = '(f='..currentPos.forward..',r='..currentPos.right..',u='..currentPos.up..',f='..currentPos.face..')'
     expectedPosStr = '(f='..expectedPos.forward..',r='..expectedPos.right..',u='..expectedPos.up..',f='..expectedPos.face..')'
     if currentPosStr ~= expectedPosStr then
@@ -37,65 +36,60 @@ end
 -- The turtle will end, facing the direction of travel. (To pick a different facing or preserve facing, use moveToPos())
 -- dimensionOrder is optional, and indicates which dimensions to travel first. e.g. {'right', 'up'}.
 -- It defaults to { 'forward', 'right', 'up' }. Dimensions can be omited to prevent movement in that direction.
-function module.moveToCoord(planner, destinationCoord, dimensionOrder)
-    if planner.plan == nil then error('Failed to provide a valid planner') end
-    if planner.turtlePos.from ~= destinationCoord.from then error('incompatible "from" fields') end
-    local commands = _G.act.commands
-    local space = _G.act.space
-    local resolveFacing = space.resolveRelFacing
+function module.moveToCoord(commands, miniState, destinationCoord, dimensionOrder)
+    if miniState.turtlePos == nil then error('Failed to provide a valid miniState') end
     local dimensionOrder = dimensionOrder or { 'forward', 'right', 'up' }
 
     for _, dimension in ipairs(dimensionOrder) do
-        while dimension == 'forward' and planner.turtlePos.forward < destinationCoord.forward do
-            module.face(planner, { face='forward', from=destinationCoord.from })
-            commands.turtle.forward(planner)
+        while dimension == 'forward' and miniState.turtlePos.forward < destinationCoord.forward do
+            module.face(commands, miniState, { face='forward' })
+            commands.turtle.forward(miniState)
         end
-        while dimension == 'forward' and planner.turtlePos.forward > destinationCoord.forward do
-            module.face(planner, { face='backward', from=destinationCoord.from })
-            commands.turtle.forward(planner)
+        while dimension == 'forward' and miniState.turtlePos.forward > destinationCoord.forward do
+            module.face(commands, miniState, { face='backward' })
+            commands.turtle.forward(miniState)
         end
-        while dimension == 'right' and planner.turtlePos.right < destinationCoord.right do
-            module.face(planner, { face='right', from=destinationCoord.from })
-            commands.turtle.forward(planner)
+        while dimension == 'right' and miniState.turtlePos.right < destinationCoord.right do
+            module.face(commands, miniState, { face='right' })
+            commands.turtle.forward(miniState)
         end
-        while dimension == 'right' and planner.turtlePos.right > destinationCoord.right do
-            module.face(planner, { face='left', from=destinationCoord.from })
-            commands.turtle.forward(planner)
+        while dimension == 'right' and miniState.turtlePos.right > destinationCoord.right do
+            module.face(commands, miniState, { face='left' })
+            commands.turtle.forward(miniState)
         end
-        while dimension == 'up' and planner.turtlePos.up < destinationCoord.up do
-            commands.turtle.up(planner)
+        while dimension == 'up' and miniState.turtlePos.up < destinationCoord.up do
+            commands.turtle.up(miniState)
         end
-        while dimension == 'up' and planner.turtlePos.up > destinationCoord.up do
-            commands.turtle.down(planner)
+        while dimension == 'up' and miniState.turtlePos.up > destinationCoord.up do
+            commands.turtle.down(miniState)
         end
     end
 end
 
 -- Parameters are generally the same as module.moveToCoord().
 -- destinationPos has a "face" field, which decides the final direction the turtle will face.
-function module.moveToPos(planner, destinationPos, dimensionOrder)
-    if planner.plan == nil then error('Failed to provide a valid planner') end
+function module.moveToPos(commands, miniState, destinationPos, dimensionOrder)
+    if miniState.turtlePos == nil then error('Failed to provide a valid miniState') end
     local space = _G.act.space
+    local destinationCmps = space.createCompass(destinationPos)
 
-    module.moveToCoord(planner, space.posToCoord(destinationPos), dimensionOrder)
-    module.face(planner, space.posToFacing(destinationPos))
+    module.moveToCoord(commands, miniState, destinationCmps.coord, dimensionOrder)
+    module.face(commands, miniState, destinationCmps.facing)
 end
 
-function module.face(planner, targetFacing)
-    if planner.turtlePos.from ~= targetFacing.from then error('incompatible "from" fields') end
+function module.face(commands, miniState, targetFacing)
     local space = _G.act.space
-    local commands = _G.act.commands
 
-    local beforeFace = planner.turtlePos.face
+    local beforeFace = miniState.turtlePos.face
     local rotations = space.countClockwiseRotations(beforeFace, targetFacing.face)
 
     if rotations == 1 then
-        commands.turtle.turnRight(planner)
+        commands.turtle.turnRight(miniState)
     elseif rotations == 2 then
-        commands.turtle.turnRight(planner)
-        commands.turtle.turnRight(planner)
+        commands.turtle.turnRight(miniState)
+        commands.turtle.turnRight(miniState)
     elseif rotations == 3 then
-        commands.turtle.turnLeft(planner)
+        commands.turtle.turnLeft(miniState)
     end
 end
 

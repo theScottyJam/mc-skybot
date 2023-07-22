@@ -3,7 +3,6 @@ local mockHooksModule = import('./mockHooks.lua')
 local module = {}
 
 local act = {
-    commands = import('./commands/init.lua'),
     curves = import('./curves.lua'),
     farm = import('./farm.lua'),
     highLevelCommands = import('./highLevelCommands.lua'),
@@ -11,7 +10,6 @@ local act = {
     mill = import('./mill.lua'),
     mockHooks = nil,
     navigate = import('./navigate.lua'),
-    planner = import('./planner.lua'),
     project = import('./project.lua'),
     space = import('./space.lua'),
     strategy = import('./strategy.lua'),

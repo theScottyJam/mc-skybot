@@ -24,12 +24,19 @@ function debugModule.busySleep(seconds)
     end 
 end
 
-function debugModule.debugCommand(planner, ...)
-    table.insert(planner.plan, { command = 'general:debug', args = {...} })
+local onStepListener
+function debugModule.registerStepListener(onStep)
+    onStepListener = onStep
 end
 
--- Arbitrary code that gets used when the debug command is hit.
-function debugModule.onDebugCommand(state, opts)
+function debugModule.triggerStepListener()
+    if onStepListener ~= nil then
+        onStepListener()
+    end
+end
+
+-- Executes arbitrary debugging-related code.
+function debugModule.debugCommand(commands, miniState, opts)
     local present = _G.mockComputerCraftApi.present
     local world = _G.mockComputerCraftApi._currentWorld
     local highLevelCommands = _G.act.highLevelCommands
@@ -39,10 +46,8 @@ function debugModule.onDebugCommand(state, opts)
         local itemId = opts.itemId
         local quantity = opts.quantity
         if quantity == nil then quantity = 1 end
-        _G.act.strategy.atomicallyExecuteSubplan(state, function(planner)
-            highLevelCommands.findAndSelectEmptpySlot(planner)
-            world.turtle.inventory[world.turtle.selectedSlot] = { id = itemId, quantity = quantity }
-        end)
+        highLevelCommands.findAndSelectEmptpySlot(commands, miniState)
+        world.turtle.inventory[world.turtle.selectedSlot] = { id = itemId, quantity = quantity }
         return
     end
 
@@ -50,7 +55,6 @@ function debugModule.onDebugCommand(state, opts)
     -- present.displayMap(world, { minX = -8, maxX = 5, minY = 0, maxY = 79, minZ = -5, maxZ = 4 }, { showKey = false })
     present.inventory(world)
     -- present.showTurtlePosition(world)
-    -- debugModule.printTable(state.getActiveTaskVars())
 end
 
 function module.registerGlobal()

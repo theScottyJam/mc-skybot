@@ -707,7 +707,7 @@ end
 
 attemptToSmelt = function(currentWorld, furnaceCoord)
     local furnaceCell = lookupInMap(currentWorld.map, furnaceCoord)
-    local SMELT_TIME = 50
+    local SMELT_TIME = 20
 
     if furnaceCell.activelySmelting > 0 then
         return
@@ -924,9 +924,6 @@ end
 ---- HOOKS ----
 
 function hookListeners.registerCobblestoneRegenerationBlock(deltaCoord)
-    if deltaCoord.from ~= 'ORIGIN' then
-        error('Cobblestone generators can only be registered with coordinates who\'s from value is set to "ORIGIN"')
-    end
     local coord = {
         x = deltaCoord.right,
         y = deltaCoord.up,

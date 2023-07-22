@@ -3,6 +3,8 @@
 --]]
 
 local util = import('util.lua')
+local stateModule = import('./_state.lua')
+local commands = import('./_commands.lua')
 
 local module = {}
 
@@ -12,18 +14,18 @@ local taskRegistry = {}
 inputs:
   opts.createTaskState() (optional) returns any arbitrary table.
     If not provided, it default to an empty table.
-  opts.enter() (optional) takes a planner and a taskState. It will run before the task
+  opts.enter() (optional) takes commands, miniState, and taskState. It will run before the task
     starts and whenever the task continues after an interruption, and is supposed
     to bring the turtle from anywhere in the world to a desired position.
-  opts.exit() (optional) takes a planner, a taskState, and an info object. The info object contains a
-    "complete" boolean property that indicates if the task has been completed at this point.
+  opts.exit() (optional) takes commands, miniState, taskState, and an info object. The info object
+    contains a "complete" boolean property that indicates if the task has been completed at this point.
     This function will run after the task finishes and whenever the task needs to pause
     for an interruption, and is supposed to bring the turtle to the position of a registered location.
     After completing a mill or farm, you may also activate those in this function.
-  opts.nextPlan() takes a planner, a taskState, and any other arbitrary
+  opts.nextPlan() takes commands, miniState, a taskState, and any other arbitrary
     arguments it might need and returns a tuple containing an updated task state and
-    a "complete" boolean, which, when true, indicates thatonce everything registered in the
-    provided plan happens, exit() should be used, and this task will be complete.
+    a "complete" boolean, which, when true, indicates that the plan finished
+    (i.e. it is not at an interruption point).
 --]]
 function module.registerTaskRunner(id, opts)
     local createTaskState = opts.createTaskState or function() return {} end
@@ -35,42 +37,42 @@ function module.registerTaskRunner(id, opts)
     taskRegistry[id] = {
         id = id,
 
-        -- Takes a state and a reference to this task. Returns a plan.
+        -- Takes a state and a reference to this task.
         enter = function(state, currentTask)
             if not currentTask.initialized then
                 currentTask.initialized = true
                 currentTask.taskState = createTaskState()
             end
 
-            local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
-            enter(planner, currentTask.taskState)
+            local miniState = stateModule.asMiniState(state)
+            enter(commands, miniState, currentTask.taskState)
             currentTask.entered = true
 
-            return planner.plan
+            stateModule.joinMiniStateToState(miniState, state)
         end,
 
-        -- Takes a state and a reference to this task. Returns a plan.
+        -- Takes a state and a reference to this task.
         exit = function(state, currentTask)
-            local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
-            exit(planner, currentTask.taskState, { complete = currentTask.completed })
+            local miniState = stateModule.asMiniState(state)
+            exit(commands, miniState, currentTask.taskState, { complete = currentTask.completed })
             currentTask.entered = false
 
-            return planner.plan
+            stateModule.joinMiniStateToState(miniState, state)
         end,
 
-        -- Takes a state and a reference to this task. Returns a plan.
+        -- Takes a state and a reference to this task.
         nextPlan = function(state, currentTask)
             if currentTask.completed == true then
                 error('This task is already finished')
             end
 
-            local planner = _G.act.planner.create({ turtlePos = state.turtlePos })
-            local newTaskState, complete = nextPlan(planner, currentTask.taskState, currentTask.args)
+            local miniState = stateModule.asMiniState(state)
+            local newTaskState, complete = nextPlan(commands, miniState, currentTask.taskState, currentTask.args)
             currentTask.taskState = newTaskState
             currentTask.completed = complete
 
-            return planner.plan
-        end,
+            stateModule.joinMiniStateToState(miniState, state)
+        end
     }
     return id
 end
@@ -104,16 +106,16 @@ function module.collectResources(state, initialProject, resourcesInInventory_)
 
             -- If, after factoring in the inventory, there's still requirements to be fulfilled...
             if contributionFromInventory < requirementInfo.quantity then
+                if state.resourceSuppliers[resourceName] == nil then
+                    error(
+                        'Attempted to start a task that requires the resource '..resourceName..', '..
+                        'but there are no registered sources for this resource, nor is there enough of it on hand.'
+                    )
+                end
                 local supplier = state.resourceSuppliers[resourceName][1]
                 if supplier.type ~= 'mill' then error('Invalid supplier type') end
 
                 if resourceMap[resourceName] == nil then
-                    if state.resourceSuppliers[resourceName] == nil then
-                        error(
-                            'Attempted to start a task that requires the resource '..resourceName..', '..
-                            'but there are no registered sources for this resource, nor is there enough of it on hand.'
-                        )
-                    end
                     local subTaskRunner = module.lookupTaskRunner(supplier.taskRunnerId)
                     resourceMap[resourceName] = {
                         quantity = 0,
@@ -172,8 +174,6 @@ function module.create(taskRunnerId, args)
         entered = false,
         -- Arbitrary state, to help keep track of what's going on between interruptions
         taskState = nil,
-        -- Contains the values of futures
-        taskVars = {},
         -- Configuration for the task
         args = args,
 

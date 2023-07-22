@@ -52,19 +52,27 @@ end
 --   to expected quantities after a harvest is performed.
 -- Returns a farm instance
 function module.register(taskRunnerId, opts)
-    local commands = _G.act.commands
-
     local supplies = opts.supplies
     local calcExpectedYield = opts.calcExpectedYield
 
     local farm = {
         calcExpectedYield = calcExpectedYield,
-        activate = function(planner)
-            commands.general.activateFarm(planner, {
+        activate = function(commands, miniState)
+            table.insert(miniState.activeFarms, {
                 taskRunnerId = taskRunnerId,
-                supplies = supplies,
-                calcExpectedYield = calcExpectedYield,
+                lastVisited = time.get(),
             })
+    
+            for _, resourceName in ipairs(supplies) do
+                if miniState.resourceSuppliers[resourceName] == nil then
+                    miniState.resourceSuppliers[resourceName] = {}
+                end
+    
+                table.insert(miniState.resourceSuppliers[resourceName], 1, {
+                    type='farm',
+                    taskRunnerId = taskRunnerId,
+                })
+            end
         end,
     }
 

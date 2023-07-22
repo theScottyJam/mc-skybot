@@ -47,9 +47,10 @@ You can make the disk persist across restarts by doing `label right/front/etc ma
 
 # Terms
 
-Coordinate: An x, y, z coordinate
-Position: An x, y, z, and face.
+Coordinate: A forward,right,up coordinate.
+Position: A coordinate with a face.
 Location: A specific point in space that you often travel to. There's logic in place to find the quickest route from one location to another.
+(At the time of writing, act/space.lua has more information about coordinate terminology in its module comment)
 
 plan: A series of immediate steps that needs to be taken (like turn left, go forward, etc) until you get to a place where an interruption can happen. An interruption could be, for example, refueling, or tending a farm.
 strategy: The overall plan from harvesting the first tree to the last projects.

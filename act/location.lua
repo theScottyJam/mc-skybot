@@ -80,12 +80,8 @@ end
 -- PUBLIC FUNCTIONS --
 
 function module.register(pos)
-    if pos.from ~= 'ORIGIN' then
-        error('A location\'s `from` must be set to "ORIGIN"')
-    end
-
     local loc = {
-        pos = pos,
+        cmps = _G.act.space.createCompass(pos),
         paths = {} -- List of paths that lead to and from this location
     }
 
@@ -98,13 +94,11 @@ end
 
 -- midPoints is a list of coordinates
 function module.registerPath(loc1, loc2, midPoints)
-    local space = _G.act.space
-
     midPoints = midPoints or {}
 
     local allCoordsInPath = util.copyTable(midPoints)
-    table.insert(allCoordsInPath, 1, space.posToCoord(loc1.pos))
-    table.insert(allCoordsInPath, space.posToCoord(loc2.pos))
+    table.insert(allCoordsInPath, 1, loc1.cmps.coord)
+    table.insert(allCoordsInPath, loc2.cmps.coord)
     local cost = calcPathCost(allCoordsInPath)
 
     table.insert(loc1.paths, {
@@ -122,22 +116,21 @@ function module.registerPath(loc1, loc2, midPoints)
 end
 
 -- Finds the shortest route to a location among the registered paths and travels there.
-function module.travelToLocation(planner, destLoc)
-    local space = _G.act.space
+function module.travelToLocation(commands, miniState, destLoc)
     local navigate = _G.act.navigate
 
-    if space.comparePos(planner.turtlePos, destLoc.pos) then return end
-    local turtleLoc = lookupLoc(planner.turtlePos)
+    if miniState.turtleCmps().compareCmps(destLoc.cmps) then return end
+    local turtleLoc = lookupLoc(miniState.turtlePos)
     local route = findBestRoute(turtleLoc, destLoc).route
     if route == nil then error('Failed to naviage to a particular location - there was no route to this location.') end
 
     for _, path in ipairs(route) do
         for i, coord in ipairs(path.midPoints) do
-            navigate.moveToCoord(planner, coord)
+            navigate.moveToCoord(commands, miniState, coord)
         end
-        navigate.moveToCoord(planner, space.posToCoord(path.to.pos))
+        navigate.moveToCoord(commands, miniState, path.to.cmps.coord)
     end
-    navigate.face(planner, space.posToFacing(destLoc.pos))
+    navigate.face(commands, miniState, destLoc.cmps.facing)
 end
 
 -- I can implement these when I need them

@@ -6,12 +6,11 @@ local curves = _G.act.curves
 local entities = import('./entities/init.lua')
 local util = import('util.lua')
 
--- onStep is optional
 local initStrategy
 local debugProject
-function module.run(onStep)
+function module.run()
     local strategy = initStrategy()
-    _G.act.strategy.exec(strategy, onStep)
+    _G.act.strategy.exec(strategy)
 end
 
 initStrategy = function()
@@ -20,7 +19,7 @@ initStrategy = function()
     local mainIsland = entities.mainIsland.initEntity()
 
     return {
-        initialTurtlePos = mainIsland.initialLoc.pos,
+        initialTurtlePos = mainIsland.initialLoc.cmps.pos,
         projectList = _G.act.project.createProjectList({
             mainIsland.startBuildingCobblestoneGenerator,
             mainIsland.harvestInitialTreeAndPrepareTreeFarm,
@@ -44,21 +43,18 @@ _G.act.farm.registerValueOfResources({
 debugProject = function(homeLoc)
     local location = _G.act.location
     local navigate = _G.act.navigate
-    local commands = _G.act.commands
     local highLevelCommands = _G.act.highLevelCommands
-    local space = _G.act.space
 
-    local homeCmps = space.createCompass(homeLoc.pos)
     local taskRunnerId = 'project:init:debugProject'
     _G.act.task.registerTaskRunner(taskRunnerId, {
-        enter = function(planner, taskState)
+        enter = function(commands, miniState, taskState)
             -- location.travelToLocation(planner, homeLoc)
         end,
-        nextPlan = function(planner, taskState)
+        nextPlan = function(commands, miniState, taskState)
             -- local startPos = util.copyTable(planner.turtlePos)
             -- local currentWorld = _G.mockComputerCraftApi._currentWorld
-            _G._debug.debugCommand(planner, { action='obtain', itemId='minecraft:charcoal', quantity=64 })
-            _debug.showStepByStep = true
+            _G._debug.debugCommand(commands, miniState, { action='obtain', itemId='minecraft:charcoal', quantity=64 })
+            _G._debug.showStepByStep = true
 
             -- navigate.moveToPos(planner, startPos)
             return taskState, true

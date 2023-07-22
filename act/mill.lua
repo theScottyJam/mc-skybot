@@ -25,8 +25,6 @@ inputs:
 Returns a mill instance
 --]]
 function module.create(taskRunnerId, opts)
-    local commands = _G.act.commands
-
     local requiredResourcesPerUnit_ = opts.requiredResourcesPerUnit or {}
     local supplies = opts.supplies
     local onActivated = opts.onActivated or function() end
@@ -39,12 +37,18 @@ function module.create(taskRunnerId, opts)
     end
 
     return {
-        activate = function(planner)
-            commands.general.activateMill(planner, {
-                taskRunnerId = taskRunnerId,
-                requiredResourcesPerUnit = requiredResourcesPerUnit,
-                supplies = supplies,
-            })
+        activate = function(commands, miniState)
+            for _, resourceName in ipairs(supplies) do
+                if miniState.resourceSuppliers[resourceName] == nil then
+                    miniState.resourceSuppliers[resourceName] = {}
+                end
+    
+                table.insert(miniState.resourceSuppliers[resourceName], 1, {
+                    type='mill',
+                    taskRunnerId = taskRunnerId,
+                    requiredResourcesPerUnit = requiredResourcesPerUnit,
+                })
+            end
             onActivated()
         end
     }
