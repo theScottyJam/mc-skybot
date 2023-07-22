@@ -311,8 +311,10 @@ end
 local createFurnaceMill = function(opts)
     local inFrontOfChestLoc = opts.inFrontOfChestLoc
 
-    local inFrontOfFirstFurnaceCmps = inFrontOfChestLoc.cmps.compassAt({ forward=1, right=1, up=1, face='right' })
-    local inFrontOfFirstFurnaceLoc = location.register(inFrontOfFirstFurnaceCmps.pos) -- faces the furnace
+    local inFrontOfFirstFurnaceLoc = location.register(
+        -- faces the furnace
+        inFrontOfChestLoc.cmps.posAt({ forward=1, right=1, up=1, face='right' })
+    )
     local taskRunnerId = 'mill:mainIsland:furnace'
     _G.act.task.registerTaskRunner(taskRunnerId, {
         createTaskState = function()
@@ -325,7 +327,7 @@ local createFurnaceMill = function(opts)
             location.travelToLocation(commands, state, inFrontOfFirstFurnaceLoc)
         end,
         exit = function(commands, state, taskState)
-            navigate.moveToPos(commands, state, inFrontOfFirstFurnaceLoc.pos, { 'right', 'forward', 'up' })
+            navigate.moveToPos(commands, state, inFrontOfFirstFurnaceLoc.cmps.pos, { 'right', 'forward', 'up' })
         end,
         nextPlan = function(commands, state, taskState, resourceRequests)
             local newTaskState = util.copyTable(taskState)
@@ -384,7 +386,7 @@ local createFurnaceMill = function(opts)
                 end
 
                 -- Fill fuel from the bottom
-                local belowFirstFurnaceCmps = inFrontOfFirstFurnaceCmps.compassAt({ forward=1, up=-1 })
+                local belowFirstFurnaceCmps = inFrontOfFirstFurnaceLoc.cmps.compassAt({ forward=1, up=-1 })
                 -- This movement will correctly move the turtle from any of its possible starting positions.
                 navigate.moveToPos(commands, state, belowFirstFurnaceCmps.posAt({ face='right' }), { 'up', 'forward', 'right' })
                 for i = 1, 2 do
@@ -394,10 +396,10 @@ local createFurnaceMill = function(opts)
                 highLevelCommands.dropItemUp(commands, state, 'minecraft:charcoal', math.ceil(willBeAdded[3] / 8))
 
                 navigate.moveToCoord(commands, state, belowFirstFurnaceCmps.coord)
-                navigate.moveToCoord(commands, state, inFrontOfFirstFurnaceCmps.pos, { 'forward', 'right', 'up' })
+                navigate.moveToCoord(commands, state, inFrontOfFirstFurnaceLoc.cmps.pos, { 'forward', 'right', 'up' })
 
                 -- Fill raw materials from the top
-                local aboveFirstFurnaceCmps = inFrontOfFirstFurnaceCmps.compassAt({ forward=1, up=1 })
+                local aboveFirstFurnaceCmps = inFrontOfFirstFurnaceLoc.cmps.compassAt({ forward=1, up=1 })
                 navigate.moveToPos(commands, state, aboveFirstFurnaceCmps.posAt({ face='right' }), { 'up', 'right' })
                 for i = 1, 2 do
                     highLevelCommands.dropItemDown(commands, state, sourceResource, willBeAdded[i])
@@ -406,16 +408,16 @@ local createFurnaceMill = function(opts)
                 highLevelCommands.dropItemDown(commands, state, sourceResource, willBeAdded[3])
 
                 navigate.moveToCoord(commands, state, aboveFirstFurnaceCmps.coord)
-                navigate.moveToPos(commands, state, inFrontOfFirstFurnaceCmps.pos, { 'forward', 'right', 'up' })
+                navigate.moveToPos(commands, state, inFrontOfFirstFurnaceLoc.cmps.pos, { 'forward', 'right', 'up' })
 
                 newTaskState.currentlyInFurnaces = willBeInFurnaces
 
             -- Wait and collect results from a furnace
             else
                 -- Move into position if needed
-                local belowFirstFurnaceCmps = inFrontOfFirstFurnaceCmps.compassAt({ forward=1, up=-1 })
+                local belowFirstFurnaceCmps = inFrontOfFirstFurnaceLoc.cmps.compassAt({ forward=1, up=-1 })
                 local targetFurnaceCmps = belowFirstFurnaceCmps.compassAt({ right = furnaceIndexToWaitOn - 1 })
-                if inFrontOfFirstFurnaceCmps.compareCmps(state.turtleCmps()) then
+                if inFrontOfFirstFurnaceLoc.cmps.compareCmps(state.turtleCmps()) then
                     navigate.moveToPos(commands, state, belowFirstFurnaceCmps.posAt({ face='right' }), { 'up', 'forward' })
                 end
                 navigate.moveToCoord(commands, state, targetFurnaceCmps.coord)
@@ -514,7 +516,7 @@ local createStartingIslandTreeFarm = function(opts)
             location.travelToLocation(commands, state, homeLoc)
         end,
         exit = function(commands, state, taskState)
-            navigate.assertPos(commands, state, homeLoc.cmps.pos)
+            navigate.assertPos(state, homeLoc.cmps.pos)
         end,
         nextPlan = function(commands, state, taskState)
             commands.turtle.select(state, 1)
@@ -650,9 +652,9 @@ local createTowerProject = function(opts)
                     )
                     -- for i = 1, 32 do
                     for i = 1, 4 do
-                        highLevelCommands.findAndSelectSlotWithItem(commands, state, 'minecraft:cobblestone')
+                        -- highLevelCommands.findAndSelectSlotWithItem(commands, state, 'minecraft:cobblestone')
                         -- highLevelCommands.findAndSelectSlotWithItem(commands, state, 'minecraft:furnace')
-                        -- highLevelCommands.findAndSelectSlotWithItem(commands, state, 'minecraft:stone')
+                        highLevelCommands.findAndSelectSlotWithItem(commands, state, 'minecraft:stone')
                         commands.turtle.placeDown(state)
                         commands.turtle.up(state)
                     end
@@ -668,9 +670,9 @@ local createTowerProject = function(opts)
     })
     return _G.act.project.create(taskRunnerId, {
         requiredResources = {
-            ['minecraft:cobblestone'] = { quantity=64 * 4, at='INVENTORY' }
+            -- ['minecraft:cobblestone'] = { quantity=64 * 4, at='INVENTORY' }
             -- ['minecraft:furnace'] = { quantity=32, at='INVENTORY' }
-            -- ['minecraft:stone'] = { quantity=32, at='INVENTO/RY' }
+            ['minecraft:stone'] = { quantity=32, at='INVENTORY' }
         },
     })
 end
