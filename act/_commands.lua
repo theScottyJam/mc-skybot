@@ -13,7 +13,7 @@ local commandWithStateChanges = function(execute, updateState)
             updateState(state.turtlePos, table.unpack({...}))
         end
 
-        _G._debug.triggerStepListener()
+        _G._debug.triggerStepListener(state)
 
         return table.unpack(result)
     end
@@ -25,9 +25,7 @@ local ignoreFirstArg = function(fn)
     end
 end
 
-module.craft = commandWithStateChanges(function(state)
-    turtle.craft()
-end)
+module.craft = ignoreFirstArg(turtle.craft)
 
 module.up = commandWithStateChanges(function(state)
     local success = false

@@ -7,34 +7,25 @@ local util = import('util.lua')
 
 local module = {}
 
+local taskRunnerIdsToMillInfo = {}
+
 --[[
 inputs:
-  opts.requiredResourcesPerUnit (optional) Maps resource names that you
-    want, to a mapping of required resources to obtain a single unit.
-    The requirements may contain fractional units.
-    If a resource in opts.supplies is missing from the mapping's first layer,
-    it's assumed to be free.
-    Example shape:
-        {
-            'minecraft:furnace' = {
-                'minecraft:cobblestone' = { quantity=8, at='INVENTORY' }
-            }
-        }
+  opts.getRequiredResources (optional) Given a resource request of the shape
+    { resourceName = ..., quantity = ... }, this will return what resources
+    are required to produce it, in the shape { <name> = <quantity>, ... }
   opts.supplies is a list of resources the mill is capable of supplying.
   opts.onActivated (optional) gets called when the mill is first activated
 Returns a mill instance
 --]]
 function module.create(taskRunnerId, opts)
-    local requiredResourcesPerUnit_ = opts.requiredResourcesPerUnit or {}
+    local getRequiredResources = opts.getRequiredResources or function() return {} end
     local supplies = opts.supplies
     local onActivated = opts.onActivated or function() end
 
-    local requiredResourcesPerUnit = util.copyTable(requiredResourcesPerUnit_)
-    for _, resourceName in ipairs(supplies) do
-        if requiredResourcesPerUnit[resourceName] == nil then
-            requiredResourcesPerUnit[resourceName] = {}
-        end
-    end
+    taskRunnerIdsToMillInfo[taskRunnerId] = {
+        getRequiredResources = getRequiredResources
+    }
 
     return {
         activate = function(commands, state)
@@ -46,7 +37,6 @@ function module.create(taskRunnerId, opts)
                 table.insert(state.resourceSuppliers[resourceName], 1, {
                     type='mill',
                     taskRunnerId = taskRunnerId,
-                    requiredResourcesPerUnit = requiredResourcesPerUnit,
                 })
             end
             onActivated()
@@ -54,26 +44,13 @@ function module.create(taskRunnerId, opts)
     }
 end
 
-function module.calculateRequredResources(requiredResourcesPerUnit, resourceRequest)
-    local requirements = {}
-    for resourceName, quantityDesired in pairs(resourceRequest) do
-        local iterRequirements = requiredResourcesPerUnit[resourceName]
-        if iterRequirements == nil then
-            error('Requested a resource from a mil that the mil does not supply')
-        else
-            for itemId, costPer in pairs(iterRequirements) do
-                if costPer.at ~= 'INVENTORY' then error('Currently, `at` must be `INVENTORY`') end
-                if requirements[itemId] == nil then
-                    requirements[itemId] = { quantity=0, at='INVENTORY'}
-                end
-                requirements[itemId].quantity = requirements[itemId].quantity + costPer.quantity * quantityDesired
-            end
-        end
+function module.getRequiredResources(taskRunnerIdForMill, resourceRequest)
+    local millInfo = taskRunnerIdsToMillInfo[taskRunnerIdForMill]
+    if millInfo == nil then
+        error('There is no mill is not assosiated with the taskRunnerId provided: ' .. tostring(taskRunnerIdForMill))
     end
-    for key, value in pairs(requirements) do
-        requirements[key].quantity = math.ceil(value.quantity)
-    end
-    return requirements
+
+    return millInfo.getRequiredResources(resourceRequest)
 end
 
 return module

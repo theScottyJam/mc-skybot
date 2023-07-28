@@ -147,32 +147,35 @@ if inputs.useMockLib then
     world = _G.mockComputerCraftApi.world.createDefault()
     _G.mockComputerCraftApi.setWorld(world)
     hookListeners = _G.mockComputerCraftApi.hookListeners
-end
 
-local step = 0
-local onStep = function()
-    if inputs.useMockLib and (_debug.showStepByStep or true) then
-        step = step + 1
-        if step < 163 then return end
+    local step = 0
+    local onStep = function(state)
+        if _debug.showStepByStep or true then
+            step = step + 1
+            if step < 350 then return end
 
-        -- _G.mockComputerCraftApi.present.displayMap(world, { minX = -8, maxX = 5, minY = 0, maxY = 999, minZ = -5, maxZ = 5 }, { showKey = false })
-        _G.mockComputerCraftApi.present.displayCentered(world)
-        _G.mockComputerCraftApi.present.inventory(world)
-        -- _G.mockComputerCraftApi.present.showTurtlePosition(world)
-        _debug.busySleep(0.05)
-        -- _debug.busySleep(0.02)
+            -- _G.mockComputerCraftApi.present.displayMap(world, { minX = -8, maxX = 5, minY = 0, maxY = 999, minZ = -5, maxZ = 5 }, { showKey = false })
+            _G.mockComputerCraftApi.present.displayCentered(world)
+            -- _G.mockComputerCraftApi.present.taskNames(state)
+            _G.mockComputerCraftApi.present.inventory(world)
+            -- _G.mockComputerCraftApi.present.showTurtlePosition(world)
+
+            _debug.busySleep(0.05)
+            -- _debug.busySleep(0.02)
+        end
     end
+    -- _debug.registerStepListener(onStep)
 end
-_debug.registerStepListener(onStep)
 
 if turtle == nil then
     print('Built-in APIs are missing. Did you intend to use --mock?')
-else
-    import('act/init.lua').registerGlobal(hookListeners)
-    local strategyModule = import('strategy/init.lua')
-    turtle.refuel(16)
-    strategyModule.run(onStep)
+    return
 end
+
+import('act/init.lua').registerGlobal(hookListeners)
+local strategyModule = import('strategy/init.lua')
+turtle.refuel(16)
+strategyModule.run(onStep)
 
 if inputs.useMockLib then
     mockComputerCraftApi.present.displayMap(world, { minX = -12, maxX = 9, minY = 0, maxY = 79, minZ = -7, maxZ = 6 }, { showKey = false })

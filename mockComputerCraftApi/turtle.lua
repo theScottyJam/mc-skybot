@@ -169,7 +169,8 @@ end
 
 -- PUBLIC FUNCTIONS --
 
-function module.craft()
+-- quantity is optional
+function module.craft(quantity)
     local currentWorld = _G.mockComputerCraftApi._currentWorld
     assertEquiped(currentWorld, 'minecraft:crafting_table')
     local inventory = currentWorld.turtle.inventory
@@ -220,6 +221,9 @@ function module.craft()
     end
 
     local amountToUse = util.minNumber(minStackSize, math.floor(64 / matchingRecipe.yields))
+    if quantity ~= nil then
+        amountToUse = util.minNumber(amountToUse, math.floor(quantity / matchingRecipe.yields))
+    end
 
     for i = 1, 16 do
         if inventory[i] ~= nil then
@@ -723,11 +727,11 @@ attemptToSmelt = function(currentWorld, furnaceCoord)
         furnaceCell.activelySmelting = 8
         fuel.quantity = fuel.quantity - 1
     elseif fuel.id == 'minecraft:planks' then
-        furnaceCell.activelySmelting = 6
-        if fuel.quantity < 4 then
-            error('Must have a multiple of 4 planks in the fuel slot. Any other number is currently not supported')
+        furnaceCell.activelySmelting = 3
+        if fuel.quantity < 2 then
+            error('Must have a multiple of 2 planks in the fuel slot. Any other number is currently not supported')
         end
-        fuel.quantity = fuel.quantity - 4
+        fuel.quantity = fuel.quantity - 2
     else
         error(
             'Invalid fuel type ' .. fuel.id .. ' found in fuel slot. ' ..

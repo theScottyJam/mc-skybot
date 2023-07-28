@@ -264,7 +264,7 @@ local waitForIceToMeltAndfinishCobblestoneGeneratorProject = function(opts)
     })
     return _G.act.project.create(taskRunnerId, {
         requiredResources = {
-            ['minecraft:bucket'] = { quantity=1, at='INVENTORY' }
+            ['minecraft:bucket'] = { quantity=1, at='INVENTORY', consumed=false }
         },
         preConditions = function(currentConditions)
             return currentConditions.mainIsland.startedCobblestoneGeneratorConstruction
@@ -274,7 +274,7 @@ end
 
 local buildFurnacesProject = function(opts)
     local inFrontOfChestLoc = opts.inFrontOfChestLoc
-    local furnaceMill = opts.furnaceMill
+    local inFrontOfFirstFurnaceLoc = opts.inFrontOfFirstFurnaceLoc
 
     local taskRunnerId = 'project:mainIsland:buildFurnaces'
     _G.act.task.registerTaskRunner(taskRunnerId, {
@@ -284,13 +284,16 @@ local buildFurnacesProject = function(opts)
         exit = function(commands, state, taskState, info)
             navigate.assertPos(state, inFrontOfChestLoc.cmps.pos)
             if info.complete then
-                furnaceMill.activate(commands, state)
+                location.registerPath(inFrontOfChestLoc, inFrontOfFirstFurnaceLoc, {
+                    inFrontOfChestLoc.cmps.coordAt({ right=1 }),
+                    inFrontOfChestLoc.cmps.coordAt({ right=1, up=1 }),
+                })
             end
         end,
         nextPlan = function(commands, state, taskState)
             local startPos = util.copyTable(state.turtlePos)
 
-            local aboveFirstFurnaceCmps = inFrontOfChestLoc.cmps.compassAt({ forward=1, right=2, up=2, face='right' })
+            local aboveFirstFurnaceCmps = inFrontOfFirstFurnaceLoc.cmps.compassAt({ forward=1, up=1, face='forward' })
             for i = 0, 2 do
                 navigate.moveToPos(commands, state, aboveFirstFurnaceCmps.posAt({ right = i }), { 'up', 'forward', 'right'})
                 highLevelCommands.placeItemDown(commands, state, 'minecraft:furnace')
@@ -308,13 +311,76 @@ local buildFurnacesProject = function(opts)
     })
 end
 
-local createFurnaceMill = function(opts)
-    local inFrontOfChestLoc = opts.inFrontOfChestLoc
+local smeltInitialCharcoalProject = function(opts)
+    local inFrontOfFirstFurnaceLoc = opts.inFrontOfFirstFurnaceLoc
+    local furnaceMill = opts.furnaceMill
+    local simpleCharcoalSmeltingMill = opts.simpleCharcoalSmeltingMill
 
-    local inFrontOfFirstFurnaceLoc = location.register(
-        -- faces the furnace
-        inFrontOfChestLoc.cmps.posAt({ forward=1, right=1, up=1, face='right' })
-    )
+    local taskRunnerId = 'project:mainIsland:smeltInitialCharcoal'
+    _G.act.task.registerTaskRunner(taskRunnerId, {
+        enter = function(commands, state, taskState)
+            location.travelToLocation(commands, state, inFrontOfFirstFurnaceLoc)
+        end,
+        exit = function(commands, state, taskState, info)
+            navigate.assertPos(state, inFrontOfFirstFurnaceLoc.cmps.pos)
+            if info.complete then
+                furnaceMill.activate(commands, state)
+                simpleCharcoalSmeltingMill.activate(commands, state)
+            end
+        end,
+        nextPlan = function(commands, state, taskState)
+            local startPos = util.copyTable(state.turtlePos)
+
+            -- Same values that were put in "requiredResources"
+            local logCount = 3
+            local plankCount = 2
+            -- How much charcoal to reserve for future smelting needs
+            local reserveCount = 1
+
+            -- Fill raw materials from the top
+            local aboveFirstFurnaceCmps = inFrontOfFirstFurnaceLoc.cmps.compassAt({ forward=1, up=1 })
+            navigate.moveToPos(commands, state, aboveFirstFurnaceCmps.posAt({ face='right' }), { 'up', 'right' })
+            highLevelCommands.dropItemDown(commands, state, 'minecraft:log', logCount)
+
+            navigate.moveToPos(commands, state, inFrontOfFirstFurnaceLoc.cmps.pos, { 'right', 'up' })
+
+            -- Fill fuel from the bottom
+            local belowFirstFurnaceCmps = inFrontOfFirstFurnaceLoc.cmps.compassAt({ forward=1, up=-1 })
+            navigate.moveToPos(commands, state, belowFirstFurnaceCmps.posAt({ face='right' }), { 'up', 'right' })
+            highLevelCommands.dropItemUp(commands, state, 'minecraft:planks', plankCount)
+
+            -- Wait and collect results from a furnace
+            highLevelCommands.findAndSelectEmptpySlot(commands, state)
+            while true do
+                commands.turtle.suckUp(state, 64)
+                local collected = commands.turtle.getItemCount()
+                if collected >= logCount then
+                    break
+                end
+                highLevelCommands.busyWait(commands, state)
+            end
+
+            -- Reserve some charcoal in the furnace for future use
+            highLevelCommands.dropItemUp(commands, state, 'minecraft:charcoal', reserveCount)
+
+            navigate.moveToPos(commands, state, inFrontOfFirstFurnaceLoc.cmps.pos, { 'right', 'up' })
+
+            return taskState, true
+        end,
+    })
+    return _G.act.project.create(taskRunnerId, {
+        requiredResources = {
+            -- Uses four a total of four logs. One as planks for fuel to smelt 3 charcoal.
+            -- Some of that charcoal will be used as future fuel, other will be used for torches.
+            ['minecraft:log'] = { quantity=3, at='INVENTORY' },
+            ['minecraft:planks'] = { quantity=2, at='INVENTORY' },
+        },
+    })
+end
+
+local createFurnaceMill = function(opts)
+    local inFrontOfFirstFurnaceLoc = opts.inFrontOfFirstFurnaceLoc
+
     local taskRunnerId = 'mill:mainIsland:furnace'
     _G.act.task.registerTaskRunner(taskRunnerId, {
         createTaskState = function()
@@ -335,13 +401,7 @@ local createFurnaceMill = function(opts)
             if util.tableSize(resourceRequests) ~= 1 then
                 error('Only supports smelting one item type at a time')
             end
-
-            local targetResource
-            local quantity
-            for targetResource_, quantity_ in pairs(resourceRequests) do
-                targetResource = targetResource_
-                quantity = quantity_
-            end
+            local targetResource, requestedQuantity = util.getAnEntry(resourceRequests)
 
             targetRecipe = util.findInArrayTable(recipes.smelting, function(recipe)
                 return recipe.to == targetResource
@@ -349,12 +409,12 @@ local createFurnaceMill = function(opts)
             sourceResource = targetRecipe.from
 
             -- I don't have inventory management techniques in place to handle a larger quantity
-            if quantity > 64 * 8 then error('Can not handle that large of a quantity yet') end
+            if requestedQuantity > 64 * 8 then error('Can not handle that large of a quantity yet') end
 
             -- Index of first furnace that has 32 or more items being smelted, or nil if there is no such furnace.
             -- Alternatively, if there isn't a need to restock, this is the index of the furnace with the most content.
             local furnaceIndexToWaitOn = nil
-            local restockRequired = taskState.collected + util.sum(taskState.currentlyInFurnaces) < quantity
+            local restockRequired = taskState.collected + util.sum(taskState.currentlyInFurnaces) < requestedQuantity
             if restockRequired then
                 for i = 1, 3 do
                     if taskState.currentlyInFurnaces[i] > 32 then
@@ -370,10 +430,10 @@ local createFurnaceMill = function(opts)
             if furnaceIndexToWaitOn == nil then
                 -- Calculate items to place
                 local willBeInFurnaces = util.copyTable(taskState.currentlyInFurnaces)
-                local willBeRemaining = quantity - newTaskState.collected - util.sum(willBeInFurnaces)
+                local willBeRemaining = requestedQuantity - newTaskState.collected - util.sum(willBeInFurnaces)
                 while true do
-                    local minStackValue, minStackIndex = util.minNumber(table.unpack(willBeInFurnaces))
-                    if minStackValue > 64 - 8 then break end
+                    local minStackIndex = util.indexOfMinNumber(table.unpack(willBeInFurnaces))
+                    if willBeInFurnaces[minStackIndex] > 64 - 8 then break end
                     if willBeRemaining == 0 then break end
                     local adding = util.minNumber(willBeRemaining, 8)
                     willBeInFurnaces[minStackIndex] = willBeInFurnaces[minStackIndex] + adding
@@ -442,29 +502,132 @@ local createFurnaceMill = function(opts)
                 end
             end
 
-            return newTaskState, newTaskState.collected == quantity
+            return newTaskState, newTaskState.collected == requestedQuantity
         end,
     })
 
-    local requiredResourcesPerUnit = {}
+    local whatIsSmeltedFromWhat = {}
     for _, recipe in ipairs(recipes.smelting) do
-        requiredResourcesPerUnit[recipe.to] = {
-            [recipe.from] = { quantity=1, at='INVENTORY' },
-            ['minecraft:charcoal'] = { quantity=1/8, at='INVENTORY' },
-        }
+        whatIsSmeltedFromWhat[recipe.to] = recipe.from
     end
 
     return _G.act.mill.create(taskRunnerId, {
-        requiredResourcesPerUnit = requiredResourcesPerUnit,
-        supplies = util.mapArrayTable(recipes.smelting, function(recipe)
-            return recipe.to
-        end),
-        onActivated = function()
-            location.registerPath(inFrontOfChestLoc, inFrontOfFirstFurnaceLoc, {
-                inFrontOfChestLoc.cmps.coordAt({ right=1 }),
-                inFrontOfChestLoc.cmps.coordAt({ right=1, up=1 }),
-            })
-        end
+        getRequiredResources = function(resourceRequest)
+            if whatIsSmeltedFromWhat[resourceRequest.resourceName] == nil then
+                error('Unreachable: Requested an invalid resource')
+            end
+
+            local sourceResource = whatIsSmeltedFromWhat[resourceRequest.resourceName]
+            local quantity = resourceRequest.quantity
+
+            return {
+                [sourceResource] = quantity,
+                ['minecraft:charcoal'] = math.ceil(quantity / 8),
+            }
+        end,
+        supplies = util.filterArrayTable(
+            util.mapArrayTable(recipes.smelting, function(recipe)
+                return recipe.to
+            end),
+            function(suppliedResource)
+                return suppliedResource ~= 'minecraft:charcoal'
+            end
+        )
+    })
+end
+
+createSimpleCharcoalSmeltingMill = function(opts)
+    local inFrontOfFirstFurnaceLoc = opts.inFrontOfFirstFurnaceLoc
+
+    -- Figures out the number of logs that will be used in
+    -- order to produce the desired number of charcoal
+    function calcAmountToSmelt(quantityRequested)
+        -- For every 7 charcoal you want, an extra log will be needed
+        -- to also convert into fuel and pay back the spent fuel.
+        local quantityWithExtra = quantityRequested * 8 / 7
+        -- Round to a multiple of 8
+        local roundedQuantity = math.ceil(quantityWithExtra / 8) * 8
+        return roundedQuantity
+    end
+
+    local taskRunnerId = 'mill:mainIsland:simpleCharcoalSmeltingMill'
+    _G.act.task.registerTaskRunner(taskRunnerId, {
+        createTaskState = function()
+            return {
+                quantityInFirstFurnace = 0,
+                collected = 0,
+            }
+        end,
+        enter = function(commands, state, taskState)
+            location.travelToLocation(commands, state, inFrontOfFirstFurnaceLoc)
+        end,
+        exit = function(commands, state, taskState)
+            navigate.moveToPos(commands, state, inFrontOfFirstFurnaceLoc.cmps.pos, { 'right', 'forward', 'up' })
+        end,
+        nextPlan = function(commands, state, taskState, resourceRequests)
+            local newTaskState = util.copyTable(taskState)
+            local requestedQuantity = resourceRequests['minecraft:charcoal']
+
+            -- I don't have inventory management techniques in place to handle a larger quantity
+            if requestedQuantity > 64 * 8 then error('Can not handle that large of a quantity yet') end
+
+            local logsBeingSmelted = calcAmountToSmelt(requestedQuantity)
+
+            -- Insert raw materials and fuel
+            if newTaskState.quantityInFirstFurnace == 0 then
+                -- Fill fuel from the bottom
+                local belowFirstFurnaceCmps = inFrontOfFirstFurnaceLoc.cmps.compassAt({ forward=1, up=-1 })
+                navigate.moveToPos(commands, state, belowFirstFurnaceCmps.pos, { 'up', 'forward', 'right' })
+                highLevelCommands.dropItemUp(commands, state, 'minecraft:charcoal', 1)
+
+                navigate.moveToCoord(commands, state, inFrontOfFirstFurnaceLoc.cmps.pos, { 'forward', 'right', 'up' })
+
+                -- Fill raw materials from the top
+                local aboveFirstFurnaceCmps = inFrontOfFirstFurnaceLoc.cmps.compassAt({ forward=1, up=1 })
+                navigate.moveToPos(commands, state, aboveFirstFurnaceCmps.pos, { 'up', 'right' })
+                highLevelCommands.dropItemDown(commands, state, 'minecraft:log', 8)
+
+                navigate.moveToPos(commands, state, inFrontOfFirstFurnaceLoc.cmps.pos, { 'forward', 'right', 'up' })
+
+                newTaskState.quantityInFirstFurnace = 8
+
+            -- Wait and collect results from a furnace
+            else
+                -- Move into position if needed
+                local belowFirstFurnaceCmps = inFrontOfFirstFurnaceLoc.cmps.compassAt({ forward=1, up=-1 })
+                navigate.moveToPos(commands, state, belowFirstFurnaceCmps.pos, { 'up', 'forward', 'right' })
+
+                highLevelCommands.findAndSelectEmptpySlot(commands, state)
+                local collectionSuccess = commands.turtle.suckUp(state, 64)
+
+                if collectionSuccess then
+                    local amountSucked = commands.turtle.getItemCount(state)
+
+                    -- Inventory organization is a bit overkill - attempting to stack the just-found item
+                    -- would have been sufficient. I just didn't want to make a function for that yet.
+                    highLevelCommands.organizeInventory(commands, state)
+
+                    newTaskState.quantityInFirstFurnace = newTaskState.quantityInFirstFurnace - amountSucked
+                    newTaskState.collected = newTaskState.collected + amountSucked
+                else
+                    highLevelCommands.busyWait(commands, state)
+                end
+            end
+
+            return newTaskState, newTaskState.collected >= logsBeingSmelted
+        end,
+    })
+
+    return _G.act.mill.create(taskRunnerId, {
+        getRequiredResources = function (resourceRequest)
+            if resourceRequest.resourceName ~= 'minecraft:charcoal' then
+                error('Only charcoal is supported')
+            end
+            return {
+                ['minecraft:log'] = calcAmountToSmelt(resourceRequest.quantity),
+            }
+        end,
+        supplies = {'minecraft:charcoal'},
     })
 end
 
@@ -602,20 +765,24 @@ local createCraftingMills = function()
             end,
         })
         local mill = _G.act.mill.create(taskRunnerId, {
-            requiredResourcesPerUnit = (function ()
-                local craftQuantity = 1 / recipe.yields
+            getRequiredResources = function (resourceRequest)
+                if resourceRequest.resourceName ~= recipe.to then
+                    error('Unreachable: Requested an invalid resource')
+                end
+
+                local craftQuantity = math.ceil(resourceRequest.quantity / recipe.yields)
 
                 local requirements = {}
                 for _, row in pairs(recipe.from) do
                     for _, itemId in pairs(row) do
                         if requirements[itemId] == nil then
-                            requirements[itemId] = { quantity=0, at='INVENTORY' }
+                            requirements[itemId] = 0
                         end
-                        requirements[itemId].quantity = requirements[itemId].quantity + craftQuantity
+                        requirements[itemId] = requirements[itemId] + craftQuantity
                     end
                 end
-                return { [recipe.to] = requirements }
-            end)(),
+                return requirements
+            end,
             supplies = { recipe.to },
         })
         table.insert(millList, mill)
@@ -681,14 +848,21 @@ function module.initEntity()
 
     -- homeLoc is right above the bedrock
     local homeLoc = location.register(bedrockCmps.posAt({ up=3 }))
+    -- in front of chest, but facing north
     local inFrontOfChestLoc = location.register(homeLoc.cmps.posAt({ right=3 }))
+    -- facing away from the chest, with the disk drive to the right
     local initialLoc = location.register(inFrontOfChestLoc.cmps.posAt({ face='left' }))
+    local inFrontOfFirstFurnaceLoc = location.register(
+        -- faces the furnace
+        inFrontOfChestLoc.cmps.posAt({ forward=1, right=1, up=1, face='right' })
+    )
     location.registerPath(inFrontOfChestLoc, homeLoc)
     location.registerPath(inFrontOfChestLoc, initialLoc)
 
     local cobblestoneGeneratorMill = createCobblestoneGeneratorMill({ homeLoc = homeLoc })
     local startingIslandTreeFarm = createStartingIslandTreeFarm({ bedrockPos = bedrockCmps.pos, homeLoc = homeLoc })
-    local furnaceMill = createFurnaceMill({ inFrontOfChestLoc = inFrontOfChestLoc })
+    local furnaceMill = createFurnaceMill({ inFrontOfFirstFurnaceLoc = inFrontOfFirstFurnaceLoc })
+    local simpleCharcoalSmeltingMill = createSimpleCharcoalSmeltingMill({ inFrontOfFirstFurnaceLoc = inFrontOfFirstFurnaceLoc })
     local craftingMills = createCraftingMills()
 
     return {
@@ -701,7 +875,8 @@ function module.initEntity()
         startBuildingCobblestoneGenerator = startBuildingCobblestoneGeneratorProject({ homeLoc = homeLoc, craftingMills = craftingMills }),
         harvestInitialTreeAndPrepareTreeFarm = harvestInitialTreeAndPrepareTreeFarmProject({ bedrockPos = bedrockCmps.pos, homeLoc = homeLoc, startingIslandTreeFarm = startingIslandTreeFarm }),
         waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGeneratorProject({ homeLoc = homeLoc, cobblestoneGeneratorMill = cobblestoneGeneratorMill }),
-        buildFurnaces = buildFurnacesProject({ inFrontOfChestLoc = inFrontOfChestLoc, furnaceMill = furnaceMill }),
+        buildFurnaces = buildFurnacesProject({ inFrontOfChestLoc = inFrontOfChestLoc, inFrontOfFirstFurnaceLoc = inFrontOfFirstFurnaceLoc }),
+        smeltInitialCharcoal = smeltInitialCharcoalProject({ inFrontOfFirstFurnaceLoc = inFrontOfFirstFurnaceLoc, furnaceMill = furnaceMill, simpleCharcoalSmeltingMill = simpleCharcoalSmeltingMill }),
         createTower1 = createTowerProject({ homeLoc = homeLoc, towerNumber = 1 }),
         createTower2 = createTowerProject({ homeLoc = homeLoc, towerNumber = 2 }),
         createTower3 = createTowerProject({ homeLoc = homeLoc, towerNumber = 3 }),

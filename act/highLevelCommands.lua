@@ -147,7 +147,7 @@ end
 function module.craft(commands, state, recipe, maxQuantity)
     local strategy = _G.act.strategy
 
-    maxQuantity = maxQuantity or 999
+    maxQuantity = maxQuantity or 99999
     if util.tableSize(recipe.from) == 0 then error('Empty recipe') end
 
     local numOfItemsInChest = 0
@@ -273,7 +273,7 @@ function module.craft(commands, state, recipe, maxQuantity)
     commands.turtle.select(state, 1)
 
     commands.turtle.select(state, 4)
-    local quantityUsing = minStackSize
+    local quantityUsing = util.minNumber(minStackSize, math.ceil(maxQuantity / recipe.yields))
     while quantityUsing > 0 do
         commands.turtle.craft(state, util.minNumber(64, quantityUsing * recipe.yields))
         quantityUsing = quantityUsing - commands.turtle.getItemCount(state) / recipe.yields
@@ -401,7 +401,7 @@ function module.waitUntilDetectBlock(commands, state, opts)
             break
         end
 
-        turtle.turnRight() -- Wait for a bit
+        commands.turtle.turnRight(state) -- Wait for a bit
     end
 end
 

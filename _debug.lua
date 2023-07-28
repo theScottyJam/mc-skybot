@@ -29,9 +29,9 @@ function debugModule.registerStepListener(onStep)
     onStepListener = onStep
 end
 
-function debugModule.triggerStepListener()
+function debugModule.triggerStepListener(state)
     if onStepListener ~= nil then
-        onStepListener()
+        onStepListener(state)
     end
 end
 

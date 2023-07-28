@@ -122,6 +122,14 @@ function module.paired(curTable)
     end
 end
 
+-- Iterates over the table and returns the first key/value pair found.
+function module.getAnEntry(table)
+    for key, value in pairs(table) do
+        return key, value
+    end
+    error('Failed to find a key in a provided object')
+end
+
 function module.countOccurancesOfValuesInTable(curTable)
     local occurancesOfValues = {}
     for key, value in pairs(curTable) do
@@ -160,7 +168,7 @@ function module.joinArrayTable(curTable, sep)
     return result
 end
 
-function module.minNumber(first, ...)
+function module.indexOfMinNumber(first, ...)
     local min = first
     local minIndex = 1
     for i, value in ipairs({ ... }) do
@@ -169,7 +177,13 @@ function module.minNumber(first, ...)
             minIndex = i + 1
         end
     end
-    return min, minIndex
+    return minIndex
+end
+
+function module.minNumber(...)
+    local values = { ... }
+    local minIndex = module.indexOfMinNumber(table.unpack(values))
+    return values[minIndex]
 end
 
 function module.maxNumber(first, ...)

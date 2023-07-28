@@ -25,6 +25,7 @@ initStrategy = function()
             mainIsland.harvestInitialTreeAndPrepareTreeFarm,
             mainIsland.waitForIceToMeltAndfinishCobblestoneGenerator,
             mainIsland.buildFurnaces,
+            mainIsland.smeltInitialCharcoal,
             debugProject(mainIsland.homeLoc),
             -- mainIsland.createTower4,
             -- mainIsland.createTower3,
@@ -53,7 +54,8 @@ debugProject = function(homeLoc)
         nextPlan = function(commands, state, taskState)
             -- local startPos = util.copyTable(planner.turtlePos)
             -- local currentWorld = _G.mockComputerCraftApi._currentWorld
-            _G._debug.debugCommand(commands, state, { action='obtain', itemId='minecraft:charcoal', quantity=64 })
+            -- _G._debug.debugCommand(commands, state, { action='obtain', itemId='minecraft:charcoal', quantity=64 })
+            _G._debug.debugCommand(commands, state, { action='obtain', itemId='minecraft:log', quantity=64 })
             _G._debug.showStepByStep = true
 
             -- navigate.moveToPos(planner, startPos)

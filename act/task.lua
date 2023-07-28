@@ -76,54 +76,68 @@ function module.collectResources(state, initialProject, resourcesInInventory_)
 
     -- Collect the nested requirement tree into a flat mapping (resourceMap)
     -- Factors in your inventory's contents to figure out what's needed.
-    local requiredResourcesToProcess = {
-        initialProject.requiredResources
-    }
-    while #requiredResourcesToProcess > 0 do
-        local requiredResources = table.remove(requiredResourcesToProcess)
-        for resourceName, requirementInfo in pairs(requiredResources) do
-            if requirementInfo.at ~= 'INVENTORY' then error('Only at="INVENTORY" is supported right now.') end
 
-            -- Factor in quantities from the inventory
-            local contributionFromInventory = 0
-            if resourcesInInventory[resourceName] ~= nil then
-                contributionFromInventory = util.minNumber(
-                    resourcesInInventory[resourceName],
-                    requirementInfo.quantity
+    local requiredResourcesToProcess = util.copyTable(initialProject.requiredResources)
+    while util.tableSize(requiredResourcesToProcess) > 0 do
+        local resourceName, requiredQuantity = util.getAnEntry(requiredResourcesToProcess)
+        requiredResourcesToProcess[resourceName] = nil
+        -- Factor in quantities from the inventory
+        local contributionFromInventory = 0
+        if resourcesInInventory[resourceName] ~= nil then
+            contributionFromInventory = util.minNumber(
+                resourcesInInventory[resourceName],
+                requiredQuantity
+            )
+            resourcesInInventory[resourceName] = resourcesInInventory[resourceName] - contributionFromInventory
+            if resourcesInInventory[resourceName] == 0 then resourcesInInventory[resourceName] = nil end
+        end
+
+        -- If, after factoring in the inventory, there's still requirements to be fulfilled...
+        if contributionFromInventory < requiredQuantity then
+            if state.resourceSuppliers[resourceName] == nil then
+                error(
+                    'Attempted to start a task that requires the resource '..resourceName..', '..
+                    'but there are no registered sources for this resource, nor is there enough of it on hand.'
                 )
-                resourcesInInventory[resourceName] = resourcesInInventory[resourceName] - contributionFromInventory
-                if resourcesInInventory[resourceName] == 0 then resourcesInInventory[resourceName] = nil end
+            end
+            local supplier = state.resourceSuppliers[resourceName][1]
+            if supplier.type ~= 'mill' then error('Invalid supplier type "'..tostring(supplier.type)..'" found when trying to fetch the resource '..resourceName) end
+
+            if resourceMap[resourceName] == nil then
+                local subTaskRunner = module.lookupTaskRunner(supplier.taskRunnerId)
+                resourceMap[resourceName] = {
+                    quantity = 0,
+                    taskRunner = subTaskRunner,
+                }
             end
 
-            -- If, after factoring in the inventory, there's still requirements to be fulfilled...
-            if contributionFromInventory < requirementInfo.quantity then
-                if state.resourceSuppliers[resourceName] == nil then
-                    error(
-                        'Attempted to start a task that requires the resource '..resourceName..', '..
-                        'but there are no registered sources for this resource, nor is there enough of it on hand.'
-                    )
+            -- This logic isn't as effecient as it could be.
+            -- If we reach this point and are trying to figure out what it costs to obtain 5 of X resource,
+            -- but we've already reached this point previously calculating the cost for 3 X resources,
+            -- then we're going to end up calculating the dependent resource cost of gathering requirements
+            -- for 3 X resource followed by 5 X resources, instead of just doing 8 X resources.
+            --
+            -- It's assumed that _G.act.mill.getRequiredResources() will only return numbers that are
+            -- relatively cheaper as you gather in bulk. If this is ever not the case, then this ineffeciency
+            -- could turn into a real problem.
+            --
+            -- Right now, the innefeciency just means it'll gather a little more extra dependent resources,
+            -- meaning we'll get a little more for storage. When it comes time to actually go and gather
+            -- a dependency for the X resource, it'll still go and gather the dependent resource in one go,
+            -- not broken up over multiple trips.
+            local resourceRequest = { resourceName = resourceName, quantity = requiredQuantity }
+            local requiredResources = _G.act.mill.getRequiredResources(
+                supplier.taskRunnerId,
+                resourceRequest
+            )
+            for resourceName, quantity in pairs(requiredResources) do
+                if requiredResourcesToProcess[resourceName] == nil then
+                    requiredResourcesToProcess[resourceName] = 0
                 end
-                local supplier = state.resourceSuppliers[resourceName][1]
-                if supplier.type ~= 'mill' then error('Invalid supplier type') end
-
-                if resourceMap[resourceName] == nil then
-                    local subTaskRunner = module.lookupTaskRunner(supplier.taskRunnerId)
-                    resourceMap[resourceName] = {
-                        quantity = 0,
-                        taskRunner = subTaskRunner,
-                        requiredResourcesPerUnit = supplier.requiredResourcesPerUnit,
-                    }
-                end
-
-                local resourceRequest = { [resourceName] = requirementInfo.quantity }
-                local requiredResources = _G.act.mill.calculateRequredResources(
-                    supplier.requiredResourcesPerUnit,
-                    resourceRequest
-                )
-                table.insert(requiredResourcesToProcess, requiredResources)
-
-                resourceMap[resourceName].quantity = resourceMap[resourceName].quantity + requirementInfo.quantity
+                requiredResourcesToProcess[resourceName] = requiredResourcesToProcess[resourceName] + quantity
             end
+
+            resourceMap[resourceName].quantity = resourceMap[resourceName].quantity + requiredQuantity
         end
     end
 
@@ -137,7 +151,11 @@ function module.collectResources(state, initialProject, resourcesInInventory_)
     for resourceName, resourceInfo in pairs(resourceMap) do
 
         local requirementsFulfilled = true
-        for subResourceName, _ in pairs(resourceInfo.requiredResourcesPerUnit[resourceName]) do
+        local requiredResources = _G.act.mill.getRequiredResources(
+            resourceInfo.taskRunner.id,
+            { resourceName = resourceName, quantity = resourceInfo.quantity }
+        )
+        for subResourceName, _ in pairs(requiredResources) do
             if resourceMap[subResourceName] ~= nil then
                 requirementsFulfilled = false
                 break

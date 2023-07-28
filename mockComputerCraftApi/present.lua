@@ -143,4 +143,10 @@ function module.showTurtlePosition(world)
     print('Turtle pos: ('..turtlePos.x..','..turtlePos.y..','..turtlePos.z..') '..turtlePos.face)
 end
 
+function module.taskNames(state)
+    print('primary task: '..(state.primaryTask and state.primaryTask.taskRunnerId or 'nil'))
+    print('interrupt task: '..(state.interruptTask and state.interruptTask.taskRunnerId or 'nil'))
+    print()
+end
+
 return module
