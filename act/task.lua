@@ -5,6 +5,7 @@
 local util = import('util.lua')
 local stateModule = import('./_state.lua')
 local commands = import('./_commands.lua')
+local highLevelCommands = import('./highLevelCommands.lua')
 
 local module = {}
 
@@ -68,6 +69,14 @@ function module.registerTaskRunner(id, opts)
     return id
 end
 
+-- What to do when there's nothing to do
+local busyWaitTaskRunner = module.registerTaskRunner('act:busyWait', {
+    nextPlan = function(commands, state, taskState)
+        highLevelCommands.busyWait(commands, state)
+        return taskState, true
+    end,
+})
+
 -- Returns a task that will collect some of the required resources, or nil if there
 -- aren't any requirements left to fulfill.
 function module.collectResources(state, initialProject, resourcesInInventory_)
@@ -93,7 +102,9 @@ function module.collectResources(state, initialProject, resourcesInInventory_)
         end
 
         -- If, after factoring in the inventory, there's still requirements to be fulfilled...
-        if contributionFromInventory < requiredQuantity then
+        local insuffecientResourcesOnHand = contributionFromInventory < requiredQuantity
+
+        if insuffecientResourcesOnHand then
             if state.resourceSuppliers[resourceName] == nil then
                 error(
                     'Attempted to start a task that requires the resource '..resourceName..', '..
@@ -101,43 +112,60 @@ function module.collectResources(state, initialProject, resourcesInInventory_)
                 )
             end
             local supplier = state.resourceSuppliers[resourceName][1]
-            if supplier.type ~= 'mill' then error('Invalid supplier type "'..tostring(supplier.type)..'" found when trying to fetch the resource '..resourceName) end
 
-            if resourceMap[resourceName] == nil then
-                local subTaskRunner = module.lookupTaskRunner(supplier.taskRunnerId)
-                resourceMap[resourceName] = {
-                    quantity = 0,
-                    taskRunner = subTaskRunner,
-                }
-            end
-
-            -- This logic isn't as effecient as it could be.
-            -- If we reach this point and are trying to figure out what it costs to obtain 5 of X resource,
-            -- but we've already reached this point previously calculating the cost for 3 X resources,
-            -- then we're going to end up calculating the dependent resource cost of gathering requirements
-            -- for 3 X resource followed by 5 X resources, instead of just doing 8 X resources.
-            --
-            -- It's assumed that _G.act.mill.getRequiredResources() will only return numbers that are
-            -- relatively cheaper as you gather in bulk. If this is ever not the case, then this ineffeciency
-            -- could turn into a real problem.
-            --
-            -- Right now, the innefeciency just means it'll gather a little more extra dependent resources,
-            -- meaning we'll get a little more for storage. When it comes time to actually go and gather
-            -- a dependency for the X resource, it'll still go and gather the dependent resource in one go,
-            -- not broken up over multiple trips.
-            local resourceRequest = { resourceName = resourceName, quantity = requiredQuantity }
-            local requiredResources = _G.act.mill.getRequiredResources(
-                supplier.taskRunnerId,
-                resourceRequest
-            )
-            for resourceName, quantity in pairs(requiredResources) do
-                if requiredResourcesToProcess[resourceName] == nil then
-                    requiredResourcesToProcess[resourceName] = 0
+            if supplier.type == 'farm' then
+                if resourceMap[resourceName] == nil then
+                    resourceMap[resourceName] = {
+                        type = 'farm'
+                    }
+                else
+                    -- If this throws, it means there was a conflict, and some other non-farm action
+                    -- got registered as being capable of supplying this resource. But at the moment,
+                    -- having multiple suppliers for a single resource is not supported.
+                    util.assert(resourceMap[resourceName].type == 'farm')
                 end
-                requiredResourcesToProcess[resourceName] = requiredResourcesToProcess[resourceName] + quantity
-            end
+            elseif supplier.type == 'mill' then
+                if resourceMap[resourceName] == nil then
+                    local subTaskRunner = module.lookupTaskRunner(supplier.taskRunnerId)
+                    resourceMap[resourceName] = {
+                        type = 'mill',
+                        quantity = 0,
+                        taskRunner = subTaskRunner,
+                    }
+                else
+                    util.assert(resourceMap[resourceName].type == 'mill')
+                end
 
-            resourceMap[resourceName].quantity = resourceMap[resourceName].quantity + requiredQuantity
+                -- This logic isn't as effecient as it could be.
+                -- If we reach this point and are trying to figure out what it costs to obtain 5 of X resource,
+                -- but we've already reached this point previously calculating the cost for 3 X resources,
+                -- then we're going to end up calculating the dependent resource cost of gathering requirements
+                -- for 3 X resource followed by 5 X resources, instead of just doing 8 X resources.
+                --
+                -- It's assumed that _G.act.mill.getRequiredResources() will only return numbers that are
+                -- relatively cheaper as you gather in bulk. If this is ever not the case, then this ineffeciency
+                -- could turn into a real problem.
+                --
+                -- Right now, the innefeciency just means it'll gather a little more extra dependent resources,
+                -- meaning we'll get a little more for storage. When it comes time to actually go and gather
+                -- a dependency for the X resource, it'll still go and gather the dependent resource in one go,
+                -- not broken up over multiple trips.
+                local resourceRequest = { resourceName = resourceName, quantity = requiredQuantity }
+                local requiredResources = _G.act.mill.getRequiredResources(
+                    supplier.taskRunnerId,
+                    resourceRequest
+                )
+                for resourceName, quantity in pairs(requiredResources) do
+                    if requiredResourcesToProcess[resourceName] == nil then
+                        requiredResourcesToProcess[resourceName] = 0
+                    end
+                    requiredResourcesToProcess[resourceName] = requiredResourcesToProcess[resourceName] + quantity
+                end
+
+                resourceMap[resourceName].quantity = resourceMap[resourceName].quantity + requiredQuantity
+            else
+                error('Invalid supplier type "'..tostring(supplier.type)..'" found when trying to fetch the resource '..resourceName)
+            end
         end
     end
 
@@ -150,24 +178,28 @@ function module.collectResources(state, initialProject, resourcesInInventory_)
     -- Right now it uses the first found requirement. In the future we could use the closest task instead.
     for resourceName, resourceInfo in pairs(resourceMap) do
 
-        local requirementsFulfilled = true
-        local requiredResources = _G.act.mill.getRequiredResources(
-            resourceInfo.taskRunner.id,
-            { resourceName = resourceName, quantity = resourceInfo.quantity }
-        )
-        for subResourceName, _ in pairs(requiredResources) do
-            if resourceMap[subResourceName] ~= nil then
-                requirementsFulfilled = false
-                break
+        if resourceInfo.type == 'mill' then
+            local requirementsFulfilled = true
+            local requiredResources = _G.act.mill.getRequiredResources(
+                resourceInfo.taskRunner.id,
+                { resourceName = resourceName, quantity = resourceInfo.quantity }
+            )
+            for subResourceName, _ in pairs(requiredResources) do
+                if resourceMap[subResourceName] ~= nil then
+                    requirementsFulfilled = false
+                    break
+                end
             end
-        end
 
-        if requirementsFulfilled then
-            return module.create(resourceInfo.taskRunner.id, { [resourceName] = resourceInfo.quantity })
+            if requirementsFulfilled then
+                return module.create(resourceInfo.taskRunner.id, { [resourceName] = resourceInfo.quantity })
+            end
         end
     end
 
-    error('Unreachable: Failed to find a dependent task that did not have any requirements.')
+    -- It's assumed we got to this point because there is no active "mill" work that could be done,
+    -- but there are farms we need to wait on.
+    return module.create(busyWaitTaskRunner)
 end
 
 -- args is optional
