@@ -53,6 +53,7 @@ local harvestInitialTreeAndPrepareTreeFarmProject = function(opts)
             local startPos = util.copyTable(state.turtlePos)
 
             local bottomTreeLogCmps = bedrockCmps.compassAt({ forward=-4, right=-1, up=3 })
+            -- aboveTreeCmps is right above the floating dirt
             local aboveTreeCmps = bottomTreeLogCmps.compassAt({ up=9 })
             local aboveFutureTree1Cmps = aboveTreeCmps.compassAt({ right=-2 })
             local aboveFutureTree2Cmps = aboveTreeCmps.compassAt({ right=4 })
@@ -68,6 +69,9 @@ local harvestInitialTreeAndPrepareTreeFarmProject = function(opts)
 
             -- Harvest tree
             navigate.moveToCoord(commands, state, aboveTreeCmps.coord, { 'up', 'forward', 'right' })
+            -- Move up one more, since harvestTreeFromAbove() expects you to have a space between the floating
+            -- dirt and you, so a torch could be there if needed.
+            commands.turtle.up(state)
             harvestTreeFromAbove(commands, state, { bottomLogPos = bottomTreeLogCmps.pos })
 
             -- Prepare sapling planting area
@@ -103,7 +107,7 @@ harvestTreeFromAbove = function(commands, state, opts)
     local bottomLogPos = opts.bottomLogPos
     local bottomLogCmps = space.createCompass(bottomLogPos)
 
-    navigate.assertCoord(state, bottomLogCmps.coordAt({ up=9 }))
+    navigate.assertCoord(state, bottomLogCmps.coordAt({ up=10 }))
     navigate.face(commands, state, bottomLogCmps.facingAt({ face='forward' }))
     commands.turtle.forward(state)
 
@@ -374,6 +378,52 @@ local smeltInitialCharcoalProject = function(opts)
             -- Some of that charcoal will be used as future fuel, other will be used for torches.
             ['minecraft:log'] = { quantity=3, at='INVENTORY' },
             ['minecraft:planks'] = { quantity=2, at='INVENTORY' },
+        },
+    })
+end
+
+local torchUpIslandProject = function(opts)
+    local inFrontOfChestLoc = opts.inFrontOfChestLoc
+
+    local taskRunnerId = 'project:mainIsland:torchUpIsland'
+    _G.act.task.registerTaskRunner(taskRunnerId, {
+        enter = function(commands, state, taskState)
+            location.travelToLocation(commands, state, inFrontOfChestLoc)
+        end,
+        exit = function(commands, state, taskState, info)
+            navigate.assertPos(state, inFrontOfChestLoc.cmps.pos)
+        end,
+        nextPlan = function(commands, state, taskState)
+            -- torch 1 is directly left of the disk drive
+            local torch1Cmps = inFrontOfChestLoc.cmps.compassAt({ forward=1, right=-1, up=1 })
+            navigate.moveToPos(commands, state, torch1Cmps.pos, {'right', 'forward', 'up'})
+            highLevelCommands.placeItemDown(commands, state, 'minecraft:torch')
+
+            -- torch 2 is on the left side of the island
+            local torch2Cmps = inFrontOfChestLoc.cmps.compassAt({ forward=-1, right=-4, up=1 })
+            navigate.moveToPos(commands, state, torch2Cmps.pos, {'right', 'forward', 'up'})
+            highLevelCommands.placeItemDown(commands, state, 'minecraft:torch')
+
+            -- torch 3 is between the trees
+            local torch3Cmps = inFrontOfChestLoc.cmps.compassAt({ forward=-3, right=-2, up=1 })
+            navigate.moveToPos(commands, state, torch3Cmps.pos, {'right', 'forward', 'up'})
+            highLevelCommands.placeItemDown(commands, state, 'minecraft:torch')
+
+            -- torch 4 is on dirt above where the trees grow
+            local betweenTreesCmps = inFrontOfChestLoc.cmps.compassAt({ forward=-4, right=-3, up=1 })
+            navigate.moveToPos(commands, state, betweenTreesCmps.pos, {'right', 'forward', 'up'})
+            local torch4Cmps = inFrontOfChestLoc.cmps.compassAt({ forward=-4, up=10 })
+            navigate.moveToPos(commands, state, torch4Cmps.pos, {'up', 'forward', 'right'})
+            highLevelCommands.placeItemDown(commands, state, 'minecraft:torch')
+
+            navigate.moveToPos(commands, state, inFrontOfChestLoc.cmps.pos, {'forward', 'right', 'up'})
+
+            return taskState, true
+        end,
+    })
+    return _G.act.project.create(taskRunnerId, {
+        requiredResources = {
+            ['minecraft:torch'] = { quantity=4, at='INVENTORY' },
         },
     })
 end
@@ -695,7 +745,7 @@ local createStartingIslandTreeFarm = function(opts)
                 if blockIsLog then
                     local bottomLogCmps = inFrontOfTreeCmps.compassAt({ forward=1 })
                     navigate.moveToCoord(commands, state, inFrontOfTreeCmps.coordAt({ forward=-2 }))
-                    navigate.moveToPos(commands, state, bottomLogCmps.posAt({ up=9 }), { 'up', 'forward', 'right' })
+                    navigate.moveToPos(commands, state, bottomLogCmps.posAt({ up=10 }), { 'up', 'forward', 'right' })
                     harvestTreeFromAbove(commands, state, { bottomLogPos = bottomLogCmps.pos })
                     navigate.moveToPos(commands, state, inFrontOfTreeCmps.pos)
                     highLevelCommands.placeItem(commands, state, 'minecraft:sapling', { allowMissing = true })
@@ -716,7 +766,12 @@ local createStartingIslandTreeFarm = function(opts)
         end,
     })
     return _G.act.farm.register(taskRunnerId, {
-        supplies = { 'minecraft:log', 'minecraft:sapling', 'minecraft:apple', 'minecraft:stick' },
+        supplies = {
+            'minecraft:log',
+            'minecraft:sapling',
+            'minecraft:apple',
+            -- 'minecraft:stick',
+        },
         calcExpectedYield = function(timeSpan)
             local checkTime = 20
             local treeHarvestTime = 140
@@ -734,7 +789,10 @@ local createStartingIslandTreeFarm = function(opts)
                     ['minecraft:log'] = createCurve({ maxY = 2 * logsPerTree })(timeSpan),
                     ['minecraft:sapling'] = createCurve({ maxY = 2 * leavesOnTree * chanceOfSaplingDrop })(timeSpan),
                     ['minecraft:apple'] = createCurve({ maxY = 2 * leavesOnTree * chanceOfAppleDrop })(timeSpan),
-                    ['minecraft:stick'] = createCurve({ maxY = 2 * leavesOnTree * chanceOfStickDrop })(timeSpan),
+                    -- Commenting this out, because I don't want the turtle to ever purposely try waiting
+                    -- for tree to grow in order to get sticks, when the turtle might have wood on hand
+                    -- and could just craft them.
+                    -- ['minecraft:stick'] = createCurve({ maxY = 2 * leavesOnTree * chanceOfStickDrop })(timeSpan),
                 },
             }
         end,
@@ -877,6 +935,7 @@ function module.initEntity()
         waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGeneratorProject({ homeLoc = homeLoc, cobblestoneGeneratorMill = cobblestoneGeneratorMill }),
         buildFurnaces = buildFurnacesProject({ inFrontOfChestLoc = inFrontOfChestLoc, inFrontOfFirstFurnaceLoc = inFrontOfFirstFurnaceLoc }),
         smeltInitialCharcoal = smeltInitialCharcoalProject({ inFrontOfFirstFurnaceLoc = inFrontOfFirstFurnaceLoc, furnaceMill = furnaceMill, simpleCharcoalSmeltingMill = simpleCharcoalSmeltingMill }),
+        torchUpIsland = torchUpIslandProject({ inFrontOfChestLoc = inFrontOfChestLoc }),
         createTower1 = createTowerProject({ homeLoc = homeLoc, towerNumber = 1 }),
         createTower2 = createTowerProject({ homeLoc = homeLoc, towerNumber = 2 }),
         createTower3 = createTowerProject({ homeLoc = homeLoc, towerNumber = 3 }),

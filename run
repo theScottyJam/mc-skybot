@@ -152,19 +152,19 @@ if inputs.useMockLib then
     local onStep = function(state)
         if _debug.showStepByStep or true then
             step = step + 1
-            if step < 350 then return end
+            if step < 250 then return end
 
             -- _G.mockComputerCraftApi.present.displayMap(world, { minX = -8, maxX = 5, minY = 0, maxY = 999, minZ = -5, maxZ = 5 }, { showKey = false })
-            _G.mockComputerCraftApi.present.displayCentered(world)
+            _G.mockComputerCraftApi.present.displayCentered(world, { width = 20, height = 12})
             _G.mockComputerCraftApi.present.taskNames(state)
-            _G.mockComputerCraftApi.present.inventory(world)
+            -- _G.mockComputerCraftApi.present.inventory(world)
             -- _G.mockComputerCraftApi.present.showTurtlePosition(world)
 
             _debug.busySleep(0.05)
-            -- _debug.busySleep(0.02)
+            -- _debug.busySleep(0.01)
         end
     end
-    _debug.registerStepListener(onStep)
+    -- _debug.registerStepListener(onStep)
 end
 
 if turtle == nil then

@@ -411,11 +411,13 @@ local canPlace = {
     'minecraft:cobblestone',
     'minecraft:stone',
     'minecraft:chest',
-    'minecraft:furnace'
+    'minecraft:furnace',
+    'minecraft:torch'
 }
 
 placeAt = function(currentWorld, placeCoord)
     local targetCell = lookupInMap(currentWorld.map, placeCoord) -- may be nil
+    local belowTargetCell = lookupInMap(currentWorld.map, util.mergeTables(placeCoord, { y = placeCoord.y - 1 }))
 
     local itemIdBeingPlaced, quantity = removeFrominventory(currentWorld.turtle, 1)
     if quantity == 0 then return false end
@@ -455,12 +457,19 @@ placeAt = function(currentWorld, placeCoord)
             end
         end)
     elseif itemIdBeingPlaced == 'minecraft:sapling' then
+        if belowTargetCell == nil or (belowTargetCell.id ~= 'minecraft:dirt' and belowTargetCell.id ~= 'minecraft:grass') then
+            error('Saplings must be placed on dirt or grass')
+        end
         time.addTickListener(math.random(600, 1600), function()
             local cell = lookupInMap(currentWorld.map, placeCoord)
             if cell ~= nil and cell.id == 'minecraft:sapling' then
                 spawnTreeAt(currentWorld, placeCoord)
             end
         end)
+    elseif itemIdBeingPlaced == 'minecraft:torch' then
+        if belowTargetCell == nil then
+            error('Torches must be placed on a block')
+        end
     end
 
     local itemBeingPlaced = { id = itemIdBeingPlaced }

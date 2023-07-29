@@ -16,6 +16,22 @@ return {
             to = 'minecraft:planks',
             yields = 4,
         },
+        {
+            from = {
+                {'minecraft:planks'},
+                {'minecraft:planks'},
+            },
+            to = 'minecraft:stick',
+            yields = 4,
+        },
+        {
+            from = {
+                {'minecraft:charcoal'},
+                {'minecraft:stick'},
+            },
+            to = 'minecraft:torch',
+            yields = 4,
+        },
     },
     smelting = {
         {

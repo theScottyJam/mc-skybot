@@ -26,6 +26,7 @@ initStrategy = function()
             mainIsland.waitForIceToMeltAndfinishCobblestoneGenerator,
             mainIsland.buildFurnaces,
             mainIsland.smeltInitialCharcoal,
+            mainIsland.torchUpIsland,
             -- debugProject(mainIsland.homeLoc),
             -- mainIsland.createTower4,
             -- mainIsland.createTower3,

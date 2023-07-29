@@ -107,7 +107,8 @@ function module.collectResources(state, initialProject, resourcesInInventory_)
         if insuffecientResourcesOnHand then
             if state.resourceSuppliers[resourceName] == nil then
                 error(
-                    'Attempted to start a task that requires the resource '..resourceName..', '..
+                    'Attempted to start the task "'..initialProject.taskRunnerId..
+                    '" that requires the resource '..resourceName..', '..
                     'but there are no registered sources for this resource, nor is there enough of it on hand.'
                 )
             end
