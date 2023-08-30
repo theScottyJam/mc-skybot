@@ -88,7 +88,7 @@ function module.collectResources(state, initialProject, resourcesInInventory_)
 
     local requiredResourcesToProcess = util.copyTable(initialProject.requiredResources)
     while util.tableSize(requiredResourcesToProcess) > 0 do
-        local resourceName, requiredQuantity = util.getAnEntry(requiredResourcesToProcess)
+        local resourceName, requiredQuantity = util.getASortedEntry(requiredResourcesToProcess)
         requiredResourcesToProcess[resourceName] = nil
         -- Factor in quantities from the inventory
         local contributionFromInventory = 0
@@ -175,10 +175,12 @@ function module.collectResources(state, initialProject, resourcesInInventory_)
         return nil
     end
 
+    --<-- TODO: If I want this to run deterministically, I'll need to sort the resourceMap by something before iterating over it.
+    --<-- Maybe instead of having a util.getASortedEntry, I instead have sortMapTable, which converts it to an array table.
+
     -- Loop over the mapping, looking for an entry that has all of its requirements satisfied.
     -- Right now it uses the first found requirement. In the future we could use the closest task instead.
     for resourceName, resourceInfo in pairs(resourceMap) do
-
         if resourceInfo.type == 'mill' then
             local requirementsFulfilled = true
             local requiredResources = _G.act.mill.getRequiredResources(

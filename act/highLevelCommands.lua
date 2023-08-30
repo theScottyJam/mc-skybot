@@ -95,7 +95,8 @@ placeItemUsing = function(commands, state, itemId, opts, placeFn)
 
     local foundItem = module.findAndSelectSlotWithItem(commands, state, itemId, { allowMissing = allowMissing })
     if foundItem then
-        placeFn(state)
+        local success = placeFn(state)
+        util.assert(success, 'Failed to place "'..itemId..' (maybe there is already something at that location?)')
         commands.turtle.select(state, 1)
     end
 end

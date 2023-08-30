@@ -123,11 +123,33 @@ function module.paired(curTable)
 end
 
 -- Iterates over the table and returns the first key/value pair found.
+-- WARNING: Because tables don't preserve order, plucking the first entry can lead to undeterministic behavior.
+--          Use getASortedEntry() instead if this is not desired (though be warned that the alternative is O(n))
+--<-- Audit uses of this function to make sure it'll have a deterministic outcome, even though this is used sometimes.
 function module.getAnEntry(table)
     for key, value in pairs(table) do
         return key, value
     end
     error('Failed to find a key in a provided object')
+end
+
+-- Returns the first entry who's key sorts the lowest.
+-- This is like getAnEntry(), but deterministic.
+function module.getASortedEntry(table)
+    local lowestKey = nil
+    for key, value in pairs(table) do
+        if lowestKey == nil then
+            lowestKey = key
+        elseif lowestKey > key then
+            lowestKey = key
+        end
+    end
+
+    if lowestKey == nil then
+        error('Failed to find a key in a provided object')
+    end
+
+    return lowestKey, table[lowestKey]
 end
 
 function module.countOccurancesOfValuesInTable(curTable)
@@ -153,6 +175,16 @@ function module.splitString(inputstr, sep)
         table.insert(newTable, str)
     end
     return newTable
+end
+
+-- Like pairs() but works with strings
+function module.stringPairs(str)
+    local i = 0
+    return function()
+        i = i + 1
+        if i > #str then return nil end
+        return i, string.sub(str, i, i)
+    end
 end
 
 function module.joinArrayTable(curTable, sep)

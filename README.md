@@ -19,8 +19,12 @@ lua ./run --base $(pwd)/ --test
 # Helpful information
 
 turtle api: https://computercraft.info/wiki/Turtle_(API)
+
 All APIs available to the turtle: https://computercraft.info/wiki/Category:APIs
 
+Minecraft's coordinate system:
+
+```
        (-Z)
          N     up: +y
          ^   down: -y
@@ -30,6 +34,7 @@ All APIs available to the turtle: https://computercraft.info/wiki/Category:APIs
          V
          S
        (+Z)
+```
 
 # Installing ComputerCraft
 
