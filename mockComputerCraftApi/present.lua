@@ -3,6 +3,8 @@
 --]]
 
 local util = import('util.lua')
+local osModule = import('./os.lua')
+local time = import('./_time.lua')
 
 local module = {}
 
@@ -148,6 +150,10 @@ function module.taskNames(state)
     print('primary task: '..(state.primaryTask and state.primaryTask.taskRunnerId or 'nil'))
     print('interrupt task: '..(state.interruptTask and state.interruptTask.taskRunnerId or 'nil'))
     print()
+end
+
+function module.now()
+    print('ticks: '..time.getTicks())
 end
 
 return module

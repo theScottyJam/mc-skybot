@@ -100,8 +100,8 @@ local assertNotInsideBlock = function(world, movementDirectionForError)
 end
 
 local assertEquiped = function(world, itemId)
-    local isOnLeft = world.turtle.equipedLeft ~= nil and world.turtle.equipedLeft.id == itemId
-    local isOnRight = world.turtle.equipedRight ~= nil and world.turtle.equipedRight.id == itemId
+    local isOnLeft = world.turtle.equippedLeft ~= nil and world.turtle.equippedLeft.id == itemId
+    local isOnRight = world.turtle.equippedRight ~= nil and world.turtle.equippedRight.id == itemId
     if not isOnLeft and not isOnRight then
         error('Must have '..itemId..' equipped before doing this task')
     end
@@ -363,16 +363,16 @@ function module.equipLeft()
     local turtle = _G.mockComputerCraftApi._currentWorld.turtle
     local inventoryItem = turtle.inventory[turtle.selectedSlot] -- possibly nil
     util.assert(inventoryItem == nil or inventoryItem.quantity == 1, 'Currently unable to equip from a slot with multiple items')
-    turtle.inventory[turtle.selectedSlot] = turtle.equipedLeft
-    turtle.equipedLeft = inventoryItem
+    turtle.inventory[turtle.selectedSlot] = turtle.equippedLeft
+    turtle.equippedLeft = inventoryItem
 end
 
 function module.equipRight()
     local turtle = _G.mockComputerCraftApi._currentWorld.turtle
     local inventoryItem = turtle.inventory[turtle.selectedSlot] -- possibly nil
     util.assert(inventoryItem == nil or inventoryItem.quantity == 1, 'Currently unable to equip from a slot with multiple items')
-    turtle.inventory[turtle.selectedSlot] = turtle.equipedRight
-    turtle.equipedRight = inventoryItem
+    turtle.inventory[turtle.selectedSlot] = turtle.equippedRight
+    turtle.equippedRight = inventoryItem
 end
 
 local placeAt

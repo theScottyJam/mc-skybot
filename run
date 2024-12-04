@@ -142,18 +142,45 @@ if inputs.runTests then
     return
 end
 
+local util = import('./util.lua')
+
 if inputs.useMockLib then
     import('mockComputerCraftApi/init.lua').registerGlobals()
     world = _G.mockComputerCraftApi.world.createDefault()
     _G.mockComputerCraftApi.setWorld(world)
-    hookListeners = _G.mockComputerCraftApi.hookListeners
 
     local step = 0
+    local idling = false
+    local lastIdleStartAt = nil
+    local lastIdleEndAt = nil
+    hookListeners = util.mergeTables(
+        _G.mockComputerCraftApi.hookListeners,
+        {
+            idleStart = function()
+                idling = true
+                lastIdleStartAt = step
+            end,
+            idleEnd = function()
+                idling = false
+                lastIdleEndAt = step
+            end,
+        }
+    )
+
     local onStep = function(state)
+        -- local SLEEP_TIME = 0.2
+        local SLEEP_TIME = 0.05
+        -- local SLEEP_TIME = 0.01
         if _debug.showStepByStep or true then
             step = step + 1
             _G.STEP = step
-            if step < 5315 then return end
+            -- if step < 5315 then return end -- Uncomment to start viewing when the tree farm is about to be built.
+            if idling then return end
+            if lastIdleEndAt == step - 1 then
+                local skipCount = lastIdleEndAt - lastIdleStartAt
+                print('Idled for '..skipCount..' steps (skipping '..(skipCount * SLEEP_TIME)..' secs)')
+                _debug.busySleep(SLEEP_TIME * 30)
+            end
 
             -- _G.mockComputerCraftApi.present.displayMap(world, { minX = -8, maxX = 5, minY = 0, maxY = 999, minZ = -5, maxZ = 5 }, { showKey = false })
             _G.mockComputerCraftApi.present.displayCentered(world, { width = 20, height = 12 })
@@ -161,9 +188,7 @@ if inputs.useMockLib then
             -- _G.mockComputerCraftApi.present.inventory(world)
             -- _G.mockComputerCraftApi.present.showTurtlePosition(world)
 
-            -- _debug.busySleep(0.2)
-            _debug.busySleep(0.05)
-            -- _debug.busySleep(0.01)
+            _debug.busySleep(SLEEP_TIME)
         end
     end
     -- _debug.registerStepListener(onStep)
@@ -185,5 +210,6 @@ if inputs.useMockLib then
     -- mockComputerCraftApi.present.displayLayers(world, { minX = -12, maxX = 9, minY = 65, maxY = 75, minZ = -7, maxZ = 6 }, { showKey = false }) -- island
     -- mockComputerCraftApi.present.displayLayers(world, { minX = -7, maxX = 7, minY = 64, maxY = 77, minZ = -12, maxZ = -7 }, { showKey = false }) -- tree farm
     mockComputerCraftApi.present.showTurtlePosition(world)
+    mockComputerCraftApi.present.now()
     mockComputerCraftApi.present.inventory(world)
 end

@@ -13,8 +13,8 @@ function module.createDefault()
             inventory = {
                 [2] = { id = 'minecraft:crafting_table', quantity = 1 },
             },
-            equipedLeft = nil,
-            equipedRight = { id = 'minecraft:diamond_pickaxe', quantity = 1 },
+            equippedLeft = nil,
+            equippedRight = { id = 'minecraft:diamond_pickaxe', quantity = 1 },
         },
         map = createStartingMap()
     }

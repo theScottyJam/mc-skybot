@@ -70,7 +70,7 @@ function module.registerTaskRunner(id, opts)
 end
 
 -- What to do when there's nothing to do
-local busyWaitTaskRunner = module.registerTaskRunner('act:busyWait', {
+local idleTaskRunner = module.registerTaskRunner('act:idle', { -- This "act:idle" id is also used elsewhere, see §7kUI2
     nextPlan = function(commands, state, taskState)
         highLevelCommands.busyWait(commands, state)
         return taskState, true
@@ -199,7 +199,7 @@ function module.collectResources(state, initialProject, resourcesInInventory_)
 
     -- It's assumed we got to this point because there is no active "mill" work that could be done,
     -- but there are farms we need to wait on.
-    return module.create(busyWaitTaskRunner)
+    return module.create(idleTaskRunner)
 end
 
 -- args is optional

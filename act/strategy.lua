@@ -33,6 +33,7 @@ function module.exec(strategy)
         startingPos = strategy.initialTurtlePos,
         projectList = strategy.projectList,
     })
+    local isIdling = false
     while #state.projectList > 0 do
         -- Prepare the next project task, or resource-fetching task
         local resourcesInInventory = countResourcesInInventory(state)
@@ -40,6 +41,15 @@ function module.exec(strategy)
         local nextProjectTaskRunner = task.lookupTaskRunner(state.projectList[1])
         local resourceCollectionTask = task.collectResources(state, nextProject, resourcesInInventory)
         if resourceCollectionTask ~= nil then
+            -- This "act:idle" id is defined elsewhere. §7kUI2
+            if not isIdling and resourceCollectionTask.taskRunnerId == 'act:idle' then
+                isIdling = true
+                _G.act.mockHooks.idleStart()
+            end
+            if isIdling and resourceCollectionTask.taskRunnerId ~= 'act:idle' then
+                isIdling = false
+                _G.act.mockHooks.idleEnd()
+            end
             state.primaryTask = resourceCollectionTask
         else
             table.remove(state.projectList, 1)
