@@ -152,14 +152,16 @@ if inputs.useMockLib then
     local onStep = function(state)
         if _debug.showStepByStep or true then
             step = step + 1
-            if step < 250 then return end
+            _G.STEP = step
+            if step < 5315 then return end
 
             -- _G.mockComputerCraftApi.present.displayMap(world, { minX = -8, maxX = 5, minY = 0, maxY = 999, minZ = -5, maxZ = 5 }, { showKey = false })
-            _G.mockComputerCraftApi.present.displayCentered(world, { width = 20, height = 12})
-            _G.mockComputerCraftApi.present.taskNames(state)
+            _G.mockComputerCraftApi.present.displayCentered(world, { width = 20, height = 12 })
+            -- _G.mockComputerCraftApi.present.taskNames(state)
             -- _G.mockComputerCraftApi.present.inventory(world)
             -- _G.mockComputerCraftApi.present.showTurtlePosition(world)
 
+            -- _debug.busySleep(0.2)
             _debug.busySleep(0.05)
             -- _debug.busySleep(0.01)
         end
@@ -178,9 +180,10 @@ turtle.refuel(16)
 strategyModule.run(onStep)
 
 if inputs.useMockLib then
-    mockComputerCraftApi.present.displayMap(world, { minX = -12, maxX = 9, minY = 0, maxY = 79, minZ = -7, maxZ = 6 }, { showKey = false })
+    mockComputerCraftApi.present.displayMap(world, { minX = -18, maxX = 18, minY = 0, maxY = 79, minZ = -15, maxZ = 3 }, { showKey = false })
     -- mockComputerCraftApi.present.displayMap(world, { minX = -12, maxX = 9, minY = 65, maxY = 68, minZ = -7, maxZ = 6 }, { showKey = false })
-    -- mockComputerCraftApi.present.displayLayers(world, { minX = -12, maxX = 9, minY = 65, maxY = 75, minZ = -7, maxZ = 6 }, { showKey = false })
+    -- mockComputerCraftApi.present.displayLayers(world, { minX = -12, maxX = 9, minY = 65, maxY = 75, minZ = -7, maxZ = 6 }, { showKey = false }) -- island
+    -- mockComputerCraftApi.present.displayLayers(world, { minX = -7, maxX = 7, minY = 64, maxY = 77, minZ = -12, maxZ = -7 }, { showKey = false }) -- tree farm
     mockComputerCraftApi.present.showTurtlePosition(world)
     mockComputerCraftApi.present.inventory(world)
 end

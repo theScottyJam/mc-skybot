@@ -451,7 +451,7 @@ local createFurnaceMill = function(opts)
             if util.tableSize(resourceRequests) ~= 1 then
                 error('Only supports smelting one item type at a time')
             end
-            local targetResource, requestedQuantity = util.getAnEntry(resourceRequests)
+            local targetResource, requestedQuantity = util.getASortedEntry(resourceRequests)
 
             targetRecipe = util.findInArrayTable(recipes.smelting, function(recipe)
                 return recipe.to == targetResource

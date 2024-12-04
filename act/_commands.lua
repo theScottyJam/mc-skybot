@@ -92,9 +92,13 @@ module.getItemSpace = ignoreFirstArg(turtle.getItemSpace)
 module.getItemDetail = ignoreFirstArg(turtle.getItemDetail)
 module.equipLeft = ignoreFirstArg(turtle.equipLeft)
 module.equipRight = ignoreFirstArg(turtle.equipRight)
+
+-- Note that these return a `success` boolean.
+-- You may want to assert that the boolean is true after using these functions.
 module.place = ignoreFirstArg(turtle.place)
 module.placeUp = ignoreFirstArg(turtle.placeUp)
 module.placeDown = ignoreFirstArg(turtle.placeDown)
+
 module.detect = ignoreFirstArg(turtle.detect)
 module.detectUp = ignoreFirstArg(turtle.detectUp)
 module.detectDown = ignoreFirstArg(turtle.detectDown)

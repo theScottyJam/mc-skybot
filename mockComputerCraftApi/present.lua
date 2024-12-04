@@ -114,7 +114,7 @@ function module.displayCentered(world, opts)
 end
 
 function module.displayLayers(world, bounds, opts)
-    for i = bounds.minY, bounds.maxY do
+    for i = bounds.maxY, bounds.minY, -1 do
         local boundsCopy = util.copyTable(bounds)
         boundsCopy.minY = i
         boundsCopy.maxY = i

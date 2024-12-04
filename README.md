@@ -5,7 +5,7 @@ Use `lua ./run --help` to see information about how to run this program.
 To run it in mock mode, you can use the following:
 
 ```sh
-lua ./run --base $(pwd)/ --mock
+lua ./run --base "$(pwd)/" --mock
 ```
 
 To run this in a turtle, follow the "prepare the world" instructions below, then run `run`
@@ -13,14 +13,20 @@ To run this in a turtle, follow the "prepare the world" instructions below, then
 Automated tests can be run with
 
 ```sh
-lua ./run --base $(pwd)/ --test
+lua ./run --base "$(pwd)/" --test
 ```
+
+Tests are currently only available for the turtlescript portion of the project - an experimental tool that isn't currently integrated with the rest of the project.
 
 # Helpful information
 
 turtle api: https://computercraft.info/wiki/Turtle_(API)
+
 All APIs available to the turtle: https://computercraft.info/wiki/Category:APIs
 
+Minecraft's coordinate system:
+
+```
        (-Z)
          N     up: +y
          ^   down: -y
@@ -30,6 +36,7 @@ All APIs available to the turtle: https://computercraft.info/wiki/Category:APIs
          V
          S
        (+Z)
+```
 
 # Installing ComputerCraft
 
