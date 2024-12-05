@@ -1,5 +1,5 @@
 --[[
-    A "taskRunner" holds the logic assosiated with a specific task, while a "task" holds the state.
+    A "taskRunner" holds the logic associated with a specific task, while a "task" holds the state.
 --]]
 
 local util = import('util.lua')
@@ -79,14 +79,14 @@ local idleTaskRunner = module.registerTaskRunner('act:idle', { -- This "act:idle
 
 -- Returns a task that will collect some of the required resources, or nil if there
 -- aren't any requirements left to fulfill.
-function module.collectResources(state, initialProject, resourcesInInventory_)
+function module.collectResources(state, project, resourcesInInventory_)
     local resourceMap = {}
     local resourcesInInventory = util.copyTable(resourcesInInventory_)
 
     -- Collect the nested requirement tree into a flat mapping (resourceMap)
     -- Factors in your inventory's contents to figure out what's needed.
 
-    local requiredResourcesToProcess = util.copyTable(initialProject.requiredResources)
+    local requiredResourcesToProcess = util.copyTable(project.requiredResources)
     while util.tableSize(requiredResourcesToProcess) > 0 do
         local resourceName, requiredQuantity = util.getASortedEntry(requiredResourcesToProcess)
         requiredResourcesToProcess[resourceName] = nil
@@ -102,12 +102,12 @@ function module.collectResources(state, initialProject, resourcesInInventory_)
         end
 
         -- If, after factoring in the inventory, there's still requirements to be fulfilled...
-        local insuffecientResourcesOnHand = contributionFromInventory < requiredQuantity
+        local insufficientResourcesOnHand = contributionFromInventory < requiredQuantity
 
-        if insuffecientResourcesOnHand then
+        if insufficientResourcesOnHand then
             if state.resourceSuppliers[resourceName] == nil then
                 error(
-                    'Attempted to start the task "'..initialProject.taskRunnerId..
+                    'Attempted to start the task "'..project.taskRunnerId..
                     '" that requires the resource '..resourceName..', '..
                     'but there are no registered sources for this resource, nor is there enough of it on hand.'
                 )
@@ -137,33 +137,38 @@ function module.collectResources(state, initialProject, resourcesInInventory_)
                     util.assert(resourceMap[resourceName].type == 'mill')
                 end
 
-                -- This logic isn't as effecient as it could be.
-                -- If we reach this point and are trying to figure out what it costs to obtain 5 of X resource,
-                -- but we've already reached this point previously calculating the cost for 3 X resources,
-                -- then we're going to end up calculating the dependent resource cost of gathering requirements
-                -- for 3 X resource followed by 5 X resources, instead of just doing 8 X resources.
-                --
-                -- It's assumed that _G.act.mill.getRequiredResources() will only return numbers that are
-                -- relatively cheaper as you gather in bulk. If this is ever not the case, then this ineffeciency
-                -- could turn into a real problem.
-                --
-                -- Right now, the innefeciency just means it'll gather a little more extra dependent resources,
-                -- meaning we'll get a little more for storage. When it comes time to actually go and gather
-                -- a dependency for the X resource, it'll still go and gather the dependent resource in one go,
-                -- not broken up over multiple trips.
-                local resourceRequest = { resourceName = resourceName, quantity = requiredQuantity }
+                local previousQuantity = resourceMap[resourceName].quantity
+                local previousRequiredResources = _G.act.mill.getRequiredResources(
+                    supplier.taskRunnerId,
+                    { resourceName = resourceName, quantity = previousQuantity }
+                )
+
+                local newQuantity = resourceMap[resourceName].quantity + requiredQuantity
                 local requiredResources = _G.act.mill.getRequiredResources(
                     supplier.taskRunnerId,
-                    resourceRequest
+                    { resourceName = resourceName, quantity = newQuantity }
                 )
-                for resourceName, quantity in pairs(requiredResources) do
-                    if requiredResourcesToProcess[resourceName] == nil then
-                        requiredResourcesToProcess[resourceName] = 0
-                    end
-                    requiredResourcesToProcess[resourceName] = requiredResourcesToProcess[resourceName] + quantity
+
+                for dependentResourceName, previousDependentQuantity in util.sortedMapTablePairs(previousRequiredResources) do
+                    -- It's possible this assertion isn't really necessary, and we could maybe remove it with little to no changes
+                    -- if we really need to. This kind of behavior just hasn't been tested yet.
+                    util.assert(
+                        requiredResources[dependentResourceName] ~= nil and requiredResources[dependentResourceName] >= previousDependentQuantity,
+                        'getRequiredResources() currently must return larger quantities whenever larger requests are passed in. ' ..
+                        'The quantities can never shrink.'
+                    )
                 end
 
-                resourceMap[resourceName].quantity = resourceMap[resourceName].quantity + requiredQuantity
+                for dependentResourceName, dependentQuantity in util.sortedMapTablePairs(requiredResources) do
+                    if requiredResourcesToProcess[dependentResourceName] == nil then
+                        requiredResourcesToProcess[dependentResourceName] = 0
+                    end
+                    local dependentQuantityDiff = dependentQuantity - previousRequiredResources[dependentResourceName]
+                    -- Only adding the difference, because the quantity from previousRequiredResources should already be accounted for.
+                    requiredResourcesToProcess[dependentResourceName] = requiredResourcesToProcess[dependentResourceName] + dependentQuantityDiff
+                end
+
+                resourceMap[resourceName].quantity = newQuantity
             else
                 error('Invalid supplier type "'..tostring(supplier.type)..'" found when trying to fetch the resource '..resourceName)
             end
