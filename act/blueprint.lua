@@ -182,7 +182,7 @@ function normalizeMap(opts)
     end
 
     local newLayers = {}
-    for z, layer in pairs(layers) do
+    for z, layer in ipairs(layers) do
         verifySecondaryReferencePoints(layer, z)
         local newLayer = {}
         local padTop = metadata.bounds.forward + 1 - metadata.layers[z].primaryReferencePoint.y
@@ -190,7 +190,7 @@ function normalizeMap(opts)
             numOfNewRows = padTop,
             sizeOfRows = overallWidth,
         })
-        for y, row in pairs(layer) do
+        for y, row in ipairs(layer) do
             local newRow = {}
             local padLeft = metadata.bounds.left + 1 - metadata.layers[z].primaryReferencePoint.x
             padRow(newRow, padLeft)
@@ -302,7 +302,7 @@ local nextCoordToVisit = function (normalizedLayers, previousCoord)
 end
 
 -- Behavior of special characters
---   The "," is a "primary reference point". It can be thought of as the (0, 0) for each layer.
+--   The "," is a "primary reference point". It can be thought of as the origin point for each layer.
 --     Because the sizes of the layers provided may differ from layer to layer, it's important to have
 --     an origin point in each layer so we know what everything is relative to.
 --   The "." is a "secondary reference point". You can place these anywhere you want on a particular layer,

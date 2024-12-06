@@ -5,30 +5,10 @@ local module = {}
 
 local location = _G.act.location
 local navigate = _G.act.navigate
+local navigationPatterns = _G.act.navigationPatterns
 local highLevelCommands = _G.act.highLevelCommands
 local curves = _G.act.curves
 local space = _G.act.space
-
--- Starting from a corner of a square (of size sideLength), touch every cell in it by following
--- a clockwise spiral to the center. You must start facing in a direction such that
--- no turning is required before movement.
--- The `onVisit` function is called at each cell visited.
-local spiralInwards = function(commands, state, opts)
-    local sideLength = opts.sideLength
-    local onVisit = opts.onVisit
-
-    for segmentLength = sideLength - 1, 1, -1 do
-        local firstIter = segmentLength == sideLength - 1
-        for i = 1, (firstIter and 3 or 2) do
-            for j = 1, segmentLength do
-                onVisit(commands, state)
-                commands.turtle.forward(state)
-            end
-            commands.turtle.turnRight(state)
-        end
-    end
-    onVisit(commands, state)
-end
 
 local harvestTreeFromAbove
 -- Pre-condition: Must have two dirt in inventory
@@ -124,7 +104,7 @@ harvestTreeFromAbove = function(commands, state, opts)
     local topLeafCmps = state.turtleCmps().compassAt({ forward=-1, up=-1 })
     local cornerPos = topLeafCmps.posAt({ forward = 1, right = 1, face='backward' })
     navigate.moveToPos(commands, state, cornerPos, { 'right', 'forward', 'up' })
-    spiralInwards(commands, state, {
+    navigationPatterns.spiralInwards(commands, state, {
         sideLength = 3,
         onVisit = function(commands, state)
             commands.turtle.dig(state)
@@ -137,7 +117,7 @@ harvestTreeFromAbove = function(commands, state, opts)
     navigate.moveToPos(commands, state, aboveCornerPos, { 'right', 'forward', 'up' })
     commands.turtle.digDown(state)
     commands.turtle.down(state)
-    spiralInwards(commands, state, {
+    navigationPatterns.spiralInwards(commands, state, {
         sideLength = 5,
         onVisit = function(commands, state)
             commands.turtle.dig(state)
@@ -848,6 +828,57 @@ local createCraftingMills = function()
     return millList
 end
 
+local harvestExcessDirt = function(opts)
+    local bedrockPos = opts.bedrockPos
+    local homeLoc = opts.homeLoc
+
+    local bedrockCmps = space.createCompass(bedrockPos)
+    local taskRunnerId = 'project:mainIsland:harvestExcessDirt'
+    _G.act.task.registerTaskRunner(taskRunnerId, {
+        enter = function(commands, state, taskState)
+            location.travelToLocation(commands, state, homeLoc)
+        end,
+        exit = function(commands, state, taskState, info)
+            navigate.assertPos(state, homeLoc.cmps.pos)
+        end,
+        nextPlan = function(commands, state, taskState)
+            local startPos = util.copyTable(state.turtlePos)
+            local digStartCmps = bedrockCmps.compassAt({ forward=2, up=-1 })
+
+            navigate.moveToCoord(commands, state, digStartCmps.coord, { 'forward', 'up' })
+
+            local dirtPlaneToDig = navigationPatterns.compilePlane({
+                -- "d" marks the dirt to dig
+                -- "D" marks dirt we don't want to dig
+                -- "B" marks bedrock
+                ' ,    ',
+                'dddddd',
+                'dBdddd',
+                'dDdddd',
+                'ddd   ',
+                'ddd   ',
+                'ddd   ',
+            }, { referencePointCmps = digStartCmps })
+
+            navigationPatterns.snake(commands, state, {
+                boundingBoxCoords = { dirtPlaneToDig.topLeftCmps.coord, dirtPlaneToDig.bottomRightCmps.coord },
+                shouldVisit = function(coord)
+                    return dirtPlaneToDig.getCharAt(coord) == 'd'
+                end,
+                onVisit = function()
+                    commands.turtle.digUp(state)
+                end,
+            })
+
+            navigate.moveToCoord(commands, state, digStartCmps.coord)
+            navigate.moveToPos(commands, state, startPos, { 'up', 'forward' })
+
+            return taskState, true
+        end,
+    })
+    return _G.act.project.create(taskRunnerId)
+end
+
 local createTowerProject = function(opts)
     local homeLoc = opts.homeLoc
     local towerNumber = opts.towerNumber
@@ -936,6 +967,7 @@ function module.initEntity()
         buildFurnaces = buildFurnacesProject({ inFrontOfChestLoc = inFrontOfChestLoc, inFrontOfFirstFurnaceLoc = inFrontOfFirstFurnaceLoc }),
         smeltInitialCharcoal = smeltInitialCharcoalProject({ inFrontOfFirstFurnaceLoc = inFrontOfFirstFurnaceLoc, furnaceMill = furnaceMill, simpleCharcoalSmeltingMill = simpleCharcoalSmeltingMill }),
         torchUpIsland = torchUpIslandProject({ inFrontOfChestLoc = inFrontOfChestLoc }),
+        harvestExcessDirt = harvestExcessDirt({ bedrockPos = bedrockCmps.pos, homeLoc = homeLoc }),
         createTower1 = createTowerProject({ homeLoc = homeLoc, towerNumber = 1 }),
         createTower2 = createTowerProject({ homeLoc = homeLoc, towerNumber = 2 }),
         createTower3 = createTowerProject({ homeLoc = homeLoc, towerNumber = 3 }),

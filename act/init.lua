@@ -11,6 +11,7 @@ local act = {
     mill = import('./mill.lua'),
     mockHooks = nil,
     navigate = import('./navigate.lua'),
+    navigationPatterns = import('./navigationPatterns.lua'),
     project = import('./project.lua'),
     space = import('./space.lua'),
     strategy = import('./strategy.lua'),

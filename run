@@ -207,7 +207,7 @@ strategyModule.run(onStep)
 if inputs.useMockLib then
     mockComputerCraftApi.present.displayMap(world, { minX = -18, maxX = 18, minY = 0, maxY = 79, minZ = -15, maxZ = 3 }, { showKey = false })
     -- mockComputerCraftApi.present.displayMap(world, { minX = -12, maxX = 9, minY = 65, maxY = 68, minZ = -7, maxZ = 6 }, { showKey = false })
-    -- mockComputerCraftApi.present.displayLayers(world, { minX = -12, maxX = 9, minY = 65, maxY = 75, minZ = -7, maxZ = 6 }, { showKey = false }) -- island
+    -- mockComputerCraftApi.present.displayLayers(world, { minX = -12, maxX = 9, minY = 64, maxY = 75, minZ = -7, maxZ = 6 }, { showKey = false }) -- island
     -- mockComputerCraftApi.present.displayLayers(world, { minX = -7, maxX = 7, minY = 64, maxY = 77, minZ = -12, maxZ = -7 }, { showKey = false }) -- tree farm
     mockComputerCraftApi.present.showTurtlePosition(world)
     mockComputerCraftApi.present.now()

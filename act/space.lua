@@ -6,9 +6,6 @@
     * position: A coordinate and facing combined - it has the fields from both.
     * location: A specific, known point in space that you often travel to. These are managed in location.lua.
     * compass: A tool to generate coords/positions/facings from the compass's location. Often abreviated "cmps"
-
-    Some APIs accept relative coordinates/positions/facings. Generally, all fields in a relative
-    coordinate/position/facing are optional, and default to the position they're relative to.
 --]]
 
 local util = import('util.lua')
@@ -17,7 +14,7 @@ local module = {}
 
 -- HELPER FUNCTIONS --
 
-local rotateRelCoordClockwiseAroundOrigin = function(coord, count)
+local rotateCoordClockwiseAroundOrigin = function(coord, count)
     if count == nil then count = 1 end
     for i = 1, count do
         coord = { right = coord.forward, forward = -coord.right, up = coord.up }
@@ -90,60 +87,54 @@ function module.countClockwiseRotations(fromFace, toFace)
     return count
 end
 
-local resolveRelFacing = function(relFacing, basePos)
+local moveFacing = function(basePos, deltaFacing)
     local rotations = module.countClockwiseRotations('forward', basePos.face)
     return {
-        face = module.rotateFaceClockwise(relFacing.face, rotations),
+        face = module.rotateFaceClockwise(deltaFacing.face, rotations),
     }
 end
 
 -- Adds the coordinates, and also rotates the coordinate around the
 -- base position, depending on which direction the basePos faces.
 -- 'forward' no rotation, 'right' 90 deg rotation, etc.
--- if basePos was { forward=0, right=0, up=0, face='forward' }, then relCoord would remain untouched.
--- If forward, right, or up is missing from relCoord, they'll default to 0.
-local resolveRelCoord = function(relCoord_, basePos)
-    local relCoord = util.mergeTables({ forward=0, right=0, up=0 }, relCoord_)
+-- if basePos was { forward=0, right=0, up=0, face='forward' }, then partialDeltaCoord would remain untouched.
+-- If forward, right, or up is missing from partialDeltaCoord, they'll default to 0.
+local moveCoord = function(basePos, partialDeltaCoord)
+    local deltaCoord = util.mergeTables({ forward=0, right=0, up=0 }, partialDeltaCoord)
     local rotations = module.countClockwiseRotations('forward', basePos.face)
-    local rotatedRelCoord = rotateRelCoordClockwiseAroundOrigin(relCoord, rotations)
+    local rotatedDeltaCoord = rotateCoordClockwiseAroundOrigin(deltaCoord, rotations)
 
     return {
-        forward = basePos.forward + rotatedRelCoord.forward,
-        right = basePos.right + rotatedRelCoord.right,
-        up = basePos.up + rotatedRelCoord.up,
+        forward = basePos.forward + rotatedDeltaCoord.forward,
+        right = basePos.right + rotatedDeltaCoord.right,
+        up = basePos.up + rotatedDeltaCoord.up,
     }
 end
 
--- If forward, right, or up is missing from relCoord, they'll default to 0.
--- relPos.face is also optional and defaults to `forward`
-local resolveRelPos = function(relPos_, basePos)
-    local relPos = util.mergeTables({ forward=0, right=0, up=0, face='forward' }, relPos_)
+-- If forward, right, or up is missing from partialDeltaPos, they'll default to 0.
+-- partialDeltaPos.face is also optional and defaults to `forward`
+local movePos = function(basePos, partialDeltaPos)
+    local deltaPos = util.mergeTables({ forward=0, right=0, up=0, face='forward' }, partialDeltaPos)
     local rotations = module.countClockwiseRotations('forward', basePos.face)
 
     return util.mergeTables(
-        resolveRelCoord(posToCoord(relPos), basePos),
-        { face = module.rotateFaceClockwise(relPos.face, rotations) }
+        moveCoord(basePos, posToCoord(deltaPos)),
+        { face = module.rotateFaceClockwise(deltaPos.face, rotations) }
     )
 end
 
-local relativeCoordTo = function(targetAbsCoord, basePos)
-    local unrotatedRelCoord = {
-        forward = targetAbsCoord.forward - basePos.forward,
-        right = targetAbsCoord.right - basePos.right,
-        up = targetAbsCoord.up - basePos.up
+local distanceBetween = function(startPos, endCoord)
+    local rotations = module.countClockwiseRotations(startPos.face, 'forward')
+    -- Rotate the two coordinates until we're facing forwards.
+    -- The distance will be preserved during the rotation.
+    local rotatedStartCoord = rotateCoordClockwiseAroundOrigin(posToCoord(startPos), rotations)
+    local rotatedEndCoord = rotateCoordClockwiseAroundOrigin(endCoord, rotations)
+
+    return {
+        forward = rotatedEndCoord.forward - rotatedStartCoord.forward,
+        right = rotatedEndCoord.right - rotatedStartCoord.right,
+        up = rotatedEndCoord.up - rotatedStartCoord.up,
     }
-
-    local rotations = module.countClockwiseRotations(basePos.face, 'forward')
-    return rotateRelCoordClockwiseAroundOrigin(unrotatedRelCoord, rotations)
-end
-
-local relativePosTo = function(targetAbsPos, basePos)
-    local rotations = module.countClockwiseRotations(basePos.face, 'forward')
-
-    return util.mergeTables(
-        module.relativeCoordTo(posToCoord(targetAbsPos), basePos),
-        { face = module.rotateFaceClockwise(targetAbsPos.face, rotations) }
-    )
 end
 
 -- Meant to provide quick access to some of the above functions
@@ -152,10 +143,12 @@ function module.createCompass(pos)
         pos = pos,
         coord = posToCoord(pos),
         facing = posToFacing(pos),
-        facingAt = function(relFacing) return resolveRelFacing(relFacing, pos) end,
-        coordAt = function(relCoord) return resolveRelCoord(relCoord, pos) end,
-        posAt = function(relPos) return resolveRelPos(relPos, pos) end,
-        compassAt = function(relPos) return module.createCompass(resolveRelPos(relPos, pos)) end,
+        facingAt = function(deltaFacing) return moveFacing(pos, deltaFacing) end,
+        coordAt = function(partialDeltaCoord) return moveCoord(pos, partialDeltaCoord) end,
+        posAt = function(partialDeltaPos) return movePos(pos, partialDeltaPos) end,
+        compassAt = function(partialDeltaPos) return module.createCompass(movePos(pos, partialDeltaPos)) end,
+        distanceTo = function(coord) return distanceBetween(pos, coord) end,
+        compareCoord = function(otherCoord) return compareCoord(posToCoord(pos), otherCoord) end,
         compareCmps = function(otherCmps) return comparePos(pos, otherCmps.pos) end,
     }
 end

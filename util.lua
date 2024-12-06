@@ -199,8 +199,12 @@ function module.stringPairs(str)
     return function()
         i = i + 1
         if i > #str then return nil end
-        return i, string.sub(str, i, i)
+        return i, module.charAt(str, i)
     end
+end
+
+function module.charAt(str, index)
+    return string.sub(str, index, index)
 end
 
 function module.joinArrayTable(curTable, sep)

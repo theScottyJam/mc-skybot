@@ -28,9 +28,10 @@ initStrategy = function()
             mainIsland.buildFurnaces,
             mainIsland.smeltInitialCharcoal,
             mainIsland.torchUpIsland,
-            debugProject(mainIsland.homeLoc),
+            mainIsland.harvestExcessDirt,
             basicTreeFarm.createFunctionalScaffolding,
-            -- mainIsland.createTower4,
+            -- debugProject(mainIsland.homeLoc),
+            mainIsland.createTower4,
             -- mainIsland.createTower3,
             -- mainIsland.createTower2,
             -- mainIsland.createTower1,
@@ -59,7 +60,7 @@ debugProject = function(homeLoc)
             -- local currentWorld = _G.mockComputerCraftApi._currentWorld
             -- _G._debug.debugCommand(commands, state, { action='obtain', itemId='minecraft:charcoal', quantity=64 })
             -- _G._debug.debugCommand(commands, state, { action='obtain', itemId='minecraft:log', quantity=64 })
-            _G._debug.debugCommand(commands, state, { action='obtain', itemId='minecraft:dirt', quantity=16 })
+            -- _G._debug.debugCommand(commands, state, { action='obtain', itemId='minecraft:dirt', quantity=16 })
             _G._debug.showStepByStep = true
 
             -- navigate.moveToPos(planner, startPos)
