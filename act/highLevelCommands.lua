@@ -58,7 +58,7 @@ function module.findAndSelectSlotWithItem(commands, state, itemIdToFind, opts)
     error('Failed to find the item '..itemIdToFind..' in the inventory')
 end
 
-function module.findAndSelectEmptpySlot(commands, state, opts)
+function module.findAndSelectEmptySlot(commands, state, opts)
     -- A potential option I could add, is to auto-reorganize the inventory if an empty slot can't be found.
     if opts == nil then opts = {} end
     local allowMissing = opts.allowMissing or false

@@ -334,7 +334,7 @@ local smeltInitialCharcoalProject = function(opts)
             highLevelCommands.dropItemUp(commands, state, 'minecraft:planks', plankCount)
 
             -- Wait and collect results from a furnace
-            highLevelCommands.findAndSelectEmptpySlot(commands, state)
+            highLevelCommands.findAndSelectEmptySlot(commands, state)
             while true do
                 commands.turtle.suckUp(state, 64)
                 local collected = commands.turtle.getItemCount()
@@ -512,7 +512,7 @@ local createFurnaceMill = function(opts)
                 end
                 navigate.moveToCoord(commands, state, targetFurnaceCmps.coord)
 
-                highLevelCommands.findAndSelectEmptpySlot(commands, state)
+                highLevelCommands.findAndSelectEmptySlot(commands, state)
                 local collectionSuccess = commands.turtle.suckUp(state, 64)
 
                 if collectionSuccess then
@@ -627,7 +627,7 @@ createSimpleCharcoalSmeltingMill = function(opts)
                 local belowFirstFurnaceCmps = inFrontOfFirstFurnaceLoc.cmps.compassAt({ forward=1, up=-1 })
                 navigate.moveToPos(commands, state, belowFirstFurnaceCmps.pos, { 'up', 'forward', 'right' })
 
-                highLevelCommands.findAndSelectEmptpySlot(commands, state)
+                highLevelCommands.findAndSelectEmptySlot(commands, state)
                 local collectionSuccess = commands.turtle.suckUp(state, 64)
 
                 if collectionSuccess then

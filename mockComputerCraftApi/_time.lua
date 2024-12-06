@@ -28,4 +28,9 @@ function module.getTicks()
     return currentTick
 end
 
+-- Can be temporarily exposed for introspection purposes
+-- function _G._getTimeState()
+--     return { tickListeners = tickListeners, currentTick = currentTick }
+-- end
+
 return module

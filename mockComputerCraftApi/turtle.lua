@@ -99,7 +99,7 @@ local assertNotInsideBlock = function(world, movementDirectionForError)
     end
 end
 
-local assertEquiped = function(world, itemId)
+local assertEquipped = function(world, itemId)
     local isOnLeft = world.turtle.equippedLeft ~= nil and world.turtle.equippedLeft.id == itemId
     local isOnRight = world.turtle.equippedRight ~= nil and world.turtle.equippedRight.id == itemId
     if not isOnLeft and not isOnRight then
@@ -172,7 +172,7 @@ end
 -- quantity is optional
 function module.craft(quantity)
     local currentWorld = _G.mockComputerCraftApi._currentWorld
-    assertEquiped(currentWorld, 'minecraft:crafting_table')
+    assertEquipped(currentWorld, 'minecraft:crafting_table')
     local inventory = currentWorld.turtle.inventory
 
     local flattenRecipe = function(recipe)
@@ -576,7 +576,7 @@ local canDig = {
 }
 
 digAt = function(currentWorld, coordBeingDug, toolSide)
-    assertEquiped(currentWorld, 'minecraft:diamond_pickaxe')
+    assertEquipped(currentWorld, 'minecraft:diamond_pickaxe')
     local dugCell = lookupInMap(currentWorld.map, coordBeingDug)
     if dugCell == nil then
         return false
@@ -792,6 +792,8 @@ attemptToSmelt = function(currentWorld, furnaceCoord)
         if furnaceCell.activelySmelting > 0 then
             if moreToSmelt then
                 time.addTickListener(SMELT_TIME, finishSmelt)
+            else
+                furnaceCell.activelySmelting = 0
             end
         else
             attemptToSmelt(currentWorld, furnaceCoord)

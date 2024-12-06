@@ -25,8 +25,20 @@ function module.exec(strategy)
     local task = _G.act.task
     local highLevelCommands = _G.act.highLevelCommands
 
-    local countResourcesInInventory = function(state)
-        return highLevelCommands.countResourcesInInventory(highLevelCommands.takeInventory(commands, state))
+    local countNonReservedResourcesInInventory = function(state)
+        local resourcesInInventory = util.copyTable(
+            highLevelCommands.countResourcesInInventory(highLevelCommands.takeInventory(commands, state))
+        )
+
+        -- At least one charcoal is reserved so if you need to smelt something, you can get more charcoal to do so.
+        if resourcesInInventory['minecraft:charcoal'] ~= nil then
+            resourcesInInventory['minecraft:charcoal'] = resourcesInInventory['minecraft:charcoal'] - 1 or nil
+            if resourcesInInventory['minecraft:charcoal'] == 0 then
+                resourcesInInventory['minecraft:charcoal'] = nil
+            end
+        end
+
+        return resourcesInInventory
     end
 
     local state = stateModule.createInitialState({
@@ -36,7 +48,7 @@ function module.exec(strategy)
     local isIdling = false
     while #state.projectList > 0 do
         -- Prepare the next project task, or resource-fetching task
-        local resourcesInInventory = countResourcesInInventory(state)
+        local resourcesInInventory = countNonReservedResourcesInInventory(state)
         local nextProject = _G.act.project.lookup(state.projectList[1])
         local nextProjectTaskRunner = task.lookupTaskRunner(state.projectList[1])
         local resourceCollectionTask = task.collectResources(state, nextProject, resourcesInInventory)
@@ -70,7 +82,10 @@ function module.exec(strategy)
             if state.primaryTask.completed then break end
 
             -- Handle interruptions
-            local interruptTask = _G.act.farm.checkForInterruptions(state, countResourcesInInventory(state))
+            local interruptTask = _G.act.farm.checkForInterruptions(
+                state,
+                highLevelCommands.countResourcesInInventory(highLevelCommands.takeInventory(commands, state))
+            )
             if interruptTask ~= nil then
                 taskRunnerBeingDone.exit(state, state.primaryTask)
                 handleInterruption(state, interruptTask)

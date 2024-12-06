@@ -46,7 +46,7 @@ function debugModule.debugCommand(commands, state, opts)
         local itemId = opts.itemId
         local quantity = opts.quantity
         if quantity == nil then quantity = 1 end
-        highLevelCommands.findAndSelectEmptpySlot(commands, state)
+        highLevelCommands.findAndSelectEmptySlot(commands, state)
         world.turtle.inventory[world.turtle.selectedSlot] = { id = itemId, quantity = quantity }
         return
     end
