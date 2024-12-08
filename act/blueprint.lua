@@ -310,6 +310,9 @@ end
 --     layer (unless this particular layer definition is smaller than others, and the "." would fall outside of the definition area).
 --     Its purpose is to just provide further reference points to help you eyeball things and make sure
 --     everything is where it belongs.
+--
+-- You are required to place a buildStartCoord label somewhere in the area. This label marks where the turtle will start
+-- when it works on the project. The label should be placed at an edge, and there should be a column of empty space above it.
 function module.create(opts) -- opts should contain { key=..., labeledPositions=..., layers=... }
     local normalizeMapResult = normalizeMap(opts)
     local normalizedLayers = normalizeMapResult.normalizedLayers

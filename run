@@ -168,30 +168,30 @@ if inputs.useMockLib then
     )
 
     local onStep = function(state)
-        local SLEEP_TIME = 0.2
-        -- local SLEEP_TIME = 0.05
+        -- local SLEEP_TIME = 0.2
+        local SLEEP_TIME = 0.05
         -- local SLEEP_TIME = 0.01
         step = step + 1
         _G.STEP = step
         -- if true then
         if _debug.showStepByStep then
-            -- -- if step < 3300 then return end
-            -- -- if step < 2900 then return end
-            -- if idling then return end
-            -- if lastIdleEndAt == step - 1 then
-            --     local skipCount = lastIdleEndAt - lastIdleStartAt
-            --     print('Idled for '..skipCount..' steps (skipping '..(skipCount * SLEEP_TIME)..' secs)')
-            --     _debug.busySleep(2)
-            -- end
+            -- if step < 3300 then return end
+            -- if step < 2900 then return end
+            if idling then return end
+            if lastIdleEndAt == step - 1 then
+                local skipCount = lastIdleEndAt - lastIdleStartAt
+                print('Idled for '..skipCount..' steps (skipping '..(skipCount * SLEEP_TIME)..' secs)')
+                _debug.busySleep(2)
+            end
 
-            -- -- _G.mockComputerCraftApi.present.displayMap(world, { minX = -8, maxX = 5, minY = 0, maxY = 999, minZ = -5, maxZ = 5 }, { showKey = false })
-            -- _G.mockComputerCraftApi.present.displayCentered(world, { width = 20, height = 12 })
-            -- print('step: '..step)
-            -- -- _G.mockComputerCraftApi.present.taskNames(state)
-            -- -- _G.mockComputerCraftApi.present.inventory(world)
-            -- _G.mockComputerCraftApi.present.showTurtlePosition(world)
+            -- _G.mockComputerCraftApi.present.displayMap(world, { minX = -8, maxX = 5, minY = 0, maxY = 999, minZ = -5, maxZ = 5 }, { showKey = false })
+            _G.mockComputerCraftApi.present.displayCentered(world, { width = 20, height = 12 })
+            print('step: '..step)
+            -- _G.mockComputerCraftApi.present.taskNames(state)
+            -- _G.mockComputerCraftApi.present.inventory(world)
+            _G.mockComputerCraftApi.present.showTurtlePosition(world)
 
-            -- _debug.busySleep(SLEEP_TIME)
+            _debug.busySleep(SLEEP_TIME)
         end
     end
     _debug.registerStepListener(onStep)

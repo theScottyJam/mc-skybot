@@ -30,7 +30,7 @@ initStrategy = function()
             mainIsland.torchUpIsland,
             mainIsland.harvestExcessDirt,
             basicTreeFarm.createFunctionalScaffolding,
-            debugProject(mainIsland.homeLoc),
+            -- debugProject(mainIsland.homeLoc),
             mainIsland.createTower4,
             mainIsland.createTower3,
             mainIsland.createTower2,
