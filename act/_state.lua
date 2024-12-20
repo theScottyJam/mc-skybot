@@ -4,12 +4,11 @@
 --]]
 
 local util = import('util.lua')
+local space = import('./space.lua')
 
 local module = {}
 
 function module.createInitialState(opts)
-    local space = _G.act.space
-
     local startingPos = opts.startingPos
     local projectList = opts.projectList
 

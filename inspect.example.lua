@@ -2,11 +2,14 @@
 -- This module will also register various globals to make it easier to debug the project from anywhere.
 
 local util = import('util.lua')
+local actModule = lazyImport('act/init.lua')
+
+local act = function()
+    return actModule.load()
+end
 
 -- A shorthand to get worldTool functions, which allows you to, e.g., spawn items
 -- into the turtle's inventory.
--- The mock-computer-craft-API might not be ready before this module has started loading,
--- so we implement this as a function so we can lazily check the global object for worldTools.
 local worldTools = function()
     return _G.mockComputerCraftApi.worldTools
 end
@@ -98,12 +101,12 @@ end
 
 -- A special project you can register in your project list to let you run arbitrary code at a specific point in time.
 function module.debugProject(homeLoc)
-    local location = _G.act.location
-    local navigate = _G.act.navigate
-    local highLevelCommands = _G.act.highLevelCommands
+    local location = act().location
+    local navigate = act().navigate
+    local highLevelCommands = act().highLevelCommands
 
     local taskRunnerId = 'project:init:debugProject'
-    _G.act.task.registerTaskRunner(taskRunnerId, {
+    act().task.registerTaskRunner(taskRunnerId, {
         enter = function(commands, state, taskState)
             -- location.travelToLocation(commands, state, homeLoc)
         end,
@@ -117,7 +120,7 @@ function module.debugProject(homeLoc)
             return taskState, true
         end,
     })
-    return _G.act.project.create(taskRunnerId)
+    return act().project.create(taskRunnerId)
 end
 
 function debugGlobal.printTable(table)

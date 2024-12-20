@@ -176,7 +176,6 @@ if turtle == nil then
     return
 end
 
-import('act/init.lua').registerGlobal()
 local strategyModule = import('strategy/init.lua')
 turtle.refuel(16)
 if inspect.onStart then

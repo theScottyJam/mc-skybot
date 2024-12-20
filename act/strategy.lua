@@ -1,7 +1,11 @@
 local util = import('util.lua')
+local inspect = tryImport('inspect.lua')
 local stateModule = import('./_state.lua')
 local commands = import('./_commands.lua')
-local inspect = tryImport('inspect.lua')
+local farm = import('./farm.lua')
+local task = import('./task.lua')
+local highLevelCommands = import('./highLevelCommands.lua')
+local project = import('./project.lua')
 
 local module = {}
 
@@ -15,7 +19,7 @@ local handleInterruption = function(state, interruptTask)
         taskRunnerBeingDone.nextPlan(state, state.interruptTask)
     end
     taskRunnerBeingDone.exit(state, state.interruptTask)
-    _G.act.farm.markFarmTaskAsCompleted(state, state.interruptTask.taskRunnerId)
+    farm.markFarmTaskAsCompleted(state, state.interruptTask.taskRunnerId)
     state.interruptTask = nil
 end
 
@@ -23,9 +27,6 @@ end
 
 -- A strategy is of the shape { initialTurtlePos=..., projectList=<list of taskRunnerIds> }
 function module.exec(strategy)
-    local task = _G.act.task
-    local highLevelCommands = _G.act.highLevelCommands
-
     local countNonReservedResourcesInInventory = function(state)
         local resourcesInInventory = util.copyTable(
             highLevelCommands.countResourcesInInventory(highLevelCommands.takeInventory(commands, state))
@@ -50,7 +51,7 @@ function module.exec(strategy)
     while #state.projectList > 0 do
         -- Prepare the next project task, or resource-fetching task
         local resourcesInInventory = countNonReservedResourcesInInventory(state)
-        local nextProject = _G.act.project.lookup(state.projectList[1])
+        local nextProject = project.lookup(state.projectList[1])
         local nextProjectTaskRunner = task.lookupTaskRunner(state.projectList[1])
         local resourceCollectionTask = task.collectResources(state, nextProject, resourcesInInventory)
         if resourceCollectionTask ~= nil then
@@ -74,7 +75,7 @@ function module.exec(strategy)
         end
 
         -- Check for interruptions
-        local interruptTask = _G.act.farm.checkForInterruptions(state, resourcesInInventory)
+        local interruptTask = farm.checkForInterruptions(state, resourcesInInventory)
         if interruptTask ~= nil then
             handleInterruption(state, interruptTask)
         end
@@ -87,7 +88,7 @@ function module.exec(strategy)
             if state.primaryTask.completed then break end
 
             -- Handle interruptions
-            local interruptTask = _G.act.farm.checkForInterruptions(
+            local interruptTask = farm.checkForInterruptions(
                 state,
                 highLevelCommands.countResourcesInInventory(highLevelCommands.takeInventory(commands, state))
             )

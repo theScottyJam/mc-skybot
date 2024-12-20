@@ -1,9 +1,11 @@
-local location = _G.act.location
-local navigate = _G.act.navigate
+local act = import('act/init.lua')
+
+local location = act.location
+local navigate = act.navigate
 
 local module = {}
 
-local leftRightWalkway = _G.act.blueprint.create({
+local leftRightWalkway = act.blueprint.create({
     key = {
         ['minecraft:smoothStone'] = 's',
         ['minecraft:stoneBricks'] = 's',
@@ -39,7 +41,7 @@ local leftRightWalkway = _G.act.blueprint.create({
     }
 })
 
-local leftDownWalkway = _G.act.blueprint.create({
+local leftDownWalkway = act.blueprint.create({
     key = {
         ['minecraft:smoothStone'] = 's',
         ['minecraft:stoneBricks'] = 's',
@@ -75,7 +77,7 @@ local leftDownWalkway = _G.act.blueprint.create({
     }
 })
 
-local leftDownRightWalkway = _G.act.blueprint.create({
+local leftDownRightWalkway = act.blueprint.create({
     key = {
         ['minecraft:smoothStone'] = 's',
         ['minecraft:stoneBricks'] = 's',
@@ -115,7 +117,7 @@ local leftDownRightWalkway = _G.act.blueprint.create({
 --     local treeFarmEntranceLoc = opts.treeFarmEntranceLoc
 
 --     local taskRunnerId = 'project:basicTreeFarm:createFunctionalScaffolding'
---     _G.act.task.registerTaskRunner(taskRunnerId, {
+--     act.task.registerTaskRunner(taskRunnerId, {
 --         createTaskState = function()
 --             return createFunctionalScaffoldingBlueprint.createTaskState(treeFarmEntranceLoc.cmps)
 --         end,
@@ -131,7 +133,7 @@ local leftDownRightWalkway = _G.act.blueprint.create({
 --             return createFunctionalScaffoldingBlueprint.nextPlan(commands, state, taskState)
 --         end,
 --     })
---     return _G.act.project.create(taskRunnerId, {
+--     return act.project.create(taskRunnerId, {
 --         requiredResources = createFunctionalScaffoldingBlueprint.requiredResources,
 --     })
 -- end

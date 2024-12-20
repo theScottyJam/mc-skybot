@@ -4,6 +4,7 @@
 --]]
 
 local util = import('util.lua')
+local space = import('./space.lua')
 
 local module = {}
 
@@ -70,7 +71,6 @@ end
 -- destinationPos has a "face" field, which decides the final direction the turtle will face.
 function module.moveToPos(commands, state, destinationPos, dimensionOrder)
     if state.turtlePos == nil then error('Failed to provide a valid state') end
-    local space = _G.act.space
     local destinationCmps = space.createCompass(destinationPos)
 
     module.moveToCoord(commands, state, destinationCmps.coord, dimensionOrder)
@@ -78,8 +78,6 @@ function module.moveToPos(commands, state, destinationPos, dimensionOrder)
 end
 
 function module.face(commands, state, targetFacing)
-    local space = _G.act.space
-
     local beforeFace = state.turtlePos.face
     local rotations = space.countClockwiseRotations(beforeFace, targetFacing.face)
 

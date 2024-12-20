@@ -1,5 +1,5 @@
-local strategy = import('./strategy.lua')
 local util = import('util.lua')
+local navigate = import('./navigate.lua')
 
 local module = {}
 
@@ -146,8 +146,6 @@ end
 -- produce multiple paper with a single craft)
 -- pre-condition: There must be an empty space above the turtle
 function module.craft(commands, state, recipe, maxQuantity)
-    local strategy = _G.act.strategy
-
     maxQuantity = maxQuantity or 99999
     if util.tableSize(recipe.from) == 0 then error('Empty recipe') end
 
@@ -369,8 +367,6 @@ end
 -- opts.direction is 'up' or 'down' ('front' is not yet supported).
 -- opts.endFacing. Can be a facing or 'ANY', or 'CURRENT' (the default)
 function module.waitUntilDetectBlock(commands, state, opts)
-    local navigate = _G.act.navigate
-
     local expectedBlockId = opts.expectedBlockId
     local direction = opts.direction
     local endFacing = opts.endFacing

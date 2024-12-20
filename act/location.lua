@@ -7,6 +7,8 @@
 --]]
 
 local util = import('util.lua')
+local space = import('./space.lua')
+local navigate = import('./navigate.lua')
 
 local module = {}
 
@@ -81,7 +83,7 @@ end
 
 function module.register(pos)
     local loc = {
-        cmps = _G.act.space.createCompass(pos),
+        cmps = space.createCompass(pos),
         paths = {} -- List of paths that lead to and from this location
     }
 
@@ -117,8 +119,6 @@ end
 
 -- Finds the shortest route to a location among the registered paths and travels there.
 function module.travelToLocation(commands, state, destLoc)
-    local navigate = _G.act.navigate
-
     if state.turtleCmps().compareCmps(destLoc.cmps) then return end
     local turtleLoc = lookupLoc(state.turtlePos)
     local route = findBestRoute(turtleLoc, destLoc).route

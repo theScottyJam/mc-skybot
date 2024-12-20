@@ -2,8 +2,9 @@
     A farm is something that required periodic attention in order to obtain its resources.
 --]]
 
-local time = import('./_time.lua')
 local util = import('util.lua')
+local time = import('./_time.lua')
+local task = import('./task.lua')
 
 local module = {}
 
@@ -105,7 +106,7 @@ function module.checkForInterruptions(state, resourcesInInventory)
     end
 
     if winningFarm.taskRunnerId ~= nil then
-        return _G.act.task.create(winningFarm.taskRunnerId)
+        return task.create(winningFarm.taskRunnerId)
     else
         return nil
     end

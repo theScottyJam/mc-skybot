@@ -6,6 +6,7 @@ local util = import('util.lua')
 local stateModule = import('./_state.lua')
 local commands = import('./_commands.lua')
 local highLevelCommands = import('./highLevelCommands.lua')
+local mill = import('./mill.lua')
 
 local module = {}
 
@@ -138,13 +139,13 @@ function module.collectResources(state, project, resourcesInInventory_)
                 end
 
                 local previousQuantity = resourceMap[resourceName].quantity
-                local previousRequiredResources = _G.act.mill.getRequiredResources(
+                local previousRequiredResources = mill.getRequiredResources(
                     supplier.taskRunnerId,
                     { resourceName = resourceName, quantity = previousQuantity }
                 )
 
                 local newQuantity = resourceMap[resourceName].quantity + requiredQuantity
-                local requiredResources = _G.act.mill.getRequiredResources(
+                local requiredResources = mill.getRequiredResources(
                     supplier.taskRunnerId,
                     { resourceName = resourceName, quantity = newQuantity }
                 )
@@ -185,7 +186,7 @@ function module.collectResources(state, project, resourcesInInventory_)
     for resourceName, resourceInfo in util.sortedMapTablePairs(resourceMap) do
         if resourceInfo.type == 'mill' then
             local requirementsFulfilled = true
-            local requiredResources = _G.act.mill.getRequiredResources(
+            local requiredResources = mill.getRequiredResources(
                 resourceInfo.taskRunner.id,
                 { resourceName = resourceName, quantity = resourceInfo.quantity }
             )

@@ -1,12 +1,13 @@
 local util = import('util.lua')
+local act = import('act/init.lua')
 local treeFarmBehavior = import('./_treeFarmBehavior.lua')
 
-local location = _G.act.location
-local navigate = _G.act.navigate
+local location = act.location
+local navigate = act.navigate
 
 local module = {}
 
-local createFunctionalScaffoldingBlueprint = _G.act.blueprint.create({
+local createFunctionalScaffoldingBlueprint = act.blueprint.create({
     key = {
         ['minecraft:stone'] = 'X',
         ['minecraft:dirt'] = 'D',
@@ -61,7 +62,7 @@ function createFunctionalScaffoldingProject(opts)
     local treeFarm = opts.treeFarm
 
     local taskRunnerId = 'project:basicTreeFarm:createFunctionalScaffolding'
-    _G.act.task.registerTaskRunner(taskRunnerId, {
+    act.task.registerTaskRunner(taskRunnerId, {
         createTaskState = function()
             return createFunctionalScaffoldingBlueprint.createTaskState(treeFarmEntranceLoc.cmps)
         end,
@@ -80,7 +81,7 @@ function createFunctionalScaffoldingProject(opts)
             return createFunctionalScaffoldingBlueprint.nextPlan(commands, state, taskState)
         end,
     })
-    return _G.act.project.create(taskRunnerId, {
+    return act.project.create(taskRunnerId, {
         requiredResources = createFunctionalScaffoldingBlueprint.requiredResources,
     })
 end
@@ -88,7 +89,7 @@ end
 local createTreeFarm = function(opts)
     local treeFarmEntranceLoc = opts.treeFarmEntranceLoc
 
-    local taskRunnerId = _G.act.task.registerTaskRunner('farm:treeFarm', {
+    local taskRunnerId = act.task.registerTaskRunner('farm:treeFarm', {
         enter = function(commands, state, taskState)
             location.travelToLocation(commands, state, treeFarmEntranceLoc)
         end,
@@ -115,7 +116,7 @@ local createTreeFarm = function(opts)
             return taskState, true
         end,
     })
-    return _G.act.farm.register(taskRunnerId, {
+    return act.farm.register(taskRunnerId, {
         supplies = treeFarmBehavior.stats.supplies,
         calcExpectedYield = treeFarmBehavior.stats.calcExpectedYield,
     })

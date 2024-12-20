@@ -1,6 +1,4 @@
-local module = {}
-
-local act = {
+return {
     blueprint = import('./blueprint.lua'),
     curves = import('./curves.lua'),
     farm = import('./farm.lua'),
@@ -14,9 +12,3 @@ local act = {
     strategy = import('./strategy.lua'),
     task = import('./task.lua'),
 }
-
-function module.registerGlobal()
-    _G.act = act
-end
-
-return module

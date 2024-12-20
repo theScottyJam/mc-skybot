@@ -1,15 +1,16 @@
 local util = import('util.lua')
 local recipes = import('shared/recipes.lua')
+local act = import('act/init.lua')
 local treeFarmBehavior = import('./_treeFarmBehavior.lua')
 
 local module = {}
 
-local location = _G.act.location
-local navigate = _G.act.navigate
-local navigationPatterns = _G.act.navigationPatterns
-local highLevelCommands = _G.act.highLevelCommands
-local curves = _G.act.curves
-local space = _G.act.space
+local location = act.location
+local navigate = act.navigate
+local navigationPatterns = act.navigationPatterns
+local highLevelCommands = act.highLevelCommands
+local curves = act.curves
+local space = act.space
 
 -- Pre-condition: Must have two dirt in inventory
 local harvestInitialTreeAndPrepareTreeFarmProject = function(opts)
@@ -19,7 +20,7 @@ local harvestInitialTreeAndPrepareTreeFarmProject = function(opts)
 
     local bedrockCmps = space.createCompass(bedrockPos)
     local taskRunnerId = 'project:mainIsland:harvestInitialTreeAndPrepareTreeFarm'
-    _G.act.task.registerTaskRunner(taskRunnerId, {
+    act.task.registerTaskRunner(taskRunnerId, {
         enter = function(commands, state, taskState)
             location.travelToLocation(commands, state, homeLoc)
         end,
@@ -75,7 +76,7 @@ local harvestInitialTreeAndPrepareTreeFarmProject = function(opts)
             return taskState, true
         end,
     })
-    return _G.act.project.create(taskRunnerId, {
+    return act.project.create(taskRunnerId, {
         requiredResources = {
             -- 2 for each "sappling-arm", and 2 for the dirt that hovers above the trees
             ['minecraft:dirt'] = { quantity=6, at='INVENTORY' }
@@ -88,7 +89,7 @@ local startBuildingCobblestoneGeneratorProject = function(opts)
     local craftingMills = opts.craftingMills
 
     local taskRunnerId = 'project:mainIsland:startBuildingCobblestoneGenerator'
-    _G.act.task.registerTaskRunner(taskRunnerId, {
+    act.task.registerTaskRunner(taskRunnerId, {
         enter = function(commands, state, taskState)
             location.travelToLocation(commands, state, homeLoc)
         end,
@@ -145,7 +146,7 @@ local startBuildingCobblestoneGeneratorProject = function(opts)
             return taskState, true
         end,
     })
-    return _G.act.project.create(taskRunnerId, {
+    return act.project.create(taskRunnerId, {
         postConditions = function(currentConditions)
             currentConditions.mainIsland.startedCobblestoneGeneratorConstruction = true
         end,
@@ -157,7 +158,7 @@ local waitForIceToMeltAndfinishCobblestoneGeneratorProject = function(opts)
     local cobblestoneGeneratorMill = opts.cobblestoneGeneratorMill
 
     local taskRunnerId = 'project:mainIsland:waitForIceToMeltAndfinishCobblestoneGenerator'
-    _G.act.task.registerTaskRunner(taskRunnerId, {
+    act.task.registerTaskRunner(taskRunnerId, {
         enter = function(commands, state, taskState)
             location.travelToLocation(commands, state, homeLoc)
         end,
@@ -192,7 +193,7 @@ local waitForIceToMeltAndfinishCobblestoneGeneratorProject = function(opts)
             return taskState, true
         end,
     })
-    return _G.act.project.create(taskRunnerId, {
+    return act.project.create(taskRunnerId, {
         requiredResources = {
             ['minecraft:bucket'] = { quantity=1, at='INVENTORY', consumed=false }
         },
@@ -207,7 +208,7 @@ local buildFurnacesProject = function(opts)
     local inFrontOfFirstFurnaceLoc = opts.inFrontOfFirstFurnaceLoc
 
     local taskRunnerId = 'project:mainIsland:buildFurnaces'
-    _G.act.task.registerTaskRunner(taskRunnerId, {
+    act.task.registerTaskRunner(taskRunnerId, {
         enter = function(commands, state, taskState)
             location.travelToLocation(commands, state, inFrontOfChestLoc)
         end,
@@ -234,7 +235,7 @@ local buildFurnacesProject = function(opts)
             return taskState, true
         end,
     })
-    return _G.act.project.create(taskRunnerId, {
+    return act.project.create(taskRunnerId, {
         requiredResources = {
             ['minecraft:furnace'] = { quantity=3, at='INVENTORY' }
         },
@@ -247,7 +248,7 @@ local smeltInitialCharcoalProject = function(opts)
     local simpleCharcoalSmeltingMill = opts.simpleCharcoalSmeltingMill
 
     local taskRunnerId = 'project:mainIsland:smeltInitialCharcoal'
-    _G.act.task.registerTaskRunner(taskRunnerId, {
+    act.task.registerTaskRunner(taskRunnerId, {
         enter = function(commands, state, taskState)
             location.travelToLocation(commands, state, inFrontOfFirstFurnaceLoc)
         end,
@@ -298,7 +299,7 @@ local smeltInitialCharcoalProject = function(opts)
             return taskState, true
         end,
     })
-    return _G.act.project.create(taskRunnerId, {
+    return act.project.create(taskRunnerId, {
         requiredResources = {
             -- Uses four a total of four logs. One as planks for fuel to smelt 3 charcoal.
             -- Some of that charcoal will be used as future fuel, other will be used for torches.
@@ -312,7 +313,7 @@ local torchUpIslandProject = function(opts)
     local inFrontOfChestLoc = opts.inFrontOfChestLoc
 
     local taskRunnerId = 'project:mainIsland:torchUpIsland'
-    _G.act.task.registerTaskRunner(taskRunnerId, {
+    act.task.registerTaskRunner(taskRunnerId, {
         enter = function(commands, state, taskState)
             location.travelToLocation(commands, state, inFrontOfChestLoc)
         end,
@@ -347,7 +348,7 @@ local torchUpIslandProject = function(opts)
             return taskState, true
         end,
     })
-    return _G.act.project.create(taskRunnerId, {
+    return act.project.create(taskRunnerId, {
         requiredResources = {
             ['minecraft:torch'] = { quantity=4, at='INVENTORY' },
         },
@@ -358,7 +359,7 @@ local createFurnaceMill = function(opts)
     local inFrontOfFirstFurnaceLoc = opts.inFrontOfFirstFurnaceLoc
 
     local taskRunnerId = 'mill:mainIsland:furnace'
-    _G.act.task.registerTaskRunner(taskRunnerId, {
+    act.task.registerTaskRunner(taskRunnerId, {
         createTaskState = function()
             return {
                 currentlyInFurnaces = { 0, 0, 0 },
@@ -487,7 +488,7 @@ local createFurnaceMill = function(opts)
         whatIsSmeltedFromWhat[recipe.to] = recipe.from
     end
 
-    return _G.act.mill.create(taskRunnerId, {
+    return act.mill.create(taskRunnerId, {
         getRequiredResources = function(resourceRequest)
             if whatIsSmeltedFromWhat[resourceRequest.resourceName] == nil then
                 error('Unreachable: Requested an invalid resource')
@@ -527,7 +528,7 @@ createSimpleCharcoalSmeltingMill = function(opts)
     end
 
     local taskRunnerId = 'mill:mainIsland:simpleCharcoalSmeltingMill'
-    _G.act.task.registerTaskRunner(taskRunnerId, {
+    act.task.registerTaskRunner(taskRunnerId, {
         createTaskState = function()
             return {
                 quantityInFirstFurnace = 0,
@@ -594,7 +595,7 @@ createSimpleCharcoalSmeltingMill = function(opts)
         end,
     })
 
-    return _G.act.mill.create(taskRunnerId, {
+    return act.mill.create(taskRunnerId, {
         getRequiredResources = function (resourceRequest)
             if resourceRequest.resourceName ~= 'minecraft:charcoal' then
                 error('Only charcoal is supported')
@@ -611,7 +612,7 @@ local createCobblestoneGeneratorMill = function(opts)
     local homeLoc = opts.homeLoc
 
     local taskRunnerId = 'mill:mainIsland:cobblestoneGenerator'
-    _G.act.task.registerTaskRunner(taskRunnerId, {
+    act.task.registerTaskRunner(taskRunnerId, {
         createTaskState = function()
             return { harvested = 0 }
         end,
@@ -640,7 +641,7 @@ local createCobblestoneGeneratorMill = function(opts)
             return newTaskState, newTaskState.harvested == quantity
         end,
     })
-    return _G.act.mill.create(taskRunnerId, {
+    return act.mill.create(taskRunnerId, {
         supplies = { 'minecraft:cobblestone' },
     })
 end
@@ -649,7 +650,7 @@ local createStartingIslandTreeFarm = function(opts)
     local homeLoc = opts.homeLoc
     local bedrockPos = opts.bedrockPos
 
-    local taskRunnerId = _G.act.task.registerTaskRunner('farm:mainIsland:startingIslandTreeFarm', {
+    local taskRunnerId = act.task.registerTaskRunner('farm:mainIsland:startingIslandTreeFarm', {
         enter = function(commands, state, taskState)
             location.travelToLocation(commands, state, homeLoc)
         end,
@@ -678,7 +679,7 @@ local createStartingIslandTreeFarm = function(opts)
             return taskState, true
         end,
     })
-    return _G.act.farm.register(taskRunnerId, {
+    return act.farm.register(taskRunnerId, {
         supplies = treeFarmBehavior.stats.supplies,
         calcExpectedYield = treeFarmBehavior.stats.calcExpectedYield,
     })
@@ -688,7 +689,7 @@ local createCraftingMills = function()
     local millList = {}
     for i, recipe in pairs(recipes.crafting) do
         local taskRunnerId = 'mill:mainIsland:crafting:'..recipe.to..':'..i
-        _G.act.task.registerTaskRunner(taskRunnerId, {
+        act.task.registerTaskRunner(taskRunnerId, {
             createTaskState = function()
                 return { produced = 0 }
             end,
@@ -707,7 +708,7 @@ local createCraftingMills = function()
                 return newTaskState, newTaskState.produced == quantity
             end,
         })
-        local mill = _G.act.mill.create(taskRunnerId, {
+        local mill = act.mill.create(taskRunnerId, {
             getRequiredResources = function (resourceRequest)
                 if resourceRequest.resourceName ~= recipe.to then
                     error('Unreachable: Requested an invalid resource')
@@ -739,7 +740,7 @@ local harvestExcessDirt = function(opts)
 
     local bedrockCmps = space.createCompass(bedrockPos)
     local taskRunnerId = 'project:mainIsland:harvestExcessDirt'
-    _G.act.task.registerTaskRunner(taskRunnerId, {
+    act.task.registerTaskRunner(taskRunnerId, {
         enter = function(commands, state, taskState)
             location.travelToLocation(commands, state, homeLoc)
         end,
@@ -781,14 +782,14 @@ local harvestExcessDirt = function(opts)
             return taskState, true
         end,
     })
-    return _G.act.project.create(taskRunnerId)
+    return act.project.create(taskRunnerId)
 end
 
 local createTowerProject = function(opts)
     local homeLoc = opts.homeLoc
     local towerNumber = opts.towerNumber
 
-    local taskRunnerId = _G.act.task.registerTaskRunner('project:mainIsland:createTower:'..towerNumber, {
+    local taskRunnerId = act.task.registerTaskRunner('project:mainIsland:createTower:'..towerNumber, {
         enter = function(commands, state, taskState)
             location.travelToLocation(commands, state, homeLoc)
         end,
@@ -828,7 +829,7 @@ local createTowerProject = function(opts)
             return taskState, true
         end,
     })
-    return _G.act.project.create(taskRunnerId, {
+    return act.project.create(taskRunnerId, {
         requiredResources = {
             -- ['minecraft:cobblestone'] = { quantity=64 * 4, at='INVENTORY' }
             -- ['minecraft:furnace'] = { quantity=32, at='INVENTORY' }
@@ -880,7 +881,7 @@ function module.initEntity()
     }
 end
 
-_G.act.project.registerStartingConditionInitializer(function(startingConditions)
+act.project.registerStartingConditionInitializer(function(startingConditions)
     startingConditions.mainIsland = {
         startedCobblestoneGeneratorConstruction = false,
     }

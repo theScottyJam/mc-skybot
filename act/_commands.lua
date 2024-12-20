@@ -1,3 +1,4 @@
+local space = import('./space.lua')
 local inspect = tryImport('inspect.lua')
 
 local module = {}
@@ -80,13 +81,13 @@ end)
 module.turnLeft = commandWithStateChanges(function(state)
     turtle.turnLeft()
 end, function(turtlePos)
-    turtlePos.face = _G.act.space.rotateFaceCounterClockwise(turtlePos.face)
+    turtlePos.face = space.rotateFaceCounterClockwise(turtlePos.face)
 end)
 
 module.turnRight = commandWithStateChanges(function(state)
     turtle.turnRight()
 end, function(turtlePos)
-    turtlePos.face = _G.act.space.rotateFaceClockwise(turtlePos.face)
+    turtlePos.face = space.rotateFaceClockwise(turtlePos.face)
 end)
 
 module.select = ignoreFirstArg(turtle.select)

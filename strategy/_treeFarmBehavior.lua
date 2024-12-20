@@ -1,12 +1,13 @@
 local util = import('util.lua')
+local act = import('act/init.lua')
 
 local module = {}
 
-local navigate = _G.act.navigate
-local navigationPatterns = _G.act.navigationPatterns
-local space = _G.act.space
-local highLevelCommands = _G.act.highLevelCommands
-local curves = _G.act.curves
+local navigate = act.navigate
+local navigationPatterns = act.navigationPatterns
+local space = act.space
+local highLevelCommands = act.highLevelCommands
+local curves = act.curves
 
 -- Above a tree is typically a floating block, then an optional torch.
 -- This function expects you to to be right above where the torch would be.
