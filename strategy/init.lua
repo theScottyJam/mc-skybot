@@ -5,12 +5,16 @@ if _G.act == nil then error('Must load `act` lib before importing this module') 
 local curves = _G.act.curves
 local entities = import('./entities/init.lua')
 local util = import('util.lua')
+local inspect = tryImport('inspect.lua')
 
 local initStrategy
-local debugProject
 function module.run()
     local strategy = initStrategy()
     _G.act.strategy.exec(strategy)
+end
+
+local debugProject = inspect.debugProject or function(homeLoc)
+    error('No debug project specified in inspect.lua.')
 end
 
 initStrategy = function()
@@ -22,6 +26,8 @@ initStrategy = function()
     return {
         initialTurtlePos = mainIsland.initialLoc.cmps.pos,
         projectList = _G.act.project.createProjectList({
+            -- To run a custom project for debugging purposes, use the following anywhere it's needed:
+            --   debugProject(mainIsland.homeLoc),
             mainIsland.startBuildingCobblestoneGenerator,
             mainIsland.harvestInitialTreeAndPrepareTreeFarm,
             mainIsland.waitForIceToMeltAndfinishCobblestoneGenerator,
@@ -30,7 +36,6 @@ initStrategy = function()
             mainIsland.torchUpIsland,
             mainIsland.harvestExcessDirt,
             basicTreeFarm.createFunctionalScaffolding,
-            -- debugProject(mainIsland.homeLoc),
             mainIsland.createTower4,
             mainIsland.createTower3,
             mainIsland.createTower2,
@@ -44,30 +49,5 @@ _G.act.farm.registerValueOfResources({
         return curves.inverseSqrtCurve({ yIntercept = 35, factor = 1/50 })(quantitiesOwned)
     end,
 })
-
-debugProject = function(homeLoc)
-    local location = _G.act.location
-    local navigate = _G.act.navigate
-    local highLevelCommands = _G.act.highLevelCommands
-
-    local taskRunnerId = 'project:init:debugProject'
-    _G.act.task.registerTaskRunner(taskRunnerId, {
-        enter = function(commands, state, taskState)
-            -- location.travelToLocation(planner, homeLoc)
-        end,
-        nextPlan = function(commands, state, taskState)
-            -- local startPos = util.copyTable(planner.turtlePos)
-            -- local currentWorld = _G.mockComputerCraftApi._currentWorld
-            -- _G._debug.debugCommand(commands, state, { action='obtain', itemId='minecraft:charcoal', quantity=64 })
-            -- _G._debug.debugCommand(commands, state, { action='obtain', itemId='minecraft:log', quantity=64 })
-            -- _G._debug.debugCommand(commands, state, { action='obtain', itemId='minecraft:dirt', quantity=16 })
-            _G._debug.showStepByStep = true
-
-            -- navigate.moveToPos(planner, startPos)
-            return taskState, true
-        end,
-    })
-    return _G.act.project.create(taskRunnerId)
-end
 
 return module

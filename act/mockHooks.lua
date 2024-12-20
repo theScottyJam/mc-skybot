@@ -15,14 +15,6 @@ function module.init(hookListeners)
         mockHooks.registerCobblestoneRegenerationBlock = noop
     end
 
-    if mockHooks.idleStart == nil then
-        mockHooks.idleStart = noop
-    end
-
-    if mockHooks.idleEnd == nil then
-        mockHooks.idleEnd = noop
-    end
-
     return mockHooks
 end
 

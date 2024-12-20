@@ -44,33 +44,21 @@ local inputs = parseTerminalArgs({ ... })
 -- otherwise, it won't be able to properly resolve relative module paths.
 do
     local BASE_PATH = inputs.basePath
-    local resolvePotentiallyRelativePath
-    local dirName
     local moduleCache = {}
     local importStack = { 'run' }
 
-    -- Can be used to help with circular dependencies.
-    -- Returns an object with a `.load()` function, that can be
-    -- called to retrieve the actual module at the point where you need it.
-    _G.lazyImport = function (path)
-        local absPath = resolvePotentiallyRelativePath(path)
-        return {
-            load = function()
-                if moduleCache[absPath] == nil then
-                    table.insert(importStack, absPath)
-                    moduleCache[absPath] = dofile(BASE_PATH..absPath)
-                    table.remove(importStack)
-                end
-                return moduleCache[absPath]
-            end
-        }
+    -- Givin 'abc/def/ghi.lua', this returns 'abc/def/'
+    local dirName = function(path)
+        local reversed = string.reverse(path)
+        local slashPos = string.find(reversed, '/')
+        if slashPos == nil then
+            return ''
+        else
+            return string.reverse(string.sub(reversed, slashPos))
+        end
     end
 
-    _G.import = function (path)
-        return _G.lazyImport(path).load()
-    end
-
-    resolvePotentiallyRelativePath = function(path)
+    local resolvePotentiallyRelativePath = function(path)
         local dotSlash = string.sub(path, 1, 2) == './'
         local dotDotSlash = string.sub(path, 1, 3) == '../'
         if not dotSlash and not dotDotSlash then
@@ -86,21 +74,64 @@ do
         return basePath .. path
     end
 
-    -- Givin 'abc/def/ghi.lua', this returns 'abc/def/'
-    dirName = function(path)
-        local reversed = string.reverse(path)
-        local slashPos = string.find(reversed, '/')
-        if slashPos == nil then
-            return ''
-        else
-            return string.reverse(string.sub(reversed, slashPos))
+    -- Can be used to help with circular dependencies.
+    -- Returns an object with a `.load()` function, that can be
+    -- called to retrieve the actual module at the point where you need it.
+    _G.lazyImport = function (path, _dofile)
+        if _dofile == nil then _dofile = dofile end
+        local absPath = resolvePotentiallyRelativePath(path)
+        return {
+            load = function()
+                if moduleCache[absPath] == nil then
+                    table.insert(importStack, absPath)
+                    moduleCache[absPath] = _dofile(BASE_PATH..absPath)
+                    table.remove(importStack)
+                end
+                return moduleCache[absPath]
+            end
+        }
+    end
+
+    _G.import = function (path, _dofile)
+        if _dofile == nil then _dofile = dofile end
+        return _G.lazyImport(path, _dofile).load()
+    end
+
+    -- Attempts to import a module at the provided path.
+    -- If the module is not found, an empty table is returned instead.
+    _G.tryImport = function (path)
+        -- You can't catch and handle errors while calling import() or lazyImport(),
+        -- because that will leave it in an invalid state (with information left on the import stack).
+        -- This tryImport() implementation is carefully designed to avoid this problem
+        -- by making the "try" area as small as possible.
+
+        local _dofile = function(fullPath)
+            local importedModule
+            local moduleLoadError
+            xpcall(
+                function()
+                    importedModule = dofile(fullPath)
+                end,
+                function(err)
+                    if string.find(err, 'No such file or directory') then
+                        importedModule = {}
+                    else
+                        moduleLoadError = err
+                    end
+                end
+            )
+
+            if moduleLoadError then
+                error(moduleLoadError)
+            end
+
+            return importedModule
         end
+
+        return _G.import(path, _dofile)
     end
 end
 
-local base
-local world
-local hookListeners = {}
 if inputs.showHelp then
     print('USAGE: run [...flags]')
     print('  --help/-h: This help')
@@ -125,76 +156,25 @@ end
 
 -- Don't do any imports until after we've had the chance to show the help,
 -- since the help explains required flags that may be needed to make imports work.
-import('_debug.lua').registerGlobal()
-
--- Temporary code for testing turtle script.
--- do
---     local turtlescript = import('turtlescript/init.lua')
---     turtlescript.run([[
---         --! TURTLE SCRIPT
---         print(2 + 3)
---     ]])
---     return
--- end
+local inspect = tryImport('inspect.lua')
+if inspect.registerGlobals ~= nil then
+    inspect.registerGlobals()
+end
+local util = import('./util.lua')
 
 if inputs.runTests then
     import('turtlescript/test.lua')
     return
 end
 
-local util = import('./util.lua')
-
+local world
+local hookListeners = {}
 if inputs.useMockLib then
     import('mockComputerCraftApi/init.lua').registerGlobals()
     world = _G.mockComputerCraftApi.world.createDefault()
     _G.mockComputerCraftApi.setWorld(world)
 
-    local step = 0
-    local idling = false
-    local lastIdleStartAt = nil
-    local lastIdleEndAt = nil
-    hookListeners = util.mergeTables(
-        _G.mockComputerCraftApi.hookListeners,
-        {
-            idleStart = function()
-                idling = true
-                lastIdleStartAt = step
-            end,
-            idleEnd = function()
-                idling = false
-                lastIdleEndAt = step
-            end,
-        }
-    )
-
-    local onStep = function(state)
-        -- local SLEEP_TIME = 0.2
-        local SLEEP_TIME = 0.05
-        -- local SLEEP_TIME = 0.01
-        step = step + 1
-        _G.STEP = step
-        -- if true then
-        if _debug.showStepByStep then
-            -- if step < 3300 then return end
-            -- if step < 2900 then return end
-            if idling then return end
-            if lastIdleEndAt == step - 1 then
-                local skipCount = lastIdleEndAt - lastIdleStartAt
-                print('Idled for '..skipCount..' steps (skipping '..(skipCount * SLEEP_TIME)..' secs)')
-                _debug.busySleep(2)
-            end
-
-            -- _G.mockComputerCraftApi.present.displayMap(world, { minX = -8, maxX = 5, minY = 0, maxY = 999, minZ = -5, maxZ = 5 }, { showKey = false })
-            _G.mockComputerCraftApi.present.displayCentered(world, { width = 20, height = 12 })
-            print('step: '..step)
-            -- _G.mockComputerCraftApi.present.taskNames(state)
-            -- _G.mockComputerCraftApi.present.inventory(world)
-            _G.mockComputerCraftApi.present.showTurtlePosition(world)
-
-            _debug.busySleep(SLEEP_TIME)
-        end
-    end
-    _debug.registerStepListener(onStep)
+    hookListeners = _G.mockComputerCraftApi.hookListeners
 end
 
 if turtle == nil then
@@ -205,14 +185,14 @@ end
 import('act/init.lua').registerGlobal(hookListeners)
 local strategyModule = import('strategy/init.lua')
 turtle.refuel(16)
-strategyModule.run(onStep)
+if inspect.onStart then inspect.onStart() end
+strategyModule.run()
 
 if inputs.useMockLib then
-    mockComputerCraftApi.present.displayMap(world, { minX = -18, maxX = 18, minY = 0, maxY = 79, minZ = -15, maxZ = 3 }, { showKey = false })
-    -- mockComputerCraftApi.present.displayMap(world, { minX = -12, maxX = 9, minY = 65, maxY = 68, minZ = -7, maxZ = 6 }, { showKey = false })
-    -- mockComputerCraftApi.present.displayLayers(world, { minX = -12, maxX = 9, minY = 64, maxY = 75, minZ = -7, maxZ = 6 }, { showKey = false }) -- island
-    -- mockComputerCraftApi.present.displayLayers(world, { minX = -7, maxX = 7, minY = 64, maxY = 77, minZ = -12, maxZ = -7 }, { showKey = false }) -- tree farm
-    mockComputerCraftApi.present.showTurtlePosition(world)
-    mockComputerCraftApi.present.now()
-    mockComputerCraftApi.present.inventory(world)
+    if inspect.showFinalState then
+        inspect.showFinalState()
+    else
+        print('Finished running simulated run.')
+        print('Copy-paste inspect.example.lua as inspect.lua and modify it to your liking to view the results of the simulated run.')
+    end
 end

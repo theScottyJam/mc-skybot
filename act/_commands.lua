@@ -1,3 +1,5 @@
+local inspect = tryImport('inspect.lua')
+
 local module = {}
 
 local commandWithStateChanges = function(execute, updateState)
@@ -13,7 +15,9 @@ local commandWithStateChanges = function(execute, updateState)
             updateState(state.turtlePos, table.unpack({...}))
         end
 
-        _G._debug.triggerStepListener(state)
+        if inspect.onStep ~= nil then
+            inspect.onStep(state)
+        end
 
         return table.unpack(result)
     end

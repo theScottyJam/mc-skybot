@@ -1,6 +1,7 @@
 local util = import('util.lua')
 local stateModule = import('./_state.lua')
 local commands = import('./_commands.lua')
+local inspect = tryImport('inspect.lua')
 
 local module = {}
 
@@ -56,11 +57,15 @@ function module.exec(strategy)
             -- This "act:idle" id is defined elsewhere. §7kUI2
             if not isIdling and resourceCollectionTask.taskRunnerId == 'act:idle' then
                 isIdling = true
-                _G.act.mockHooks.idleStart()
+                if inspect.onIdleStart ~= nil then
+                    inspect.onIdleStart()
+                end
             end
             if isIdling and resourceCollectionTask.taskRunnerId ~= 'act:idle' then
                 isIdling = false
-                _G.act.mockHooks.idleEnd()
+                if inspect.onIdleEnd ~= nil then
+                    inspect.onIdleEnd()
+                end
             end
             state.primaryTask = resourceCollectionTask
         else
