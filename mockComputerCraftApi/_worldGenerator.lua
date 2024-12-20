@@ -4,24 +4,7 @@
 
 local module = {}
 
-local createStartingMap
-function module.createDefault()
-    local world = {
-        turtle = {
-            pos = { x=3, y=67, z=-3, face='W' },
-            selectedSlot = 1, -- Selected inventory slot
-            inventory = {
-                [2] = { id = 'minecraft:crafting_table', quantity = 1 },
-            },
-            equippedLeft = nil,
-            equippedRight = { id = 'minecraft:diamond_pickaxe', quantity = 1 },
-        },
-        map = createStartingMap()
-    }
-    return world
-end
-
-createStartingMap = function()
+local createStartingMap = function()
     local map = {}
 
     local createLeaves = function() return { id = 'minecraft:leaves' } end
@@ -165,6 +148,21 @@ createStartingMap = function()
     map[ 0][73][ 1] = createLeaves()
 
     return map
+end
+
+function module.createWorld()
+    return {
+        turtle = {
+            pos = { x=3, y=67, z=-3, face='W' },
+            selectedSlot = 1, -- Selected inventory slot
+            inventory = {
+                [2] = { id = 'minecraft:crafting_table', quantity = 1 },
+            },
+            equippedLeft = nil,
+            equippedRight = { id = 'minecraft:diamond_pickaxe', quantity = 1 },
+        },
+        map = createStartingMap()
+    }
 end
 
 return module

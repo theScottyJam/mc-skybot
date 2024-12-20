@@ -67,7 +67,6 @@ module.backward = commandWithStateChanges(function(state)
     local success = false
     while not success do
         success = turtle.backward()
-        if not success then _G.act.mockHooks.onFailToMove() end
     end
 end, function(turtlePos)
     if turtlePos.face == 'forward' then turtlePos.forward = turtlePos.forward - 1

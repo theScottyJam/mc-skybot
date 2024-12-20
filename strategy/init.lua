@@ -3,9 +3,10 @@ local module = {}
 if _G.act == nil then error('Must load `act` lib before importing this module') end
 
 local curves = _G.act.curves
-local entities = import('./entities/init.lua')
 local util = import('util.lua')
 local inspect = tryImport('inspect.lua')
+local mainIsland = import('./mainIsland.lua')
+local basicTreeFarm = import('./basicTreeFarm.lua')
 
 local initStrategy
 function module.run()
@@ -20,8 +21,8 @@ end
 initStrategy = function()
     local project = _G.act.project
 
-    local mainIsland = entities.mainIsland.initEntity()
-    local basicTreeFarm = entities.basicTreeFarm.initEntity({ homeLoc = mainIsland.homeLoc })
+    local mainIsland = mainIsland.initEntity()
+    local basicTreeFarm = basicTreeFarm.initEntity({ homeLoc = mainIsland.homeLoc })
 
     return {
         initialTurtlePos = mainIsland.initialLoc.cmps.pos,

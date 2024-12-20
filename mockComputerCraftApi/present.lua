@@ -32,9 +32,11 @@ local completeMapKey = {
 -- bounds is of the shape { minX = ..., maxX = ..., minY? = ..., maxY? = ..., minZ = ..., maxZ = ...}
 -- This will render a top-down view of the world, cropped at the provided bounds.
 -- opts is optional. You can provide `opts.showKey` to also render the map's key.
-function module.displayMap(world, bounds, opts)
+function module.displayMap(bounds, opts)
     local showKey = (opts or {}).showKey
     if showKey == nil then showKey = false end
+
+    local world = _G.mockComputerCraftApi.world
 
     local map = world.map
     local view = {}
@@ -96,7 +98,7 @@ function module.displayMap(world, bounds, opts)
     print(result)
 end
 
-function module.displayCentered(world, opts)
+function module.displayCentered(opts)
     opts = opts or {}
     local coord = opts.coord or world.turtle.pos
     local width = opts.width or 20
@@ -105,7 +107,9 @@ function module.displayCentered(world, opts)
     local maxY = opts.maxY -- may be nil
     local showKey = opts.showKey -- may be nil
 
-    module.displayMap(world, {
+    local world = _G.mockComputerCraftApi.world
+
+    module.displayMap({
         minX = coord.x - math.floor(width / 2),
         maxX = coord.x + math.ceil(width / 2),
         minY = minY,
@@ -115,17 +119,20 @@ function module.displayCentered(world, opts)
     }, { showKey = showKey })
 end
 
-function module.displayLayers(world, bounds, opts)
+function module.displayLayers(bounds, opts)
+    local world = _G.mockComputerCraftApi.world
     for i = bounds.maxY, bounds.minY, -1 do
         local boundsCopy = util.copyTable(bounds)
         boundsCopy.minY = i
         boundsCopy.maxY = i
         print('y='..i)
-        module.displayMap(world, boundsCopy, opts)
+        module.displayMap(boundsCopy, opts)
     end
 end
 
-function module.inventory(world)
+function module.inventory()
+    local world = _G.mockComputerCraftApi.world
+
     print('Inventory:')
     local found = false
     for i = 1, 16 do
@@ -141,7 +148,8 @@ function module.inventory(world)
     end
 end
 
-function module.showTurtlePosition(world)
+function module.showTurtlePosition()
+    local world = _G.mockComputerCraftApi.world
     local turtlePos = world.turtle.pos
     print('Turtle pos: ('..turtlePos.x..','..turtlePos.y..','..turtlePos.z..') '..turtlePos.face)
 end

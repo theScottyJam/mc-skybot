@@ -164,7 +164,9 @@ local waitForIceToMeltAndfinishCobblestoneGeneratorProject = function(opts)
         exit = function(commands, state, taskState, info)
             navigate.assertPos(state, homeLoc.cmps.pos)
             if info.complete then
-                _G.act.mockHooks.registerCobblestoneRegenerationBlock(homeLoc.cmps.coordAt({ up=-1 }))
+                if _G.mockComputerCraftApi ~= nil then
+                    _G.mockComputerCraftApi.hooks.registerCobblestoneRegenerationBlock(homeLoc.cmps.coordAt({ up=-1 }))
+                end
                 cobblestoneGeneratorMill.activate(commands, state)
             end
         end,

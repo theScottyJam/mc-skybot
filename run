@@ -167,14 +167,8 @@ if inputs.runTests then
     return
 end
 
-local world
-local hookListeners = {}
 if inputs.useMockLib then
     import('mockComputerCraftApi/init.lua').registerGlobals()
-    world = _G.mockComputerCraftApi.world.createDefault()
-    _G.mockComputerCraftApi.setWorld(world)
-
-    hookListeners = _G.mockComputerCraftApi.hookListeners
 end
 
 if turtle == nil then
@@ -182,10 +176,12 @@ if turtle == nil then
     return
 end
 
-import('act/init.lua').registerGlobal(hookListeners)
+import('act/init.lua').registerGlobal()
 local strategyModule = import('strategy/init.lua')
 turtle.refuel(16)
-if inspect.onStart then inspect.onStart() end
+if inspect.onStart then
+    inspect.onStart()
+end
 strategyModule.run()
 
 if inputs.useMockLib then

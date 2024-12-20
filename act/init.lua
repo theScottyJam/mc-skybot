@@ -1,5 +1,3 @@
-local mockHooksModule = import('./mockHooks.lua')
-
 local module = {}
 
 local act = {
@@ -9,7 +7,6 @@ local act = {
     highLevelCommands = import('./highLevelCommands.lua'),
     location = import('./location.lua'),
     mill = import('./mill.lua'),
-    mockHooks = nil,
     navigate = import('./navigate.lua'),
     navigationPatterns = import('./navigationPatterns.lua'),
     project = import('./project.lua'),
@@ -18,8 +15,7 @@ local act = {
     task = import('./task.lua'),
 }
 
-function module.registerGlobal(hookListeners)
-    act.mockHooks = mockHooksModule.init(hookListeners)
+function module.registerGlobal()
     _G.act = act
 end
 

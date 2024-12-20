@@ -3,6 +3,14 @@
 
 local util = import('util.lua')
 
+-- A shorthand to get worldTool functions, which allows you to, e.g., spawn items
+-- into the turtle's inventory.
+-- The mock-computer-craft-API might not be ready before this module has started loading,
+-- so we implement this as a function so we can lazily check the global object for worldTools.
+local worldTools = function()
+    return _G.mockComputerCraftApi.worldTools
+end
+
 local module = {}
 -- Methods will be attached in addition to the properties defined immediately below.
 local debugGlobal = {
@@ -54,8 +62,6 @@ end
 
 -- Called after each action the turtle takes
 function module.onStep(state)
-    local world = _G.mockComputerCraftApi._currentWorld
-
     -- Only show debug info if we're in the mock environment.
     if _G.mockComputerCraftApi == nil then
         return
@@ -71,12 +77,12 @@ function module.onStep(state)
             busySleep(2)
         end
 
-        -- _G.mockComputerCraftApi.present.displayMap(world, { minX = -8, maxX = 5, minY = 0, maxY = 999, minZ = -5, maxZ = 5 }, { showKey = false })
-        _G.mockComputerCraftApi.present.displayCentered(world, { width = 20, height = 12 })
+        -- _G.mockComputerCraftApi.present.displayMap({ minX = -8, maxX = 5, minY = 0, maxY = 999, minZ = -5, maxZ = 5 }, { showKey = false })
+        _G.mockComputerCraftApi.present.displayCentered({ width = 20, height = 12 })
         print('step: '..step)
         -- _G.mockComputerCraftApi.present.taskNames(state)
-        -- _G.mockComputerCraftApi.present.inventory(world)
-        _G.mockComputerCraftApi.present.showTurtlePosition(world)
+        -- _G.mockComputerCraftApi.present.inventory()
+        _G.mockComputerCraftApi.present.showTurtlePosition()
 
         busySleep(SLEEP_TIME)
     end
@@ -84,15 +90,10 @@ end
 
 -- Called when the turtle has finished
 function module.showFinalState()
-    local world = _G.mockComputerCraftApi._currentWorld
-
-    mockComputerCraftApi.present.displayMap(world, { minX = -18, maxX = 18, minY = 0, maxY = 79, minZ = -15, maxZ = 3 }, { showKey = false })
-    -- mockComputerCraftApi.present.displayMap(world, { minX = -12, maxX = 9, minY = 65, maxY = 68, minZ = -7, maxZ = 6 }, { showKey = false })
-    -- mockComputerCraftApi.present.displayLayers(world, { minX = -12, maxX = 9, minY = 64, maxY = 75, minZ = -7, maxZ = 6 }, { showKey = false }) -- island
-    -- mockComputerCraftApi.present.displayLayers(world, { minX = -7, maxX = 7, minY = 64, maxY = 77, minZ = -12, maxZ = -7 }, { showKey = false }) -- tree farm
-    mockComputerCraftApi.present.showTurtlePosition(world)
+    mockComputerCraftApi.present.displayMap({ minX = -18, maxX = 18, minY = 0, maxY = 79, minZ = -15, maxZ = 3 }, { showKey = false })
+    mockComputerCraftApi.present.showTurtlePosition()
     mockComputerCraftApi.present.now()
-    mockComputerCraftApi.present.inventory(world)
+    mockComputerCraftApi.present.inventory()
 end
 
 -- A special project you can register in your project list to let you run arbitrary code at a specific point in time.
@@ -108,8 +109,8 @@ function module.debugProject(homeLoc)
         end,
         nextPlan = function(commands, state, taskState)
             -- local startPos = util.copyTable(state.turtlePos)
-            -- local currentWorld = _G.mockComputerCraftApi._currentWorld
-            -- debugGlobal.obtain(commands, state, { itemId='minecraft:charcoal', quantity=64 })
+            -- local currentWorld = _G.mockComputerCraftApi.world
+            -- worldTools().addToInventory('minecraft:charcoal', 64)
             debugGlobal.showStepByStep = true
 
             -- navigate.moveToPos(commands, state, startPos)
@@ -126,19 +127,6 @@ function debugGlobal.printTable(table)
         print('  ' .. tostring(k) .. ' = ' .. tostring(v))
     end
     print('}')
-end
-
--- Cheat items into the turtle's inventory
-function debugGlobal.obtain(commands, state, opts)
-    local itemId = opts.itemId
-    local quantity = opts.quantity
-    if quantity == nil then quantity = 1 end
-
-    local world = _G.mockComputerCraftApi._currentWorld
-    local highLevelCommands = _G.act.highLevelCommands
-
-    highLevelCommands.findAndSelectEmptySlot(commands, state)
-    world.turtle.inventory[world.turtle.selectedSlot] = { id = itemId, quantity = quantity }
 end
 
 function module.registerGlobals()

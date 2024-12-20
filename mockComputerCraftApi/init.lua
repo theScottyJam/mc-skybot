@@ -1,21 +1,16 @@
 local module = {}
 
-local turtleImport = import('./turtle.lua')
 local util = import('util.lua')
 
-local globals
-globals = {
-    turtle = turtleImport[1],
+local globals = {
+    turtle = import('./turtle.lua'),
     originalOs = _G.os,
     os = import('./os.lua'),
     mockComputerCraftApi = {
-        hookListeners = turtleImport[2],
+        hooks = import('./hooks.lua'),
         present = import('./present.lua'),
-        world = import('./world.lua'),
-        _currentWorld = nil, -- Any mockComputerCraftApi module is allowed to access this
-        setWorld = function(world)
-            globals.mockComputerCraftApi._currentWorld = world
-        end,
+        world = import('./_worldGenerator.lua').createWorld(),
+        worldTools = import('./worldTools.lua'),
     }
 }
 
