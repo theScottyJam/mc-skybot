@@ -46,7 +46,10 @@ act.farm.registerValueOfResources({
 
 function module.run()
     local plan = initPlan()
-    act.plan.exec(plan)
+    local state = act.plan.createInitialState(plan)
+    while not act.plan.isPlanComplete(state) do
+        act.plan.runNextSprint(state)
+    end
 end
 
 return module

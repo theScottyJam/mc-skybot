@@ -52,19 +52,19 @@ function module.registerTaskRunner(id, opts)
 
         -- Takes a state and a reference to this task.
         exit = function(state, currentTask)
-            exit(commands, state, currentTask.taskState, { complete = currentTask.completed })
+            exit(commands, state, currentTask.taskState, { complete = currentTask.exhausted })
             currentTask.entered = false
         end,
 
         -- Takes a state and a reference to this task.
         nextSprint = function(state, currentTask)
-            if currentTask.completed == true then
+            if currentTask.exhausted == true then
                 error('This task is already finished')
             end
 
             local newTaskState, complete = nextSprint(commands, state, currentTask.taskState, currentTask.args)
             currentTask.taskState = newTaskState
-            currentTask.completed = complete
+            currentTask.exhausted = complete
         end
     }
     return id
@@ -215,9 +215,8 @@ function module.create(taskRunnerId, args)
         taskRunnerId = taskRunnerId,
         -- Auto-initializes the first time you request a sprint
         initialized = false,
-        -- "complete" means you've requested the last available sprint.
-        -- It doesn't necessarily mean all requested sprints have been executed.
-        completed = false,
+        -- Set to true when all available sprints have been returned
+        exhausted = false,
         -- true when enter() gets called. false when exit() gets called.
         entered = false,
         -- Arbitrary state, to help keep track of what's going on between interruptions

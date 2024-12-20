@@ -29,6 +29,7 @@ function module.createInitialState(opts)
         turtleCmps = function()
             return space.createCompass(util.copyTable(state.turtlePos))
         end,
+        --<-- unused
         -- Returns the primary task, or if we're in the middle of an interruption, returns the interrupt task.
         -- May return nil if there are currently no tasks being run.
         getActiveTask = function()

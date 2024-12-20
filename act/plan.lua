@@ -11,46 +11,45 @@ local module = {}
 
 -- HELPER FUNCTIONS --
 
-local handleInterruption = function(state, interruptTask)
-    state.interruptTask = interruptTask
-    local taskRunnerBeingDone = state.interruptTask.getTaskRunner()
-    taskRunnerBeingDone.enter(state, state.interruptTask)
-    while not state.interruptTask.completed do
-        taskRunnerBeingDone.nextSprint(state, state.interruptTask)
+local countNonReservedResourcesInInventory = function(state)
+    local resourcesInInventory = util.copyTable(
+        highLevelCommands.countResourcesInInventory(highLevelCommands.takeInventory(commands, state))
+    )
+
+    -- At least one charcoal is reserved so if you need to smelt something, you can get more charcoal to do so.
+    if resourcesInInventory['minecraft:charcoal'] ~= nil then
+        resourcesInInventory['minecraft:charcoal'] = resourcesInInventory['minecraft:charcoal'] - 1 or nil
+        if resourcesInInventory['minecraft:charcoal'] == 0 then
+            resourcesInInventory['minecraft:charcoal'] = nil
+        end
     end
-    taskRunnerBeingDone.exit(state, state.interruptTask)
-    farm.markFarmTaskAsCompleted(state, state.interruptTask.taskRunnerId)
-    state.interruptTask = nil
+
+    return resourcesInInventory
 end
 
 -- PUBLIC FUNCTIONS --
 
+--<-- Remove this indirection?
 -- A plan is of the shape { initialTurtlePos=..., projectList=<list of taskRunnerIds> }
-function module.exec(plan)
-    local countNonReservedResourcesInInventory = function(state)
-        local resourcesInInventory = util.copyTable(
-            highLevelCommands.countResourcesInInventory(highLevelCommands.takeInventory(commands, state))
-        )
-
-        -- At least one charcoal is reserved so if you need to smelt something, you can get more charcoal to do so.
-        if resourcesInInventory['minecraft:charcoal'] ~= nil then
-            resourcesInInventory['minecraft:charcoal'] = resourcesInInventory['minecraft:charcoal'] - 1 or nil
-            if resourcesInInventory['minecraft:charcoal'] == 0 then
-                resourcesInInventory['minecraft:charcoal'] = nil
-            end
-        end
-
-        return resourcesInInventory
-    end
-
-    local state = stateModule.createInitialState({
+function module.createInitialState(plan)
+    return stateModule.createInitialState({
         startingPos = plan.initialTurtlePos,
         projectList = plan.projectList,
     })
-    local isIdling = false
-    while #state.projectList > 0 do
-        -- Prepare the next project task, or resource-fetching task
-        local resourcesInInventory = countNonReservedResourcesInInventory(state)
+end
+
+function module.isPlanComplete(state)
+    return state.primaryTask == nil and #state.projectList == 0
+end
+
+-- The state parameter gets mutated
+function module.runNextSprint(state)
+    -- Prepare the next project task, or resource-fetching task
+    -- state.primaryTask should be set to a value after this.
+    local resourcesInInventory = nil
+    if state.primaryTask == nil then
+        util.assert(#state.projectList >= 1)
+        resourcesInInventory = countNonReservedResourcesInInventory(state)
         local nextProject = project.lookup(state.projectList[1])
         local nextProjectTaskRunner = task.lookupTaskRunner(state.projectList[1])
         local resourceCollectionTask = task.collectResources(state, nextProject, resourcesInInventory)
@@ -73,33 +72,50 @@ function module.exec(plan)
             table.remove(state.projectList, 1)
             state.primaryTask = task.create(nextProjectTaskRunner.id)
         end
+    end
 
-        -- Check for interruptions
+    -- If there is not a current interrupt task, check if an interruption needs to
+    -- happen, and if so, assign one.
+    if state.interruptTask == nil then
+        -- If we haven't inspected our inventory yet, do so now.
+        if resourcesInInventory == nil then
+            resourcesInInventory = countNonReservedResourcesInInventory(state)
+        end
         local interruptTask = farm.checkForInterruptions(state, resourcesInInventory)
         if interruptTask ~= nil then
-            handleInterruption(state, interruptTask)
-        end
-
-        -- Go through the task's sprints
-        local taskRunnerBeingDone = state.primaryTask.getTaskRunner()
-        taskRunnerBeingDone.enter(state, state.primaryTask)
-        while true do
-            taskRunnerBeingDone.nextSprint(state, state.primaryTask)
-            if state.primaryTask.completed then break end
-
-            -- Handle interruptions
-            local interruptTask = farm.checkForInterruptions(
-                state,
-                highLevelCommands.countResourcesInInventory(highLevelCommands.takeInventory(commands, state))
-            )
-            if interruptTask ~= nil then
-                taskRunnerBeingDone.exit(state, state.primaryTask)
-                handleInterruption(state, interruptTask)
-                taskRunnerBeingDone.enter(state, state.primaryTask)
+            state.interruptTask = interruptTask
+            local taskRunnerBeingDone = state.interruptTask.getTaskRunner()
+            if state.primaryTask ~= nil and state.primaryTask.entered then
+                state.primaryTask.getTaskRunner().exit(state, state.primaryTask)
             end
+            taskRunnerBeingDone.enter(state, state.interruptTask)
         end
+    end
+
+    -- If there is an interrupt task currently active, handle the next sprint for it.
+    if state.interruptTask ~= nil then
+        local taskRunnerBeingDone = state.interruptTask.getTaskRunner()
+        if not state.interruptTask.exhausted then
+            taskRunnerBeingDone.nextSprint(state, state.interruptTask)
+        else
+            taskRunnerBeingDone.exit(state, state.interruptTask)
+            farm.markFarmTaskAsCompleted(state, state.interruptTask.taskRunnerId)
+            state.interruptTask = nil
+        end
+        return
+    end
+
+    local taskRunnerBeingDone = state.primaryTask.getTaskRunner()
+    -- Enter for the first time, or continuing after an interruption
+    if not state.primaryTask.entered then
+        taskRunnerBeingDone.enter(state, state.primaryTask)
+    end
+    taskRunnerBeingDone.nextSprint(state, state.primaryTask)
+
+    if state.primaryTask.exhausted then
         taskRunnerBeingDone.exit(state, state.primaryTask)
         state.primaryTask = nil
+        return
     end
 end
 
