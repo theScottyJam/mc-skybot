@@ -2,7 +2,7 @@
 -- This module will also register various globals to make it easier to debug the project from anywhere.
 
 local util = import('util.lua')
-local actModule = lazyImport('act/init.lua')
+local actModule = moduleLoader.lazyImport('act/init.lua')
 
 local act = function()
     return actModule.load()

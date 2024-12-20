@@ -46,6 +46,7 @@ do
     local BASE_PATH = inputs.basePath
     local moduleCache = {}
     local importStack = { 'run' }
+    local moduleLoader = {}
 
     -- Givin 'abc/def/ghi.lua', this returns 'abc/def/'
     local dirName = function(path)
@@ -77,7 +78,7 @@ do
     -- Can be used to help with circular dependencies.
     -- Returns an object with a `.load()` function, that can be
     -- called to retrieve the actual module at the point where you need it.
-    _G.lazyImport = function (path, _dofile)
+    function moduleLoader.lazyImport(path, _dofile)
         if _dofile == nil then _dofile = dofile end
         local absPath = resolvePotentiallyRelativePath(path)
         return {
@@ -92,14 +93,14 @@ do
         }
     end
 
-    _G.import = function (path, _dofile)
+    function moduleLoader.import(path, _dofile)
         if _dofile == nil then _dofile = dofile end
-        return _G.lazyImport(path, _dofile).load()
+        return moduleLoader.lazyImport(path, _dofile).load()
     end
 
     -- Attempts to import a module at the provided path.
     -- If the module is not found, an empty table is returned instead.
-    _G.tryImport = function (path)
+    function moduleLoader.tryImport(path)
         -- You can't catch and handle errors while calling import() or lazyImport(),
         -- because that will leave it in an invalid state (with information left on the import stack).
         -- This tryImport() implementation is carefully designed to avoid this problem
@@ -130,6 +131,9 @@ do
 
         return _G.import(path, _dofile)
     end
+
+    _G.moduleLoader = moduleLoader
+    _G.import = moduleLoader.import -- A nice shorthand for this very common task
 end
 
 if inputs.showHelp then
@@ -156,7 +160,7 @@ end
 
 -- Don't do any imports until after we've had the chance to show the help,
 -- since the help explains required flags that may be needed to make imports work.
-local inspect = tryImport('inspect.lua')
+local inspect = moduleLoader.tryImport('inspect.lua')
 if inspect.registerGlobals ~= nil then
     inspect.registerGlobals()
 end

@@ -1,7 +1,7 @@
 local module = {}
 
 local util = import('util.lua')
-local inspect = tryImport('inspect.lua')
+local inspect = moduleLoader.tryImport('inspect.lua')
 local act = import('act/init.lua')
 local mainIsland = import('./mainIsland.lua')
 local basicTreeFarm = import('./basicTreeFarm.lua')

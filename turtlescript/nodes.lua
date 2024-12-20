@@ -1,7 +1,7 @@
 local module = {}
 
 local util = import('util.lua')
-local turtleScriptModule = lazyImport('./init.lua')
+local turtleScriptModule = moduleLoader.lazyImport('./init.lua')
 
 local nodeTypes = {}
 

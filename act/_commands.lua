@@ -1,5 +1,5 @@
 local space = import('./space.lua')
-local inspect = tryImport('inspect.lua')
+local inspect = moduleLoader.tryImport('inspect.lua')
 
 local module = {}
 

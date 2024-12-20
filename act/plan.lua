@@ -1,5 +1,5 @@
 local util = import('util.lua')
-local inspect = tryImport('inspect.lua')
+local inspect = moduleLoader.tryImport('inspect.lua')
 local stateModule = import('./_state.lua')
 local commands = import('./_commands.lua')
 local farm = import('./farm.lua')
