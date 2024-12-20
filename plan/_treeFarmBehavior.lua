@@ -15,7 +15,7 @@ function module.harvestTreeFromAbove(commands, state, opts)
     local bottomLogPos = opts.bottomLogPos
     local bottomLogCmps = space.createCompass(bottomLogPos)
 
-    navigate.assertCoord(state, bottomLogCmps.coordAt({ up=10 }))
+    navigate.assertAtCoord(state, bottomLogCmps.coordAt({ up=10 }))
     navigate.face(commands, state, bottomLogCmps.facingAt({ face='forward' }))
     commands.turtle.forward(state)
 
@@ -64,7 +64,7 @@ function module.harvestTreeFromAbove(commands, state, opts)
         end
     end
 
-    navigate.assertPos(state, bottomLogCmps.pos)
+    navigate.assertAtPos(state, bottomLogCmps.pos)
 end
 
 -- You must be standing at the inFrontOfTreeCmps position before calling this.

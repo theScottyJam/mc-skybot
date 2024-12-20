@@ -72,13 +72,13 @@ function createFunctionalScaffoldingProject(opts)
         end,
         exit = function(commands, state, taskState, info)
             createFunctionalScaffoldingBlueprint.exit(commands, state, taskState, info)
-            navigate.assertPos(state, treeFarmEntranceLoc.cmps.pos)
+            navigate.assertAtPos(state, treeFarmEntranceLoc.cmps.pos)
             if info.complete then
                 treeFarm.activate(commands, state)
             end
         end,
-        nextPlan = function(commands, state, taskState)
-            return createFunctionalScaffoldingBlueprint.nextPlan(commands, state, taskState)
+        nextSprint = function(commands, state, taskState)
+            return createFunctionalScaffoldingBlueprint.nextSprint(commands, state, taskState)
         end,
     })
     return act.project.create(taskRunnerId, {
@@ -94,9 +94,9 @@ local createTreeFarm = function(opts)
             location.travelToLocation(commands, state, treeFarmEntranceLoc)
         end,
         exit = function(commands, state, taskState)
-            navigate.assertPos(state, treeFarmEntranceLoc.cmps.pos)
+            navigate.assertAtPos(state, treeFarmEntranceLoc.cmps.pos)
         end,
-        nextPlan = function(commands, state, taskState)
+        nextSprint = function(commands, state, taskState)
             commands.turtle.select(state, 1)
             local startPos = util.copyTable(state.turtlePos)
 

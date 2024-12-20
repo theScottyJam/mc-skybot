@@ -127,10 +127,10 @@ local leftDownRightWalkway = act.blueprint.create({
 --         end,
 --         exit = function(commands, state, taskState, info)
 --             createFunctionalScaffoldingBlueprint.exit(commands, state, taskState, info)
---             navigate.assertPos(state, treeFarmEntranceLoc.cmps.pos)
+--             navigate.assertAtPos(state, treeFarmEntranceLoc.cmps.pos)
 --         end,
---         nextPlan = function(commands, state, taskState)
---             return createFunctionalScaffoldingBlueprint.nextPlan(commands, state, taskState)
+--         nextSprint = function(commands, state, taskState)
+--             return createFunctionalScaffoldingBlueprint.nextSprint(commands, state, taskState)
 --         end,
 --     })
 --     return act.project.create(taskRunnerId, {

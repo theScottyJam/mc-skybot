@@ -29,6 +29,7 @@ local assertValidFace = function(face)
     end
 end
 
+--<-- I believe the only current public methods, besides compass, are only used internally.
 -- PUBLIC FUNCTIONS --
 -- Also includes functions pertaining to space management, that we
 -- could flip to public at any point in time when needed.

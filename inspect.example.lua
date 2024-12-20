@@ -110,7 +110,7 @@ function module.debugProject(homeLoc)
         enter = function(commands, state, taskState)
             -- location.travelToLocation(commands, state, homeLoc)
         end,
-        nextPlan = function(commands, state, taskState)
+        nextSprint = function(commands, state, taskState)
             -- local startPos = util.copyTable(state.turtlePos)
             -- local currentWorld = _G.mockComputerCraftApi.world
             -- worldTools().addToInventory('minecraft:charcoal', 64)

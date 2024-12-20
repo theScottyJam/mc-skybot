@@ -16,7 +16,7 @@ local handleInterruption = function(state, interruptTask)
     local taskRunnerBeingDone = state.interruptTask.getTaskRunner()
     taskRunnerBeingDone.enter(state, state.interruptTask)
     while not state.interruptTask.completed do
-        taskRunnerBeingDone.nextPlan(state, state.interruptTask)
+        taskRunnerBeingDone.nextSprint(state, state.interruptTask)
     end
     taskRunnerBeingDone.exit(state, state.interruptTask)
     farm.markFarmTaskAsCompleted(state, state.interruptTask.taskRunnerId)
@@ -25,8 +25,8 @@ end
 
 -- PUBLIC FUNCTIONS --
 
--- A strategy is of the shape { initialTurtlePos=..., projectList=<list of taskRunnerIds> }
-function module.exec(strategy)
+-- A plan is of the shape { initialTurtlePos=..., projectList=<list of taskRunnerIds> }
+function module.exec(plan)
     local countNonReservedResourcesInInventory = function(state)
         local resourcesInInventory = util.copyTable(
             highLevelCommands.countResourcesInInventory(highLevelCommands.takeInventory(commands, state))
@@ -44,8 +44,8 @@ function module.exec(strategy)
     end
 
     local state = stateModule.createInitialState({
-        startingPos = strategy.initialTurtlePos,
-        projectList = strategy.projectList,
+        startingPos = plan.initialTurtlePos,
+        projectList = plan.projectList,
     })
     local isIdling = false
     while #state.projectList > 0 do
@@ -80,11 +80,11 @@ function module.exec(strategy)
             handleInterruption(state, interruptTask)
         end
 
-        -- Go through the task's plans
+        -- Go through the task's sprints
         local taskRunnerBeingDone = state.primaryTask.getTaskRunner()
         taskRunnerBeingDone.enter(state, state.primaryTask)
         while true do
-            taskRunnerBeingDone.nextPlan(state, state.primaryTask)
+            taskRunnerBeingDone.nextSprint(state, state.primaryTask)
             if state.primaryTask.completed then break end
 
             -- Handle interruptions

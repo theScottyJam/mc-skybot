@@ -24,16 +24,16 @@ inputs:
     This function will run after the task finishes and whenever the task needs to pause
     for an interruption, and is supposed to bring the turtle to the position of a registered location.
     After completing a mill or farm, you may also activate those in this function.
-  opts.nextPlan() takes commands, state, a taskState, and any other arbitrary
+  opts.nextSprint() takes commands, state, a taskState, and any other arbitrary
     arguments it might need and returns a tuple containing an updated task state and
-    a "complete" boolean, which, when true, indicates that the plan finished
+    a "complete" boolean, which, when true, indicates that the sprint finished
     (i.e. it is not at an interruption point).
 --]]
 function module.registerTaskRunner(id, opts)
     local createTaskState = opts.createTaskState or function() return {} end
     local enter = opts.enter or function() end
     local exit = opts.exit or function() end
-    local nextPlan = opts.nextPlan
+    local nextSprint = opts.nextSprint
 
     if taskRegistry[id] ~= nil then error('A taskRunner with that id already exists') end
     taskRegistry[id] = {
@@ -57,12 +57,12 @@ function module.registerTaskRunner(id, opts)
         end,
 
         -- Takes a state and a reference to this task.
-        nextPlan = function(state, currentTask)
+        nextSprint = function(state, currentTask)
             if currentTask.completed == true then
                 error('This task is already finished')
             end
 
-            local newTaskState, complete = nextPlan(commands, state, currentTask.taskState, currentTask.args)
+            local newTaskState, complete = nextSprint(commands, state, currentTask.taskState, currentTask.args)
             currentTask.taskState = newTaskState
             currentTask.completed = complete
         end
@@ -72,12 +72,13 @@ end
 
 -- What to do when there's nothing to do
 local idleTaskRunner = module.registerTaskRunner('act:idle', { -- This "act:idle" id is also used elsewhere, see §7kUI2
-    nextPlan = function(commands, state, taskState)
+    nextSprint = function(commands, state, taskState)
         highLevelCommands.busyWait(commands, state)
         return taskState, true
     end,
 })
 
+--<-- Only used within act/
 -- Returns a task that will collect some of the required resources, or nil if there
 -- aren't any requirements left to fulfill.
 function module.collectResources(state, project, resourcesInInventory_)
@@ -212,10 +213,10 @@ end
 function module.create(taskRunnerId, args)
     return {
         taskRunnerId = taskRunnerId,
-        -- Auto-initializes the first time you request a plan
+        -- Auto-initializes the first time you request a sprint
         initialized = false,
-        -- "complete" means you've requested the last available plan.
-        -- It doesn't necessarily mean all requested plans have been executed.
+        -- "complete" means you've requested the last available sprint.
+        -- It doesn't necessarily mean all requested sprints have been executed.
         completed = false,
         -- true when enter() gets called. false when exit() gets called.
         entered = false,

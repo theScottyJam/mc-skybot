@@ -176,12 +176,12 @@ if turtle == nil then
     return
 end
 
-local strategyModule = import('strategy/init.lua')
+local planModule = import('plan/init.lua')
 turtle.refuel(16)
 if inspect.onStart then
     inspect.onStart()
 end
-strategyModule.run()
+planModule.run()
 
 if inputs.useMockLib then
     if inspect.showFinalState then

@@ -8,14 +8,14 @@ local space = import('./space.lua')
 
 local module = {}
 
-function module.assertFace(state, expectedFace)
+function module.assertTurtleFacing(state, expectedFace)
     local currentFace = state.turtlePos.face
     if currentFace ~= expectedFace then
         error('Expected current face '..currentFace..' to be expected face '..expectedFace)
     end
 end
 
-function module.assertCoord(state, expectedCoord)
+function module.assertAtCoord(state, expectedCoord)
     local currentCoord = state.turtleCmps().coord
     currentCoordStr = '(f='..currentCoord.forward..',r='..currentCoord.right..',u='..currentCoord.up..')'
     expectedCoordStr = '(f='..expectedCoord.forward..',r='..expectedCoord.right..',u='..expectedCoord.up..')'
@@ -24,7 +24,7 @@ function module.assertCoord(state, expectedCoord)
     end
 end
 
-function module.assertPos(state, expectedPos)
+function module.assertAtPos(state, expectedPos)
     local currentPos = state.turtlePos
     currentPosStr = '(f='..currentPos.forward..',r='..currentPos.right..',u='..currentPos.up..',f='..currentPos.face..')'
     expectedPosStr = '(f='..expectedPos.forward..',r='..expectedPos.right..',u='..expectedPos.up..',f='..expectedPos.face..')'
@@ -34,7 +34,7 @@ function module.assertPos(state, expectedPos)
 end
 
 -- destinationCoord fields default to fields from the turtle's coordinate.
--- The turtle will end, facing the direction of travel. (To pick a different facing or preserve facing, use moveToPos())
+-- The turtle will end facing the direction of travel. (To pick a different facing or preserve facing, use moveToPos())
 -- dimensionOrder is optional, and indicates which dimensions to travel first. e.g. {'right', 'up'}.
 -- It defaults to { 'forward', 'right', 'up' }. Dimensions can be omited to prevent movement in that direction.
 function module.moveToCoord(commands, state, destinationCoord, dimensionOrder)

@@ -47,7 +47,7 @@ end
 function module.getRequiredResources(taskRunnerIdForMill, resourceRequest)
     local millInfo = taskRunnerIdsToMillInfo[taskRunnerIdForMill]
     if millInfo == nil then
-        error('There is no mill is not assosiated with the taskRunnerId provided: ' .. tostring(taskRunnerIdForMill))
+        error('There is no mill is not associated with the taskRunnerId provided: ' .. tostring(taskRunnerIdForMill))
     end
 
     return millInfo.getRequiredResources(resourceRequest)

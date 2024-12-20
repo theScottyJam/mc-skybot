@@ -4,7 +4,7 @@ local projectRegistry = {}
 
 local startingConditionInitializers = {}
 
--- taskRunnerId - the task assosiated with this project.
+-- taskRunnerId - the task associated with this project.
 -- opts.requiredResources (optional) is a mapping of resource names to tables
 --   of the shape { quantity=..., at='INVENTORY', consumed=false }
 --   Fetching these resources must be done before the project starts.
@@ -47,6 +47,7 @@ function module.registerStartingConditionInitializer(startingConditionInitialize
     table.insert(startingConditionInitializers, startingConditionInitializer)
 end
 
+--<-- Only used within act/
 function module.createProjectList(projects)
     local currentConditions = {}
     for _, initializer in ipairs(startingConditionInitializers) do

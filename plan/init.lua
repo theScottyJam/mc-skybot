@@ -7,17 +7,11 @@ local mainIsland = import('./mainIsland.lua')
 local basicTreeFarm = import('./basicTreeFarm.lua')
 local curves = act.curves
 
-local initStrategy
-function module.run()
-    local strategy = initStrategy()
-    act.strategy.exec(strategy)
-end
-
 local debugProject = inspect.debugProject or function(homeLoc)
     error('No debug project specified in inspect.lua.')
 end
 
-initStrategy = function()
+local initPlan = function()
     local project = act.project
 
     local mainIsland = mainIsland.initEntity()
@@ -49,5 +43,10 @@ act.farm.registerValueOfResources({
         return curves.inverseSqrtCurve({ yIntercept = 35, factor = 1/50 })(quantitiesOwned)
     end,
 })
+
+function module.run()
+    local plan = initPlan()
+    act.plan.exec(plan)
+end
 
 return module

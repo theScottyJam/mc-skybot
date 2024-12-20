@@ -340,12 +340,12 @@ function module.create(opts) -- opts should contain { key=..., labeledPositions=
             }
         end,
         enter = function(commands, state, taskState)
-            navigate.assertPos(state, taskState.buildStartPos)
+            navigate.assertAtPos(state, taskState.buildStartPos)
         end,
         exit = function(commands, state, taskState, info)
             navigate.moveToPos(commands, state, taskState.buildStartPos, {'forward', 'right', 'up'})
         end,
-        nextPlan = function(commands, state, taskState)
+        nextSprint = function(commands, state, taskState)
             local nextTaskState = util.copyTable(taskState)
             local originCmps = space.createCompass(taskState.absOriginPos)
             local relTargetCoord = taskState.nextRelCoord

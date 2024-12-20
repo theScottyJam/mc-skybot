@@ -81,8 +81,9 @@ function module.register(taskRunnerId, opts)
     return farm
 end
 
--- Should be called at each interrupable point during a project or mill,
--- and whenever an inerruption has finished.
+--<-- Only used within act/
+-- Should be called at each interruptible point during a project or mill,
+-- and whenever an interruption has finished.
 -- Returns an interrupt task, or nil if there
 -- are no interruptions.
 function module.checkForInterruptions(state, resourcesInInventory)
@@ -112,6 +113,7 @@ function module.checkForInterruptions(state, resourcesInInventory)
     end
 end
 
+--<-- Only used within act/
 -- Must be called after you've tended a farm.
 -- This marks when it was done, so it can be rescheduled
 -- for more attention.

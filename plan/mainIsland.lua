@@ -25,12 +25,12 @@ local harvestInitialTreeAndPrepareTreeFarmProject = function(opts)
             location.travelToLocation(commands, state, homeLoc)
         end,
         exit = function(commands, state, taskState, info)
-            navigate.assertPos(state, homeLoc.cmps.pos)
+            navigate.assertAtPos(state, homeLoc.cmps.pos)
             if info.complete then
                 startingIslandTreeFarm.activate(commands, state)
             end
         end,
-        nextPlan = function(commands, state, taskState)
+        nextSprint = function(commands, state, taskState)
             local startPos = util.copyTable(state.turtlePos)
 
             local bottomTreeLogCmps = bedrockCmps.compassAt({ forward=-4, right=-1, up=3 })
@@ -66,7 +66,7 @@ local harvestInitialTreeAndPrepareTreeFarmProject = function(opts)
                 highLevelCommands.placeItemDown(commands, state, 'minecraft:sapling', { allowMissing = true })
             end
 
-            navigate.assertPos(state, bottomTreeLogCmps.pos)
+            navigate.assertAtPos(state, bottomTreeLogCmps.pos)
             prepareSaplingDirtArm(state, 'left')
             navigate.moveToCoord(commands, state, bottomTreeLogCmps.coordAt({ right=2 }), { 'forward', 'right', 'up' })
             prepareSaplingDirtArm(state, 'right')
@@ -94,14 +94,14 @@ local startBuildingCobblestoneGeneratorProject = function(opts)
             location.travelToLocation(commands, state, homeLoc)
         end,
         exit = function(commands, state, taskState, info)
-            navigate.assertPos(state, homeLoc.cmps.pos)
+            navigate.assertAtPos(state, homeLoc.cmps.pos)
             if info.complete then
                 for _, mill in ipairs(craftingMills) do
                     mill.activate(commands, state)
                 end
             end
         end,
-        nextPlan = function(commands, state, taskState)
+        nextSprint = function(commands, state, taskState)
             local startPos = util.copyTable(state.turtlePos)
 
             -- Dig out east branch
@@ -163,7 +163,7 @@ local waitForIceToMeltAndfinishCobblestoneGeneratorProject = function(opts)
             location.travelToLocation(commands, state, homeLoc)
         end,
         exit = function(commands, state, taskState, info)
-            navigate.assertPos(state, homeLoc.cmps.pos)
+            navigate.assertAtPos(state, homeLoc.cmps.pos)
             if info.complete then
                 if _G.mockComputerCraftApi ~= nil then
                     _G.mockComputerCraftApi.hooks.registerCobblestoneRegenerationBlock(homeLoc.cmps.coordAt({ up=-1 }))
@@ -171,7 +171,7 @@ local waitForIceToMeltAndfinishCobblestoneGeneratorProject = function(opts)
                 cobblestoneGeneratorMill.activate(commands, state)
             end
         end,
-        nextPlan = function(commands, state, taskState)
+        nextSprint = function(commands, state, taskState)
             local startPos = util.copyTable(state.turtlePos)
 
             -- Wait for ice to melt
@@ -213,7 +213,7 @@ local buildFurnacesProject = function(opts)
             location.travelToLocation(commands, state, inFrontOfChestLoc)
         end,
         exit = function(commands, state, taskState, info)
-            navigate.assertPos(state, inFrontOfChestLoc.cmps.pos)
+            navigate.assertAtPos(state, inFrontOfChestLoc.cmps.pos)
             if info.complete then
                 location.registerPath(inFrontOfChestLoc, inFrontOfFirstFurnaceLoc, {
                     inFrontOfChestLoc.cmps.coordAt({ right=1 }),
@@ -221,7 +221,7 @@ local buildFurnacesProject = function(opts)
                 })
             end
         end,
-        nextPlan = function(commands, state, taskState)
+        nextSprint = function(commands, state, taskState)
             local startPos = util.copyTable(state.turtlePos)
 
             local aboveFirstFurnaceCmps = inFrontOfFirstFurnaceLoc.cmps.compassAt({ forward=1, up=1, face='forward' })
@@ -253,13 +253,13 @@ local smeltInitialCharcoalProject = function(opts)
             location.travelToLocation(commands, state, inFrontOfFirstFurnaceLoc)
         end,
         exit = function(commands, state, taskState, info)
-            navigate.assertPos(state, inFrontOfFirstFurnaceLoc.cmps.pos)
+            navigate.assertAtPos(state, inFrontOfFirstFurnaceLoc.cmps.pos)
             if info.complete then
                 furnaceMill.activate(commands, state)
                 simpleCharcoalSmeltingMill.activate(commands, state)
             end
         end,
-        nextPlan = function(commands, state, taskState)
+        nextSprint = function(commands, state, taskState)
             local startPos = util.copyTable(state.turtlePos)
 
             -- Same values that were put in "requiredResources"
@@ -318,9 +318,9 @@ local torchUpIslandProject = function(opts)
             location.travelToLocation(commands, state, inFrontOfChestLoc)
         end,
         exit = function(commands, state, taskState, info)
-            navigate.assertPos(state, inFrontOfChestLoc.cmps.pos)
+            navigate.assertAtPos(state, inFrontOfChestLoc.cmps.pos)
         end,
-        nextPlan = function(commands, state, taskState)
+        nextSprint = function(commands, state, taskState)
             -- torch 1 is directly left of the disk drive
             local torch1Cmps = inFrontOfChestLoc.cmps.compassAt({ forward=1, right=-1, up=1 })
             navigate.moveToPos(commands, state, torch1Cmps.pos, {'right', 'forward', 'up'})
@@ -372,7 +372,7 @@ local createFurnaceMill = function(opts)
         exit = function(commands, state, taskState)
             navigate.moveToPos(commands, state, inFrontOfFirstFurnaceLoc.cmps.pos, { 'right', 'forward', 'up' })
         end,
-        nextPlan = function(commands, state, taskState, resourceRequests)
+        nextSprint = function(commands, state, taskState, resourceRequests)
             local newTaskState = util.copyTable(taskState)
 
             if util.tableSize(resourceRequests) ~= 1 then
@@ -541,7 +541,7 @@ createSimpleCharcoalSmeltingMill = function(opts)
         exit = function(commands, state, taskState)
             navigate.moveToPos(commands, state, inFrontOfFirstFurnaceLoc.cmps.pos, { 'right', 'forward', 'up' })
         end,
-        nextPlan = function(commands, state, taskState, resourceRequests)
+        nextSprint = function(commands, state, taskState, resourceRequests)
             local newTaskState = util.copyTable(taskState)
             local requestedQuantity = resourceRequests['minecraft:charcoal']
 
@@ -621,9 +621,9 @@ local createCobblestoneGeneratorMill = function(opts)
         end,
         exit = function(commands, state, taskState)
             navigate.face(commands, state, homeLoc.cmps.facing)
-            navigate.assertPos(state, homeLoc.cmps.pos)
+            navigate.assertAtPos(state, homeLoc.cmps.pos)
         end,
-        nextPlan = function(commands, state, taskState, resourceRequests)
+        nextSprint = function(commands, state, taskState, resourceRequests)
             local newTaskState = util.copyTable(taskState)
             local quantity = resourceRequests['minecraft:cobblestone']
             if quantity == nil then error('Must supply a request for cobblestone to use this mill') end
@@ -655,9 +655,9 @@ local createStartingIslandTreeFarm = function(opts)
             location.travelToLocation(commands, state, homeLoc)
         end,
         exit = function(commands, state, taskState)
-            navigate.assertPos(state, homeLoc.cmps.pos)
+            navigate.assertAtPos(state, homeLoc.cmps.pos)
         end,
-        nextPlan = function(commands, state, taskState)
+        nextSprint = function(commands, state, taskState)
             commands.turtle.select(state, 1)
             local startPos = util.copyTable(state.turtlePos)
 
@@ -693,7 +693,7 @@ local createCraftingMills = function()
             createTaskState = function()
                 return { produced = 0 }
             end,
-            nextPlan = function(commands, state, taskState, resourceRequests)
+            nextSprint = function(commands, state, taskState, resourceRequests)
                 local newTaskState = util.copyTable(taskState)
                 local quantity = resourceRequests[recipe.to]
                 if quantity == nil then error('Must supply a request for '..recipe.to..' to use this mill') end
@@ -745,9 +745,9 @@ local harvestExcessDirt = function(opts)
             location.travelToLocation(commands, state, homeLoc)
         end,
         exit = function(commands, state, taskState, info)
-            navigate.assertPos(state, homeLoc.cmps.pos)
+            navigate.assertAtPos(state, homeLoc.cmps.pos)
         end,
-        nextPlan = function(commands, state, taskState)
+        nextSprint = function(commands, state, taskState)
             local startPos = util.copyTable(state.turtlePos)
             local digStartCmps = bedrockCmps.compassAt({ forward=2, up=-1 })
 
@@ -794,9 +794,9 @@ local createTowerProject = function(opts)
             location.travelToLocation(commands, state, homeLoc)
         end,
         exit = function(commands, state, taskState)
-            navigate.assertPos(state, homeLoc.cmps.pos)
+            navigate.assertAtPos(state, homeLoc.cmps.pos)
         end,
-        nextPlan = function(commands, state, taskState)
+        nextSprint = function(commands, state, taskState)
             local startPos = util.copyTable(state.turtlePos)
 
             local nextToTowers = homeLoc.cmps.compassAt({ right = -5 })

@@ -9,6 +9,6 @@ return {
     navigationPatterns = import('./navigationPatterns.lua'),
     project = import('./project.lua'),
     space = import('./space.lua'),
-    strategy = import('./strategy.lua'),
+    plan = import('./plan.lua'),
     task = import('./task.lua'),
 }

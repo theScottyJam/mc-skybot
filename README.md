@@ -59,8 +59,8 @@ Position: A coordinate with a face.
 Location: A specific point in space that you often travel to. There's logic in place to find the quickest route from one location to another.
 (At the time of writing, act/space.lua has more information about coordinate terminology in its module comment)
 
-plan: A series of immediate steps that needs to be taken (like turn left, go forward, etc) until you get to a place where an interruption can happen. An interruption could be, for example, refueling, or tending a farm.
-strategy: The overall plan from harvesting the first tree to the last projects.
+sprint: A series of immediate steps that needs to be taken (like turn left, go forward, etc) until you get to a place where an interruption can happen. An interruption could be, for example, refueling, or tending a farm.
+plan: Everything that will happen, starting from from harvesting the first tree to the last projects.
 
 primary task: The main project you're currently working on (like building a tree farm)
 active task: What you're currently doing, like getting more fuel
