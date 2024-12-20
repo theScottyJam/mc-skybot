@@ -5,6 +5,8 @@
 
 local util = import('util.lua')
 local space = import('./space.lua')
+local taskModule = moduleLoader.lazyImport('./task.lua')
+local json = import('./_json.lua')
 
 local module = {}
 
@@ -29,13 +31,39 @@ function module.createInitialState(opts)
         turtleCmps = function()
             return space.createCompass(util.copyTable(state.turtlePos))
         end,
-        --<-- unused
-        -- Returns the primary task, or if we're in the middle of an interruption, returns the interrupt task.
-        -- May return nil if there are currently no tasks being run.
-        getActiveTask = function()
-            return state.primaryTask or state.interruptTask
-        end,
     }
+    return state
+end
+
+function module.serialize(state)
+    state = util.copyTable(state)
+    state.turtleCmps = nil
+    if state.primaryTask ~= nil then
+        state.primaryTask = util.copyTable(state.primaryTask)
+        state.primaryTask.getTaskRunner = nil
+    end
+    if state.interruptTask ~= nil then
+        state.interruptTask = util.copyTable(state.interruptTask)
+        state.interruptTask.getTaskRunner = nil
+    end
+    return json.encode(state)
+end
+
+function module.deserialize(text)
+    local state = json.decode(text)
+    state.turtleCmps = function()
+        return space.createCompass(util.copyTable(state.turtlePos))
+    end
+    if state.primaryTask ~= nil then
+        state.primaryTask.getTaskRunner = function()
+            return taskModule.load().lookupTaskRunner(state.primaryTask.taskRunnerId)
+        end
+    end
+    if state.interruptTask ~= nil then
+        state.interruptTask.getTaskRunner = function()
+            return taskModule.load().lookupTaskRunner(state.interruptTask.taskRunnerId)
+        end
+    end
     return state
 end
 

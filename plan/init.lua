@@ -7,16 +7,14 @@ local mainIsland = import('./mainIsland.lua')
 local basicTreeFarm = import('./basicTreeFarm.lua')
 local curves = act.curves
 
+local mainIsland = mainIsland.init()
+local basicTreeFarm = basicTreeFarm.init({ homeLoc = mainIsland.homeLoc })
+
 local debugProject = inspect.debugProject or function(homeLoc)
     error('No debug project specified in inspect.lua.')
 end
 
-local initPlan = function()
-    local project = act.project
-
-    local mainIsland = mainIsland.initEntity()
-    local basicTreeFarm = basicTreeFarm.initEntity({ homeLoc = mainIsland.homeLoc })
-
+function module.createPlan()
     return {
         initialTurtlePos = mainIsland.initialLoc.cmps.pos,
         projectList = act.project.createProjectList({
@@ -43,13 +41,5 @@ act.farm.registerValueOfResources({
         return curves.inverseSqrtCurve({ yIntercept = 35, factor = 1/50 })(quantitiesOwned)
     end,
 })
-
-function module.run()
-    local plan = initPlan()
-    local state = act.plan.createInitialState(plan)
-    while not act.plan.isPlanComplete(state) do
-        act.plan.runNextSprint(state)
-    end
-end
 
 return module

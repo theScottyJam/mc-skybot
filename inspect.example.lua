@@ -15,6 +15,12 @@ local worldTools = function()
 end
 
 local module = {}
+
+-- Set this to true to cause the program to pause after each sprint, shut itself mostly down,
+-- then bring itself back up and unpause. This helps test the pause/unpause feature,
+-- but it may make it run slower.
+module.pauseUnpauseAfterEachSprint = true
+
 -- Methods will be attached in addition to the properties defined immediately below.
 local debugGlobal = {
     -- Shows the current step we're on
@@ -93,6 +99,11 @@ end
 
 -- Called when the turtle has finished
 function module.showFinalState()
+    -- Only show debug info if we're in the mock environment.
+    if _G.mockComputerCraftApi == nil then
+        return
+    end
+
     mockComputerCraftApi.present.displayMap({ minX = -18, maxX = 18, minY = 0, maxY = 79, minZ = -15, maxZ = 3 }, { showKey = false })
     mockComputerCraftApi.present.showTurtlePosition()
     mockComputerCraftApi.present.now()

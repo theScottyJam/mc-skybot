@@ -38,6 +38,16 @@ function module.createInitialState(plan)
     })
 end
 
+--<-- Remove this indirection?
+function module.serializeState(state)
+    return stateModule.serialize(state)
+end
+
+--<-- Remove this indirection?
+function module.deserializeState(serializedState)
+    return stateModule.deserialize(serializedState)
+end
+
 function module.isPlanComplete(state)
     return state.primaryTask == nil and #state.projectList == 0
 end

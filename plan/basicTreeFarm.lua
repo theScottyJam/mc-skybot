@@ -122,7 +122,7 @@ local createTreeFarm = function(opts)
     })
 end
 
-function module.initEntity(opts)
+function module.init(opts)
     local homeLoc = opts.homeLoc
     local treeFarmEntranceLoc = location.register(homeLoc.cmps.posAt({ forward=2 }))
     location.registerPath(homeLoc, treeFarmEntranceLoc)

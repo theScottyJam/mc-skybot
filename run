@@ -40,7 +40,7 @@ end
 local inputs = parseTerminalArgs({ ... })
 
 -- Implementation for import() --
--- Note that import() should only be called at the top of a module,
+-- Note that import() should only be called outside of functions,
 -- otherwise, it won't be able to properly resolve relative module paths.
 do
     local BASE_PATH = inputs.basePath
@@ -132,6 +132,19 @@ do
         return _G.import(path, _dofile)
     end
 
+    function moduleLoader.snapshotModuleCache()
+        -- Clone and return the module cache
+        local snapshot = {}
+        for key, value in pairs(moduleCache) do
+            snapshot[key] = value
+        end
+        return snapshot
+    end
+
+    function moduleLoader.restoreModuleCacheSnapshot(newModuleCache)
+        moduleCache = newModuleCache
+    end
+
     _G.moduleLoader = moduleLoader
     _G.import = moduleLoader.import -- A nice shorthand for this very common task
 end
@@ -160,11 +173,10 @@ end
 
 -- Don't do any imports until after we've had the chance to show the help,
 -- since the help explains required flags that may be needed to make imports work.
-local inspect = moduleLoader.tryImport('inspect.lua')
+local inspect = moduleLoader.tryImport('inspect.lua') 
 if inspect.registerGlobals ~= nil then
     inspect.registerGlobals()
 end
-local util = import('./util.lua')
 
 if inputs.runTests then
     import('turtlescript/test.lua')
@@ -180,18 +192,50 @@ if turtle == nil then
     return
 end
 
-local planModule = import('plan/init.lua')
-turtle.refuel(16)
-if inspect.onStart then
-    inspect.onStart()
-end
-planModule.run()
+local savedState = nil -- may or may not be serialized, depending on if a full pause/unpause is happening between each cycle.
+local moduleCacheSnapshot = moduleLoader.snapshotModuleCache()
+while true do
+    -- Some of these imports may depend on the mock computer craft API being registered
+    local act = import('act/init.lua')
+    local planModule = import('plan/init.lua')
 
-if inputs.useMockLib then
-    if inspect.showFinalState then
-        inspect.showFinalState()
+    local state
+    if savedState == nil then
+        local plan = planModule.createPlan()
+        state = act.plan.createInitialState(plan)
+        turtle.refuel(16)
+        if inspect.onStart then
+            inspect.onStart()
+        end
     else
-        print('Finished running simulated run.')
-        print('Copy-paste inspect.example.lua as inspect.lua and modify it to your liking to view the results of the simulated run.')
+        if inspect.pauseUnpauseAfterEachSprint then
+            state = act.plan.deserializeState(savedState)
+        else
+            state = savedState
+        end
     end
+
+    if act.plan.isPlanComplete(state) then
+        break
+    end
+
+    act.plan.runNextSprint(state) -- mutates state
+
+    if inspect.pauseUnpauseAfterEachSprint then
+        -- We don't want to completely empty the module cache, as that would
+        -- mess up the state of the mock computer craft API, but we do want
+        -- to revert it before the point where we started importing non-mocking modules,
+        -- to make sure any local variables in those modules won't persist.
+        moduleLoader.restoreModuleCacheSnapshot(moduleCacheSnapshot)
+        savedState = act.plan.serializeState(state)
+    else
+        savedState = state
+    end
+end
+
+if inspect.showFinalState then
+    inspect.showFinalState()
+elseif inputs.useMockLib then
+    print('Finished running simulated run.')
+    print('Copy-paste inspect.example.lua as inspect.lua and modify it to your liking to view the results of the simulated run.')
 end

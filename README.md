@@ -63,7 +63,6 @@ sprint: A series of immediate steps that needs to be taken (like turn left, go f
 plan: Everything that will happen, starting from from harvesting the first tree to the last projects.
 
 primary task: The main project you're currently working on (like building a tree farm)
-active task: What you're currently doing, like getting more fuel
-interrupt task: Sometimes the active task can be interrupted, so the turtle can go harvest a farm and what-not.
+interrupt task: Sometimes the primary task can be interrupted, so the turtle can go harvest a farm and what-not.
 
 Unit of work: A measurement of how much work it takes to accomplish a task. Used to figure out when it's worth it to harvest a farm (by comparing the work it takes to the value of the resources). A single unit is equivalent to the time it takes to do a 90 degree turn. Movement costs extra (at the time of writing, it's 1.5 units), to account for the fact that it also took work to gather the fuel to make that movement possible.

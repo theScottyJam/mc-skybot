@@ -838,7 +838,7 @@ local createTowerProject = function(opts)
     })
 end
 
-function module.initEntity()
+function module.init()
     local bedrockCmps = space.createCompass({ forward = 3, right = 0, up = 64, face = 'forward' })
 
     -- homeLoc is right above the bedrock
