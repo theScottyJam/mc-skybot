@@ -29,6 +29,7 @@ end
 
 function static.newInitialState(opts)
     local startingPos = opts.startingPos
+    local projectList = opts.projectList
 
     local state = util.attachPrototype(prototype, {
         -- Where the turtle is currently at.
@@ -42,7 +43,7 @@ function static.newInitialState(opts)
     })
 
     for key, initializer in util.sortedMapTablePairs(stateInitializers) do
-        state[key] = initializer()
+        state[key] = initializer({ projectList = projectList })
     end
 
     return state
