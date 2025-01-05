@@ -36,8 +36,6 @@ function static.newInitialState(opts)
         -- The contents of this table should not be mutated, as others may hold references to it,
         -- but it can be reassigned with a new position table.
         turtlePos = opts.startingPos,
-        -- A mapping that lets us know where resources can be found.
-        resourceSuppliers = {},
         -- A list of info objects related to enabled farms that require occasional attention.
         activeFarms = {},
     })

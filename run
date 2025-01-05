@@ -44,9 +44,10 @@ local inputs = parseTerminalArgs({ ... })
 -- otherwise, it won't be able to properly resolve relative module paths.
 do
     local BASE_PATH = inputs.basePath
-    local moduleCache = {}
+    local moduleCache = {} -- Either holds the loaded module, or moduleLoadingSentinel
     local importStack = { 'run' }
     local moduleLoader = {}
+    local moduleLoadingSentinel = { purpose = 'moduleLoadingSentinel' }
 
     -- Givin 'abc/def/ghi.lua', this returns 'abc/def/'
     local dirName = function(path)
@@ -83,7 +84,16 @@ do
         local absPath = resolvePotentiallyRelativePath(path)
         return {
             load = function()
+                if moduleCache[absPath] == moduleLoadingSentinel then
+                    local importStackRepr = ''
+                    for i, pathFromStackEntry in ipairs(importStack) do
+                        importStackRepr = importStackRepr..'\n  '..pathFromStackEntry
+                    end
+                    importStackRepr = importStackRepr..'\n  '..absPath
+                    error('Circular import detected. Import stack:'..importStackRepr)
+                end
                 if moduleCache[absPath] == nil then
+                    moduleCache[absPath] = moduleLoadingSentinel
                     table.insert(importStack, absPath)
                     moduleCache[absPath] = _dofile(BASE_PATH..absPath)
                     table.remove(importStack)
@@ -136,6 +146,9 @@ do
         -- Clone and return the module cache
         local snapshot = {}
         for key, value in pairs(moduleCache) do
+            if value == moduleLoadingSentinel then
+                error('Can not take a module-cache snapshot while modules are actively being loaded')
+            end
             snapshot[key] = value
         end
         return snapshot

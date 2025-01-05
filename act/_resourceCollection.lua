@@ -2,11 +2,19 @@ local util = import('util.lua')
 local TaskFactory = import('./_TaskFactory.lua')
 local commands = import('./_commands.lua')
 local highLevelCommands = import('./highLevelCommands.lua')
-local Mill = import('./Mill.lua')
-local Farm = import('./Farm.lua')
+local MillModule = moduleLoader.lazyImport('./Mill.lua')
+local FarmModule = moduleLoader.lazyImport('./Farm.lua')
 local serializer = import('./_serializer.lua')
+local State = import('./_State.lua')
 
 local module = {}
+
+local resourceCollectionStateManager = State.registerModuleState('module:resourceCollection', function()
+    return {
+        -- A mapping that lets us know where resources can be found.
+        resourceSuppliers = {},
+    }
+end)
 
 module.idleTaskRunnerFactory = TaskFactory.register({
     id = 'act:idle',
@@ -19,6 +27,22 @@ module.idleTaskRunnerFactory = TaskFactory.register({
     end,
 })
 
+-- resourceSupplier can be a mill or farm.
+-- This function will mark this resource supplier as being available for use.
+-- For mills, this means it will start gathering resources from this supplier when the resources are needed.
+-- For farms, this means it'll know it can wait for resources to periodically be gathered
+-- (instead of throwing an error because it doesn't know how to retrieve a particular resource).
+function module.markSupplierAsAvailable(state, resourceSupplier)
+    local resourceSuppliers = state:getAndModify(resourceCollectionStateManager)
+    for _, resourceName in ipairs(resourceSupplier:__resourcesSupplied()) do
+        if resourceSuppliers[resourceName] == nil then
+            resourceSuppliers[resourceName] = {}
+        end
+
+        table.insert(resourceSuppliers[resourceName], 1, resourceSupplier)
+    end
+end
+
 -- Returns a task that will collect some of the required resources, or nil if there
 -- aren't any requirements left to fulfill.
 -- The second return value is a flag indicating if this was an idling task,
@@ -27,6 +51,7 @@ module.idleTaskRunnerFactory = TaskFactory.register({
 function module.collectResources(state, project, resourcesInInventory_)
     local resourceMap = {}
     local resourcesInInventory = util.copyTable(resourcesInInventory_)
+    local resourceSuppliers = state:get(resourceCollectionStateManager)
 
     -- Collect the nested requirement tree into a flat mapping (resourceMap)
     -- Factors in your inventory's contents to figure out what's needed.
@@ -50,7 +75,7 @@ function module.collectResources(state, project, resourcesInInventory_)
         local insufficientResourcesOnHand = contributionFromInventory < requiredQuantity
 
         if insufficientResourcesOnHand then
-            if state.resourceSuppliers[resourceName] == nil then
+            if resourceSuppliers[resourceName] == nil then
                 error(
                     'Attempted to start the project "'..project.displayName..
                     '" that requires the resource '..resourceName..', '..
@@ -59,9 +84,9 @@ function module.collectResources(state, project, resourcesInInventory_)
             end
             -- We only bother to check the first supplier in the list.
             -- Other suppliers are still valid, but will be ignored until the first supplier is decommissioned.
-            local supplier = state.resourceSuppliers[resourceName][1]
+            local supplier = resourceSuppliers[resourceName][1]
 
-            if Farm.__isInstance(supplier) then
+            if FarmModule.load().__isInstance(supplier) then
                 if resourceMap[resourceName] == nil then
                     resourceMap[resourceName] = {
                         type = 'farm'
@@ -69,10 +94,10 @@ function module.collectResources(state, project, resourcesInInventory_)
                 else
                     -- If this throws, it means there was a conflict, and some other non-farm action
                     -- got registered as being capable of supplying this resource. But at the moment,
-                    -- having multiple suppliers for a single resource is not supported.
+                    -- having different supplier types for a single resource is not supported.
                     util.assert(resourceMap[resourceName].type == 'farm')
                 end
-            elseif Mill.__isInstance(supplier) then
+            elseif MillModule.load().__isInstance(supplier) then
                 if resourceMap[resourceName] == nil then
                     resourceMap[resourceName] = {
                         type = 'mill',

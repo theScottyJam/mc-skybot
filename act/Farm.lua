@@ -6,6 +6,7 @@ local util = import('util.lua')
 local time = import('./_time.lua')
 local TaskFactory = import('./_TaskFactory.lua')
 local serializer = import('./_serializer.lua')
+local resourceCollection = import('./_resourceCollection.lua')
 
 local static = {}
 local prototype = {}
@@ -94,6 +95,10 @@ function prototype:__calcExpectedYield(elapsedTime)
     return self._calcExpectedYield(elapsedTime)
 end
 
+function prototype:__resourcesSupplied()
+    return self._supplies
+end
+
 function prototype:activate(commands, state)
     table.insert(state.activeFarms, {
         farm = self,
@@ -102,13 +107,7 @@ function prototype:activate(commands, state)
         lastVisited = time.get(state),
     })
 
-    for _, resourceName in ipairs(self._supplies) do
-        if state.resourceSuppliers[resourceName] == nil then
-            state.resourceSuppliers[resourceName] = {}
-        end
-
-        table.insert(state.resourceSuppliers[resourceName], 1, self)
-    end
+    resourceCollection.markSupplierAsAvailable(state, self)
 end
 
 function prototype:__createTask(state)

@@ -6,6 +6,7 @@
 local util = import('util.lua')
 local TaskFactory = import('./_TaskFactory.lua')
 local serializer = import('./_serializer.lua')
+local resourceCollection = import('./_resourceCollection.lua')
 
 local static = {}
 local prototype = {}
@@ -58,14 +59,12 @@ function static.__isInstance(self)
 end
 
 function prototype:activate(commands, state)
-    for _, resourceName in ipairs(self._supplies) do
-        if state.resourceSuppliers[resourceName] == nil then
-            state.resourceSuppliers[resourceName] = {}
-        end
-
-        table.insert(state.resourceSuppliers[resourceName], 1, self)
-    end
+    resourceCollection.markSupplierAsAvailable(state, self)
     self._onActivated()
+end
+
+function prototype:__resourcesSupplied()
+    return self._supplies
 end
 
 function prototype:__getRequiredResources(resourceRequest)
