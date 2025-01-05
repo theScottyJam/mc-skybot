@@ -36,8 +36,6 @@ function static.newInitialState(opts)
         -- The contents of this table should not be mutated, as others may hold references to it,
         -- but it can be reassigned with a new position table.
         turtlePos = opts.startingPos,
-        -- A list of info objects related to enabled farms that require occasional attention.
-        activeFarms = {},
     })
 
     for key, initializer in util.sortedMapTablePairs(stateInitializers) do
@@ -47,8 +45,8 @@ function static.newInitialState(opts)
     return state
 end
 
-function static.__isInstance(self)
-    return util.hasPrototype(self, prototype)
+function static.__isInstance(instance)
+    return util.hasPrototype(instance, prototype)
 end
 
 function static.registerModuleState(moduleId, initializer)

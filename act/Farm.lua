@@ -7,11 +7,19 @@ local time = import('./_time.lua')
 local TaskFactory = import('./_TaskFactory.lua')
 local serializer = import('./_serializer.lua')
 local resourceCollection = import('./_resourceCollection.lua')
+local State = import('./_State.lua')
 
 local static = {}
 local prototype = {}
 
 local resourceValues = {}
+
+local FarmStateManager = State.registerModuleState('module:Farm', function()
+    return {
+        -- A list of info objects related to enabled farms that require occasional attention.
+        activeFarms = {},
+    }
+end)
 
 -- resourceValues_ is a mapping of resource names to a function
 -- that takes, as input, the quantity of it owned.
@@ -67,7 +75,8 @@ function static.register(opts)
             if after then
                 after(self, commands)
             end
-            for i, iterFarmInfo in pairs(self.state.activeFarms) do
+            local farmState = self.state:getAndModify(FarmStateManager)
+            for i, iterFarmInfo in pairs(farmState.activeFarms) do
                 if iterFarmInfo.farm._id == id then
                     iterFarmInfo.lastVisited = time.get(self.state)
                     return
@@ -87,8 +96,12 @@ function static.register(opts)
     return farm
 end
 
-function static.__isInstance(self)
-    return util.hasPrototype(self, prototype)
+function static.__isInstance(instance)
+    return util.hasPrototype(instance, prototype)
+end
+
+function static.__getActiveFarms(state)
+    return state:get(FarmStateManager).activeFarms
 end
 
 function prototype:__calcExpectedYield(elapsedTime)
@@ -100,7 +113,8 @@ function prototype:__resourcesSupplied()
 end
 
 function prototype:activate(commands, state)
-    table.insert(state.activeFarms, {
+    local farmState = state:getAndModify(FarmStateManager)
+    table.insert(farmState.activeFarms, {
         farm = self,
         -- We're going to count a newly activated farm as just visited,
         -- because we typically don't need to harvest it right after it has been built.

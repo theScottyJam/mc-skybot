@@ -58,7 +58,7 @@ local checkForInterruptions = function(state, resourcesInInventory)
         score = 0,
     }
 
-    for _, farmInfo in pairs(state.activeFarms) do
+    for _, farmInfo in pairs(Farm.__getActiveFarms(state)) do
         local elapsedTime = currentTime - farmInfo.lastVisited
 
         local expectedYieldInfo = farmInfo.farm:__calcExpectedYield(elapsedTime)

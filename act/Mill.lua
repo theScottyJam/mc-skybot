@@ -54,8 +54,8 @@ function static.register(opts)
     return mill
 end
 
-function static.__isInstance(self)
-    return util.hasPrototype(self, prototype)
+function static.__isInstance(instance)
+    return util.hasPrototype(instance, prototype)
 end
 
 function prototype:activate(commands, state)
