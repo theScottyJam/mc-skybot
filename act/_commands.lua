@@ -1,13 +1,14 @@
 local util = moduleLoader.tryImport('util.lua')
 local inspect = moduleLoader.tryImport('inspect.lua')
 local space = import('./space.lua')
+local State = import('./_State.lua')
 
 local module = {}
 
 local commandWithStateChanges = function(execute, updateState)
     return function(state, ...)
         -- A sanity check, because I mess this up a lot.
-        if state == nil or state.projectList == nil then
+        if not State.__isInstance(state) then
             error('Forgot to pass in a proper state object into a command')
         end
 

@@ -9,11 +9,17 @@
 local util = import('util.lua')
 local space = import('./space.lua')
 local navigate = import('./navigate.lua')
+local State = import('./_State.lua')
 
 local static = {}
 local prototype = {}
 
 local allLocations = {}
+
+local availablePathsStateManager = State.registerModuleState('module:Location', function()
+    -- A mapping of paths the turtle can travel to move from one location to the next.
+    return {}
+end)
 
 -- HELPER FUNCTIONS --
 
@@ -41,7 +47,7 @@ local calcPathCost = function(coords)
 end
 
 function prototype:_getPaths(state)
-    return state.availablePaths[self._key]
+    return state:get(availablePathsStateManager)[self._key]
 end
 
 -- Finds the best route by exploring all closets locations until it runs into the target.
@@ -104,20 +110,21 @@ function static.addPath(state, loc1, loc2, midPoints)
     table.insert(allCoordsInPath, loc2.cmps.coord)
     local cost = calcPathCost(allCoordsInPath)
 
-    if state.availablePaths[loc1._key] == nil then
-        state.availablePaths[loc1._key] = {}
+    local availablePaths = state:getAndModify(availablePathsStateManager)
+    if availablePaths[loc1._key] == nil then
+        availablePaths[loc1._key] = {}
     end
-    table.insert(state.availablePaths[loc1._key], {
+    table.insert(availablePaths[loc1._key], {
         to = loc2._key,
         midPoints = midPoints,
         cost = cost,
     })
 
-    if state.availablePaths[loc2._key] == nil then
-        state.availablePaths[loc2._key] = {}
+    if availablePaths[loc2._key] == nil then
+        availablePaths[loc2._key] = {}
     end
 
-    table.insert(state.availablePaths[loc2._key], {
+    table.insert(availablePaths[loc2._key], {
         to = loc1._key,
         midPoints = util.reverseTable(midPoints),
         cost = cost,

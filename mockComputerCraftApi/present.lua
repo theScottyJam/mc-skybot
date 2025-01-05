@@ -153,12 +153,6 @@ function module.turtlePosition()
     print('Turtle pos: ('..turtlePos.x..','..turtlePos.y..','..turtlePos.z..') '..turtlePos.face)
 end
 
-function module.taskNames(state)
-    print('primary task: '..(state.primaryTask and state.primaryTask.displayName or 'nil'))
-    print('interrupt task: '..(state.interruptTask and state.interruptTask.displayName or 'nil'))
-    print()
-end
-
 function module.now()
     print('ticks: '..time.getTicks())
 end

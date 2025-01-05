@@ -71,6 +71,7 @@ end
 
 -- Called after each action the turtle takes
 function module.onStep(state)
+    local plan = act().Plan.fromState(state)
     -- Only show debug info if we're in the mock environment.
     if _G.mockComputerCraftApi == nil then
         return
@@ -89,7 +90,7 @@ function module.onStep(state)
         -- _G.mockComputerCraftApi.present.displayMap({ minX = -8, maxX = 5, minY = 0, maxY = 999, minZ = -5, maxZ = 5 }, { showKey = false })
         _G.mockComputerCraftApi.present.displayCentered({ width = 20, height = 12 })
         print('step: '..step)
-        -- _G.mockComputerCraftApi.present.taskNames(state)
+        -- plan:displayTaskNames()
         -- _G.mockComputerCraftApi.present.inventory()
         _G.mockComputerCraftApi.present.turtlePosition()
 
