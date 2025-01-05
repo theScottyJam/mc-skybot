@@ -4,15 +4,13 @@
     * facing: A table with a "face" field.
     * coordinate: a forward,right,up coordinate.
     * position: A coordinate and facing combined - it has the fields from both.
-    * location: A specific, known point in space that you often travel to. These are managed in location.lua.
+    * location: A specific, known point in space that you often travel to. These are managed in Location.lua.
     * compass: A tool to generate coords/positions/facings from the compass's location. Often abreviated "cmps"
---]]
+]]
 
 local util = import('util.lua')
 
 local module = {}
-
--- HELPER FUNCTIONS --
 
 local rotateCoordClockwiseAroundOrigin = function(coord, count)
     if count == nil then count = 1 end
@@ -28,11 +26,6 @@ local assertValidFace = function(face)
         error('Bad face value')
     end
 end
-
---<-- I believe the only current public methods, besides compass, are only used internally.
--- PUBLIC FUNCTIONS --
--- Also includes functions pertaining to space management, that we
--- could flip to public at any point in time when needed.
 
 local posToFacing = function(pos)
     return { face = pos.face }
@@ -55,7 +48,7 @@ local comparePos = function(pos1, pos2)
 end
 
 -- `amount` is optional
-function module.rotateFaceClockwise(face, amount)
+function module.__rotateFaceClockwise(face, amount)
     assertValidFace(face)
     if amount == nil then amount = 1 end
     for i = 1, amount do
@@ -65,7 +58,7 @@ function module.rotateFaceClockwise(face, amount)
 end
 
 -- `amount` is optional
-function module.rotateFaceCounterClockwise(face, amount)
+function module.__rotateFaceCounterClockwise(face, amount)
     assertValidFace(face)
     if amount == nil then amount = 1 end
     for i = 1, amount do
@@ -76,22 +69,22 @@ function module.rotateFaceCounterClockwise(face, amount)
 end
 
 -- To count counterclockwise rotations, just flip the parameters.
-function module.countClockwiseRotations(fromFace, toFace)
+function module.__countClockwiseRotations(fromFace, toFace)
     assertValidFace(fromFace)
     assertValidFace(toFace)
     local count = 0
     local face = fromFace
     while face ~= toFace do
         count = count + 1
-        face = module.rotateFaceClockwise(face)
+        face = module.__rotateFaceClockwise(face)
     end
     return count
 end
 
 local moveFacing = function(basePos, deltaFacing)
-    local rotations = module.countClockwiseRotations('forward', basePos.face)
+    local rotations = module.__countClockwiseRotations('forward', basePos.face)
     return {
-        face = module.rotateFaceClockwise(deltaFacing.face, rotations),
+        face = module.__rotateFaceClockwise(deltaFacing.face, rotations),
     }
 end
 
@@ -102,7 +95,7 @@ end
 -- If forward, right, or up is missing from partialDeltaCoord, they'll default to 0.
 local moveCoord = function(basePos, partialDeltaCoord)
     local deltaCoord = util.mergeTables({ forward=0, right=0, up=0 }, partialDeltaCoord)
-    local rotations = module.countClockwiseRotations('forward', basePos.face)
+    local rotations = module.__countClockwiseRotations('forward', basePos.face)
     local rotatedDeltaCoord = rotateCoordClockwiseAroundOrigin(deltaCoord, rotations)
 
     return {
@@ -116,16 +109,16 @@ end
 -- partialDeltaPos.face is also optional and defaults to `forward`
 local movePos = function(basePos, partialDeltaPos)
     local deltaPos = util.mergeTables({ forward=0, right=0, up=0, face='forward' }, partialDeltaPos)
-    local rotations = module.countClockwiseRotations('forward', basePos.face)
+    local rotations = module.__countClockwiseRotations('forward', basePos.face)
 
     return util.mergeTables(
         moveCoord(basePos, posToCoord(deltaPos)),
-        { face = module.rotateFaceClockwise(deltaPos.face, rotations) }
+        { face = module.__rotateFaceClockwise(deltaPos.face, rotations) }
     )
 end
 
 local distanceBetween = function(startPos, endCoord)
-    local rotations = module.countClockwiseRotations(startPos.face, 'forward')
+    local rotations = module.__countClockwiseRotations(startPos.face, 'forward')
     -- Rotate the two coordinates until we're facing forwards.
     -- The distance will be preserved during the rotation.
     local rotatedStartCoord = rotateCoordClockwiseAroundOrigin(posToCoord(startPos), rotations)

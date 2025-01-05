@@ -1,19 +1,22 @@
-local space = import('./space.lua')
+local util = moduleLoader.tryImport('util.lua')
 local inspect = moduleLoader.tryImport('inspect.lua')
+local space = import('./space.lua')
 
 local module = {}
 
 local commandWithStateChanges = function(execute, updateState)
     return function(state, ...)
         -- A sanity check, because I mess this up a lot.
-        if state == nil or state.turtlePos == nil then
+        if state == nil or state.projectList == nil then
             error('Forgot to pass in a proper state object into a command')
         end
 
         local result = table.pack(execute(state, table.unpack({ ... })))
 
         if updateState ~= nil then
-            updateState(state.turtlePos, table.unpack({...}))
+            local newTurtlePos = util.copyTable(state.turtlePos)
+            updateState(newTurtlePos, table.unpack({...}))
+            state.turtlePos = newTurtlePos
         end
 
         if inspect.onStep ~= nil then
@@ -81,13 +84,13 @@ end)
 module.turnLeft = commandWithStateChanges(function(state)
     turtle.turnLeft()
 end, function(turtlePos)
-    turtlePos.face = space.rotateFaceCounterClockwise(turtlePos.face)
+    turtlePos.face = space.__rotateFaceCounterClockwise(turtlePos.face)
 end)
 
 module.turnRight = commandWithStateChanges(function(state)
     turtle.turnRight()
 end, function(turtlePos)
-    turtlePos.face = space.rotateFaceClockwise(turtlePos.face)
+    turtlePos.face = space.__rotateFaceClockwise(turtlePos.face)
 end)
 
 module.select = ignoreFirstArg(turtle.select)

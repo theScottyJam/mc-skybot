@@ -1,5 +1,15 @@
 local module = {}
 
+function module.attachPrototype(prototype, table)
+    setmetatable(table, { __index = prototype })
+    return table
+end
+
+function module.hasPrototype(table, prototype)
+    local metatable = getmetatable(table)
+    return metatable and metatable.__index == prototype
+end
+
 function module.mergeTablesInPlace(curTable, ...)
     for _, tableToMerge in ipairs({ ... }) do
         for key, value in pairs(tableToMerge) do
@@ -152,7 +162,7 @@ function module.getASortedEntry(table)
     return lowestKey, table[lowestKey]
 end
 
-function module.countOccurancesOfValuesInTable(curTable)
+function module.countOccurrencesOfValuesInTable(curTable)
     local occurancesOfValues = {}
     for key, value in pairs(curTable) do
         if value ~= nil then

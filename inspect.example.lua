@@ -43,17 +43,17 @@ local idling = false
 local lastIdleStartAt = nil
 local lastIdleEndAt = nil
 
--- Called when the turtle doesn't have anything in particular to do,
+-- Called with `true` when the turtle doesn't have anything in particular to do,
 -- This happens when the only remaining dependencies for a project are those that require waiting.
-function module.onIdleStart()
-    idling = true
-    lastIdleStartAt = debugGlobal.step
-end
-
--- Called when the turtle is done idling
-function module.onIdleEnd()
-    idling = false
-    lastIdleStartAt = debugGlobal.step
+-- This may be called multiple times with the same value.
+function module.isIdling(idling_)
+    if not idling and idling_ then
+        lastIdleStartAt = debugGlobal.step
+    end
+    if idling and not idling_ then
+        lastIdleEndAt = debugGlobal.step
+    end
+    idling = idling_
 end
 
 -- Called after imports have happened and the main code is about to start running
@@ -91,23 +91,24 @@ function module.onStep(state)
         print('step: '..step)
         -- _G.mockComputerCraftApi.present.taskNames(state)
         -- _G.mockComputerCraftApi.present.inventory()
-        _G.mockComputerCraftApi.present.showTurtlePosition()
+        _G.mockComputerCraftApi.present.turtlePosition()
 
         busySleep(SLEEP_TIME)
     end
 end
 
 -- Called when the turtle has finished
-function module.showFinalState()
+function module.showFinalState(finalPlan)
     -- Only show debug info if we're in the mock environment.
     if _G.mockComputerCraftApi == nil then
         return
     end
 
     mockComputerCraftApi.present.displayMap({ minX = -18, maxX = 18, minY = 0, maxY = 79, minZ = -15, maxZ = 3 }, { showKey = false })
-    mockComputerCraftApi.present.showTurtlePosition()
+    mockComputerCraftApi.present.turtlePosition()
     mockComputerCraftApi.present.now()
     mockComputerCraftApi.present.inventory()
+    -- print(finalPlan:serialize())
 end
 
 -- A special project you can register in your project list to let you run arbitrary code at a specific point in time.
@@ -116,13 +117,13 @@ function module.debugProject(homeLoc)
     local navigate = act().navigate
     local highLevelCommands = act().highLevelCommands
 
-    local taskRunnerId = 'project:init:debugProject'
-    act().task.registerTaskRunner(taskRunnerId, {
+    return act().Project.register({
+        id = 'inspect:debugProject',
         enter = function(commands, state, taskState)
-            -- location.travelToLocation(commands, state, homeLoc)
+            -- homeLoc:travelHere(commands, state)
         end,
         nextSprint = function(commands, state, taskState)
-            -- local startPos = util.copyTable(state.turtlePos)
+            -- local startPos = state.turtlePos
             -- local currentWorld = _G.mockComputerCraftApi.world
             -- worldTools().addToInventory('minecraft:charcoal', 64)
             debugGlobal.showStepByStep = true
@@ -131,7 +132,6 @@ function module.debugProject(homeLoc)
             return taskState, true
         end,
     })
-    return act().project.create(taskRunnerId)
 end
 
 function debugGlobal.printTable(table)

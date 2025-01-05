@@ -66,3 +66,9 @@ primary task: The main project you're currently working on (like building a tree
 interrupt task: Sometimes the primary task can be interrupted, so the turtle can go harvest a farm and what-not.
 
 Unit of work: A measurement of how much work it takes to accomplish a task. Used to figure out when it's worth it to harvest a farm (by comparing the work it takes to the value of the resources). A single unit is equivalent to the time it takes to do a 90 degree turn. Movement costs extra (at the time of writing, it's 1.5 units), to account for the fact that it also took work to gather the fuel to make that movement possible.
+
+# Coding Practices
+
+Whenever a function uses the work "register" in its name, it means the function should only be called while the project is being started up, before we've attempted to deserialize the saved state of the turtle. This is because many of these register functions either directly or indirectly register tables and functions with the deserializer, to allow the deserializer to use those registered values as it works.
+
+A function in act/ that starts with `__` is intended to be treated as "package-private", i.e. any file within act/ is welcome to use the `__` method, but anything outside should not.

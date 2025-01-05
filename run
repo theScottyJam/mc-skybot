@@ -142,7 +142,11 @@ do
     end
 
     function moduleLoader.restoreModuleCacheSnapshot(newModuleCache)
-        moduleCache = newModuleCache
+        -- Restore a cloned version of the snapshot, so the clone can be mutated without affecting the argument.
+        moduleCache = {}
+        for key, value in pairs(newModuleCache) do
+            moduleCache[key] = value
+        end
     end
 
     _G.moduleLoader = moduleLoader
@@ -192,34 +196,34 @@ if turtle == nil then
     return
 end
 
-local savedState = nil -- may or may not be serialized, depending on if a full pause/unpause is happening between each cycle.
+local savedPlan = nil -- may or may not be serialized, depending on if a full pause/unpause is happening between each cycle.
+local finalPlan = nil
 local moduleCacheSnapshot = moduleLoader.snapshotModuleCache()
 while true do
     -- Some of these imports may depend on the mock computer craft API being registered
     local act = import('act/init.lua')
     local planModule = import('plan/init.lua')
 
-    local state
-    if savedState == nil then
-        local plan = planModule.createPlan()
-        state = act.plan.createInitialState(plan)
+    local plan
+    if savedPlan == nil then
+        plan = planModule.createPlan()
         turtle.refuel(16)
         if inspect.onStart then
             inspect.onStart()
         end
     else
         if inspect.pauseUnpauseAfterEachSprint then
-            state = act.plan.deserializeState(savedState)
+            plan = act.Plan.deserialize(savedPlan)
         else
-            state = savedState
+            plan = savedPlan
         end
     end
 
-    if act.plan.isPlanComplete(state) then
+    if plan:isExhausted() then
         break
     end
 
-    act.plan.runNextSprint(state) -- mutates state
+    plan:runNextSprint()
 
     if inspect.pauseUnpauseAfterEachSprint then
         -- We don't want to completely empty the module cache, as that would
@@ -227,14 +231,15 @@ while true do
         -- to revert it before the point where we started importing non-mocking modules,
         -- to make sure any local variables in those modules won't persist.
         moduleLoader.restoreModuleCacheSnapshot(moduleCacheSnapshot)
-        savedState = act.plan.serializeState(state)
+        savedPlan = plan:serialize()
     else
-        savedState = state
+        savedPlan = plan
     end
+    finalPlan = plan
 end
 
 if inspect.showFinalState then
-    inspect.showFinalState()
+    inspect.showFinalState(finalPlan)
 elseif inputs.useMockLib then
     print('Finished running simulated run.')
     print('Copy-paste inspect.example.lua as inspect.lua and modify it to your liking to view the results of the simulated run.')

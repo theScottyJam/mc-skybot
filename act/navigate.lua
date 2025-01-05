@@ -1,7 +1,7 @@
 --[[
     Utilities that revolve around navigating 3d space.
-    For traveling to a location, see location.lua.
---]]
+    For traveling to a location, see Location.lua.
+]]
 
 local util = import('util.lua')
 local space = import('./space.lua')
@@ -16,7 +16,7 @@ function module.assertTurtleFacing(state, expectedFace)
 end
 
 function module.assertAtCoord(state, expectedCoord)
-    local currentCoord = state.turtleCmps().coord
+    local currentCoord = state:turtleCmps().coord
     currentCoordStr = '(f='..currentCoord.forward..',r='..currentCoord.right..',u='..currentCoord.up..')'
     expectedCoordStr = '(f='..expectedCoord.forward..',r='..expectedCoord.right..',u='..expectedCoord.up..')'
     if currentCoordStr ~= expectedCoordStr then
@@ -79,7 +79,7 @@ end
 
 function module.face(commands, state, targetFacing)
     local beforeFace = state.turtlePos.face
-    local rotations = space.countClockwiseRotations(beforeFace, targetFacing.face)
+    local rotations = space.__countClockwiseRotations(beforeFace, targetFacing.face)
 
     if rotations == 1 then
         commands.turtle.turnRight(state)

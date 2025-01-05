@@ -321,7 +321,7 @@ function module.create(opts) -- opts should contain { key=..., labeledPositions=
 
     return {
         requiredResources = util.mapMapTable(requiredResources, function(quantity)
-            return { quantity=quantity, at='INVENTORY', consumed=false }
+            return { quantity=quantity, at='INVENTORY' }
         end),
         createTaskState = function(buildStartCmps)
             local absOriginPos = buildStartCmps.compassAt({
@@ -362,7 +362,8 @@ function module.create(opts) -- opts should contain { key=..., labeledPositions=
             highLevelCommands.placeItemDown(commands, state, targetItem)
 
             nextTaskState.nextRelCoord = nextCoordToVisit(normalizedLayers, taskState.nextRelCoord)
-            return nextTaskState, nextTaskState.nextRelCoord == nil
+            util.mergeTablesInPlace(taskState, nextTaskState)
+            return nextTaskState.nextRelCoord == nil
         end,
     }
 end

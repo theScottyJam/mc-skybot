@@ -4,30 +4,27 @@
 
     A location should always have a spot above it that's empty. This allows the turtle
     to place a chest there, to craft at any location.
---]]
+]]
 
 local util = import('util.lua')
 local space = import('./space.lua')
 local navigate = import('./navigate.lua')
 
-local module = {}
+local static = {}
+local prototype = {}
 
 local allLocations = {}
 
 -- HELPER FUNCTIONS --
 
-local lookupLoc = function(pos)
-    local loc = (
-        allLocations[pos.forward] and
-        allLocations[pos.forward][pos.right] and
-        allLocations[pos.forward][pos.right][pos.up] and
-        allLocations[pos.forward][pos.right][pos.up][pos.face]
-    )
+-- Turns a position into a key that uniquely identifies that position.
+local posToKey = function(pos)
+    return pos.forward..','..pos.right..','..pos.up..':'..pos.face
+end
 
-    if loc == nil then
-        error('Failed to look up a location at a given position')
-    end
-
+local lookupLoc = function(key)
+    local loc = allLocations[key]
+    util.assert(loc ~= nil, 'Failed to look up a location at a given position')
     return loc
 end
 
@@ -43,12 +40,16 @@ local calcPathCost = function(coords)
     return length
 end
 
+function prototype:_getPaths(state)
+    return state.availablePaths[self._key]
+end
+
 -- Finds the best route by exploring all closets locations until it runs into the target.
 -- (this means it'll have to look at almost every registered location to find distant routes).
-local findBestRoute = function(loc1, loc2)
-    if loc1 == loc2 then return {} end
-    local toExplore = {{to=loc1, route={}, routeCost=0}}
-    local seen = { [loc1] = true }
+local findBestRoute = function(state, loc1, loc2)
+    if loc1._key == loc2._key then return {} end
+    local toExplore = {{ to = loc1, route = {}, routeCost = 0 }}
+    local seen = { [loc1._key] = true }
 
     while #toExplore > 0 do
         local bestIndex = 1
@@ -58,17 +59,17 @@ local findBestRoute = function(loc1, loc2)
             end
         end
         local entry = table.remove(toExplore, bestIndex)
-        for i, path in ipairs(entry.to.paths) do
+        for i, path in ipairs(entry.to:_getPaths(state)) do
             if not seen[path.to] then
                 seen[path.to] = true
                 local newRoute = util.copyTable(entry.route)
                 table.insert(newRoute, path)
                 local newEntry = {
-                    to = path.to,
+                    to = lookupLoc(path.to),
                     routeCost = entry.routeCost + path.cost,
                     route = newRoute,
                 }
-                if path.to == loc2 then
+                if path.to == loc2._key then
                     return { routeCost = newEntry.routeCost, route = newEntry.route }
                 end
                 table.insert(toExplore, newEntry)
@@ -81,21 +82,21 @@ end
 
 -- PUBLIC FUNCTIONS --
 
-function module.register(pos)
-    local loc = {
+function static.register(pos)
+    local loc = util.attachPrototype(prototype, {
         cmps = space.createCompass(pos),
-        paths = {} -- List of paths that lead to and from this location
-    }
+        -- Unique key used for looking up this location inside of maps
+        _key = posToKey(pos)
+    })
 
-    if allLocations[pos.forward] == nil then allLocations[pos.forward] = {} end
-    if allLocations[pos.forward][pos.right] == nil then allLocations[pos.forward][pos.right] = {} end
-    if allLocations[pos.forward][pos.right][pos.up] == nil then allLocations[pos.forward][pos.right][pos.up] = {} end
-    allLocations[pos.forward][pos.right][pos.up][pos.face] = loc
+    util.assert(allLocations[loc._key] == nil, 'Registered duplicate location')
+    allLocations[loc._key] = loc
+
     return loc
 end
 
 -- midPoints is a list of coordinates
-function module.registerPath(loc1, loc2, midPoints)
+function static.addPath(state, loc1, loc2, midPoints)
     midPoints = midPoints or {}
 
     local allCoordsInPath = util.copyTable(midPoints)
@@ -103,38 +104,40 @@ function module.registerPath(loc1, loc2, midPoints)
     table.insert(allCoordsInPath, loc2.cmps.coord)
     local cost = calcPathCost(allCoordsInPath)
 
-    table.insert(loc1.paths, {
-        from = loc1,
-        to = loc2,
+    if state.availablePaths[loc1._key] == nil then
+        state.availablePaths[loc1._key] = {}
+    end
+    table.insert(state.availablePaths[loc1._key], {
+        to = loc2._key,
         midPoints = midPoints,
         cost = cost,
     })
-    table.insert(loc2.paths, {
-        from = loc2,
-        to = loc1,
+
+    if state.availablePaths[loc2._key] == nil then
+        state.availablePaths[loc2._key] = {}
+    end
+
+    table.insert(state.availablePaths[loc2._key], {
+        to = loc1._key,
         midPoints = util.reverseTable(midPoints),
         cost = cost,
     })
 end
 
 -- Finds the shortest route to a location among the registered paths and travels there.
-function module.travelToLocation(commands, state, destLoc)
-    if state.turtleCmps().compareCmps(destLoc.cmps) then return end
-    local turtleLoc = lookupLoc(state.turtlePos)
-    local route = findBestRoute(turtleLoc, destLoc).route
-    if route == nil then error('Failed to naviage to a particular location - there was no route to this location.') end
+function prototype:travelHere(commands, state)
+    if state:turtleCmps().compareCmps(self.cmps) then return end
+    local turtleLoc = lookupLoc(posToKey(state.turtlePos))
+    local route = findBestRoute(state, turtleLoc, self).route
+    util.assert(route ~= nil, 'Failed to navigate to a particular location - there was no route to this location.')
 
     for _, path in ipairs(route) do
         for i, coord in ipairs(path.midPoints) do
             navigate.moveToCoord(commands, state, coord)
         end
-        navigate.moveToCoord(commands, state, path.to.cmps.coord)
+        navigate.moveToCoord(commands, state, lookupLoc(path.to).cmps.coord)
     end
-    navigate.face(commands, state, destLoc.cmps.facing)
+    navigate.face(commands, state, self.cmps.facing)
 end
 
--- I can implement these when I need them
--- function module.unregisterPath() end
--- function module.unregisterLocation() end
-
-return module
+return static

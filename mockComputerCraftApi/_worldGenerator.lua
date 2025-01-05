@@ -1,6 +1,6 @@
 --[[
     The world object is a mutable object that anyone is allowed to tamper with.
---]]
+]]
 
 local module = {}
 

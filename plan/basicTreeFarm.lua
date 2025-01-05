@@ -2,12 +2,12 @@ local util = import('util.lua')
 local act = import('act/init.lua')
 local treeFarmBehavior = import('./_treeFarmBehavior.lua')
 
-local location = act.location
+local Location = act.Location
 local navigate = act.navigate
 
 local module = {}
 
-local createFunctionalScaffoldingBlueprint = act.blueprint.create({
+local functionalScaffoldingBlueprint = act.blueprint.create({
     key = {
         ['minecraft:stone'] = 'X',
         ['minecraft:dirt'] = 'D',
@@ -57,48 +57,58 @@ local createFunctionalScaffoldingBlueprint = act.blueprint.create({
     }
 })
 
-function createFunctionalScaffoldingProject(opts)
+function registerFunctionalScaffoldingProject(opts)
+    local homeLoc = opts.homeLoc
     local treeFarmEntranceLoc = opts.treeFarmEntranceLoc
     local treeFarm = opts.treeFarm
 
-    local taskRunnerId = 'project:basicTreeFarm:createFunctionalScaffolding'
-    act.task.registerTaskRunner(taskRunnerId, {
-        createTaskState = function()
-            return createFunctionalScaffoldingBlueprint.createTaskState(treeFarmEntranceLoc.cmps)
+    return act.Project.register({
+        id = 'basicTreeFarm:createFunctionalScaffolding',
+        init = function(self, state)
+            self.state = state
+            -- mutable state
+            self.taskState = functionalScaffoldingBlueprint.createTaskState(treeFarmEntranceLoc.cmps)
         end,
-        enter = function(commands, state, taskState)
-            location.travelToLocation(commands, state, treeFarmEntranceLoc)
-            createFunctionalScaffoldingBlueprint.enter(commands, state, taskState)
+        before = function(self, commands)
+            Location.addPath(self.state, homeLoc, treeFarmEntranceLoc)
         end,
-        exit = function(commands, state, taskState, info)
-            createFunctionalScaffoldingBlueprint.exit(commands, state, taskState, info)
-            navigate.assertAtPos(state, treeFarmEntranceLoc.cmps.pos)
-            if info.complete then
-                treeFarm.activate(commands, state)
-            end
+        enter = function(self, commands)
+            treeFarmEntranceLoc:travelHere(commands, self.state)
+            functionalScaffoldingBlueprint.enter(commands, self.state, self.taskState)
         end,
-        nextSprint = function(commands, state, taskState)
-            return createFunctionalScaffoldingBlueprint.nextSprint(commands, state, taskState)
+        exit = function(self, commands)
+            functionalScaffoldingBlueprint.exit(commands, self.state, self.taskState)
+            navigate.assertAtPos(self.state, treeFarmEntranceLoc.cmps.pos)
         end,
-    })
-    return act.project.create(taskRunnerId, {
-        requiredResources = createFunctionalScaffoldingBlueprint.requiredResources,
+        after = function(self, commands)
+            treeFarm:activate(commands, self.state)
+        end,
+        nextSprint = function(self, commands)
+            return functionalScaffoldingBlueprint.nextSprint(commands, self.state, self.taskState)
+        end,
+        requiredResources = functionalScaffoldingBlueprint.requiredResources,
     })
 end
 
-local createTreeFarm = function(opts)
+local registerTreeFarm = function(opts)
     local treeFarmEntranceLoc = opts.treeFarmEntranceLoc
 
-    local taskRunnerId = act.task.registerTaskRunner('farm:treeFarm', {
-        enter = function(commands, state, taskState)
-            location.travelToLocation(commands, state, treeFarmEntranceLoc)
+    return act.Farm.register({
+        id = 'basicTreeFarm:treeFarm',
+        init = function(self, state)
+            self.state = state
         end,
-        exit = function(commands, state, taskState)
-            navigate.assertAtPos(state, treeFarmEntranceLoc.cmps.pos)
+        enter = function(self, commands)
+            treeFarmEntranceLoc:travelHere(commands, self.state)
         end,
-        nextSprint = function(commands, state, taskState)
+        exit = function(self, commands)
+            navigate.assertAtPos(self.state, treeFarmEntranceLoc.cmps.pos)
+        end,
+        nextSprint = function(self, commands)
+            local state = self.state
+
             commands.turtle.select(state, 1)
-            local startPos = util.copyTable(state.turtlePos)
+            local startPos = state.turtlePos
 
             local inFrontOfEachTreeCmps = {
                 treeFarmEntranceLoc.cmps.compassAt({ forward=2, right=-5 }),
@@ -113,24 +123,21 @@ local createTreeFarm = function(opts)
 
             navigate.moveToPos(commands, state, startPos, { 'up', 'right', 'forward' })
 
-            return taskState, true
+            return true
         end,
-    })
-    return act.farm.register(taskRunnerId, {
         supplies = treeFarmBehavior.stats.supplies,
         calcExpectedYield = treeFarmBehavior.stats.calcExpectedYield,
     })
 end
 
-function module.init(opts)
+function module.register(opts)
     local homeLoc = opts.homeLoc
-    local treeFarmEntranceLoc = location.register(homeLoc.cmps.posAt({ forward=2 }))
-    location.registerPath(homeLoc, treeFarmEntranceLoc)
+    local treeFarmEntranceLoc = Location.register(homeLoc.cmps.posAt({ forward=2 }))
 
-    local treeFarm = createTreeFarm({ treeFarmEntranceLoc = treeFarmEntranceLoc })
+    local treeFarm = registerTreeFarm({ treeFarmEntranceLoc = treeFarmEntranceLoc })
 
     return {
-        createFunctionalScaffolding = createFunctionalScaffoldingProject({ treeFarmEntranceLoc = treeFarmEntranceLoc, treeFarm = treeFarm }),
+        functionalScaffolding = registerFunctionalScaffoldingProject({ homeLoc = homeLoc, treeFarmEntranceLoc = treeFarmEntranceLoc, treeFarm = treeFarm }),
     }
 end
 

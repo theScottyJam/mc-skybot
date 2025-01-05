@@ -1,6 +1,6 @@
 --[[
     Used to display information about the a mock world
---]]
+]]
 
 local util = import('util.lua')
 local osModule = import('./os.lua')
@@ -99,6 +99,7 @@ function module.displayMap(bounds, opts)
 end
 
 function module.displayCentered(opts)
+    local world = _G.mockComputerCraftApi.world
     opts = opts or {}
     local coord = opts.coord or world.turtle.pos
     local width = opts.width or 20
@@ -106,8 +107,6 @@ function module.displayCentered(opts)
     local minY = opts.minY -- may be nil
     local maxY = opts.maxY -- may be nil
     local showKey = opts.showKey -- may be nil
-
-    local world = _G.mockComputerCraftApi.world
 
     module.displayMap({
         minX = coord.x - math.floor(width / 2),
@@ -148,15 +147,15 @@ function module.inventory()
     end
 end
 
-function module.showTurtlePosition()
+function module.turtlePosition()
     local world = _G.mockComputerCraftApi.world
     local turtlePos = world.turtle.pos
     print('Turtle pos: ('..turtlePos.x..','..turtlePos.y..','..turtlePos.z..') '..turtlePos.face)
 end
 
 function module.taskNames(state)
-    print('primary task: '..(state.primaryTask and state.primaryTask.taskRunnerId or 'nil'))
-    print('interrupt task: '..(state.interruptTask and state.interruptTask.taskRunnerId or 'nil'))
+    print('primary task: '..(state.primaryTask and state.primaryTask.displayName or 'nil'))
+    print('interrupt task: '..(state.interruptTask and state.interruptTask.displayName or 'nil'))
     print()
 end
 

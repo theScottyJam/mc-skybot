@@ -29,7 +29,7 @@ function module.harvestTreeFromAbove(commands, state, opts)
     end
 
     -- Harvest top-half of leaves
-    local topLeafCmps = state.turtleCmps().compassAt({ forward=-1, up=-1 })
+    local topLeafCmps = state:turtleCmps().compassAt({ forward=-1, up=-1 })
     local cornerPos = topLeafCmps.posAt({ forward = 1, right = 1, face='backward' })
     navigate.moveToPos(commands, state, cornerPos, { 'right', 'forward', 'up' })
     navigationPatterns.spiralInwards(commands, state, {

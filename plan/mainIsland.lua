@@ -5,33 +5,59 @@ local treeFarmBehavior = import('./_treeFarmBehavior.lua')
 
 local module = {}
 
-local location = act.location
+local commands = act.commands
+local Location = act.Location
 local navigate = act.navigate
 local navigationPatterns = act.navigationPatterns
 local highLevelCommands = act.highLevelCommands
 local curves = act.curves
 local space = act.space
 
+-- This should be the first project that runs
+local registerInitializationProject = function(opts)
+    local initialLoc = opts.initialLoc
+    local homeLoc = opts.homeLoc
+    local inFrontOfChestLoc = opts.inFrontOfChestLoc
+
+    return act.Project.register({
+        id = 'mainIsland:initialization',
+        init = function(self, state)
+            self.state = state
+        end,
+        after = function(self, commands)
+            Location.addPath(self.state, inFrontOfChestLoc, homeLoc)
+            Location.addPath(self.state, inFrontOfChestLoc, initialLoc)
+        end,
+        nextSprint = function(self, commands)
+            return true
+        end,
+    })
+end
+
 -- Pre-condition: Must have two dirt in inventory
-local harvestInitialTreeAndPrepareTreeFarmProject = function(opts)
+local registerHarvestInitialTreeAndPrepareTreeFarmProject = function(opts)
     local bedrockPos = opts.bedrockPos
     local homeLoc = opts.homeLoc
     local startingIslandTreeFarm = opts.startingIslandTreeFarm
 
     local bedrockCmps = space.createCompass(bedrockPos)
-    local taskRunnerId = 'project:mainIsland:harvestInitialTreeAndPrepareTreeFarm'
-    act.task.registerTaskRunner(taskRunnerId, {
-        enter = function(commands, state, taskState)
-            location.travelToLocation(commands, state, homeLoc)
+    return act.Project.register({
+        id = 'mainIsland:harvestInitialTreeAndPrepareTreeFarm',
+        init = function(self, state)
+            self.state = state
         end,
-        exit = function(commands, state, taskState, info)
-            navigate.assertAtPos(state, homeLoc.cmps.pos)
-            if info.complete then
-                startingIslandTreeFarm.activate(commands, state)
-            end
+        enter = function(self, commands)
+            homeLoc:travelHere(commands, self.state)
         end,
-        nextSprint = function(commands, state, taskState)
-            local startPos = util.copyTable(state.turtlePos)
+        exit = function(self, commands)
+            navigate.assertAtPos(self.state, homeLoc.cmps.pos)
+        end,
+        after = function(self, commands)
+            startingIslandTreeFarm:activate(commands, self.state)
+        end,
+        nextSprint = function(self, commands)
+            local state = self.state
+            local startPos = state.turtlePos
 
             local bottomTreeLogCmps = bedrockCmps.compassAt({ forward=-4, right=-1, up=3 })
             -- aboveTreeCmps is right above the floating dirt
@@ -73,10 +99,8 @@ local harvestInitialTreeAndPrepareTreeFarmProject = function(opts)
 
             navigate.moveToPos(commands, state, startPos, { 'forward', 'right', 'up' })
 
-            return taskState, true
+            return true
         end,
-    })
-    return act.project.create(taskRunnerId, {
         requiredResources = {
             -- 2 for each "sappling-arm", and 2 for the dirt that hovers above the trees
             ['minecraft:dirt'] = { quantity=6, at='INVENTORY' }
@@ -84,25 +108,32 @@ local harvestInitialTreeAndPrepareTreeFarmProject = function(opts)
     })
 end
 
-local startBuildingCobblestoneGeneratorProject = function(opts)
+local registerStartBuildingCobblestoneGeneratorProject = function(opts)
     local homeLoc = opts.homeLoc
     local craftingMills = opts.craftingMills
 
-    local taskRunnerId = 'project:mainIsland:startBuildingCobblestoneGenerator'
-    act.task.registerTaskRunner(taskRunnerId, {
-        enter = function(commands, state, taskState)
-            location.travelToLocation(commands, state, homeLoc)
+    return act.Project.register({
+        id = 'mainIsland:startBuildingCobblestoneGenerator',
+        init = function(self, state)
+            self.state = state
         end,
-        exit = function(commands, state, taskState, info)
-            navigate.assertAtPos(state, homeLoc.cmps.pos)
-            if info.complete then
-                for _, mill in ipairs(craftingMills) do
-                    mill.activate(commands, state)
-                end
+        enter = function(self, commands)
+            homeLoc:travelHere(commands, self.state)
+        end,
+        exit = function(self, commands)
+            navigate.assertAtPos(self.state, homeLoc.cmps.pos)
+        end,
+        after = function(self, commands)
+            -- Crafting mills are activated here, because the way crafting was
+            -- designed, it requires the turtle to have a chest in its inventory,
+            -- and the turtle picks up a chest here.
+            for _, mill in ipairs(craftingMills) do
+                mill:activate(commands, self.state)
             end
         end,
-        nextSprint = function(commands, state, taskState)
-            local startPos = util.copyTable(state.turtlePos)
+        nextSprint = function(self, commands)
+            local state = self.state
+            local startPos = state.turtlePos
 
             -- Dig out east branch
             navigate.face(commands, state, homeLoc.cmps.facingAt({ face='right' }))
@@ -123,7 +154,7 @@ local startBuildingCobblestoneGeneratorProject = function(opts)
             navigate.moveToCoord(commands, state, homeLoc.cmps.coordAt({ right=2 }))
             highLevelCommands.placeItemDown(commands, state, 'minecraft:lava_bucket')
 
-            -- -- Dig out west branch
+            -- Dig out west branch
             navigate.moveToPos(commands, state, homeLoc.cmps.posAt({ face='backward' }))
             commands.turtle.forward(state)
             commands.turtle.digDown(state)
@@ -143,36 +174,38 @@ local startBuildingCobblestoneGeneratorProject = function(opts)
 
             navigate.moveToPos(commands, state, startPos)
 
-            return taskState, true
+            return true
         end,
-    })
-    return act.project.create(taskRunnerId, {
         postConditions = function(currentConditions)
             currentConditions.mainIsland.startedCobblestoneGeneratorConstruction = true
         end,
     })
 end
 
-local waitForIceToMeltAndfinishCobblestoneGeneratorProject = function(opts)
+local registerWaitForIceToMeltAndfinishCobblestoneGeneratorProject = function(opts)
     local homeLoc = opts.homeLoc
     local cobblestoneGeneratorMill = opts.cobblestoneGeneratorMill
 
-    local taskRunnerId = 'project:mainIsland:waitForIceToMeltAndfinishCobblestoneGenerator'
-    act.task.registerTaskRunner(taskRunnerId, {
-        enter = function(commands, state, taskState)
-            location.travelToLocation(commands, state, homeLoc)
+    return act.Project.register({
+        id = 'mainIsland:waitForIceToMeltAndfinishCobblestoneGenerator',
+        init = function(self, state)
+            self.state = state
         end,
-        exit = function(commands, state, taskState, info)
-            navigate.assertAtPos(state, homeLoc.cmps.pos)
-            if info.complete then
-                if _G.mockComputerCraftApi ~= nil then
-                    _G.mockComputerCraftApi.hooks.registerCobblestoneRegenerationBlock(homeLoc.cmps.coordAt({ up=-1 }))
-                end
-                cobblestoneGeneratorMill.activate(commands, state)
+        enter = function(self, commands)
+            homeLoc:travelHere(commands, self.state)
+        end,
+        exit = function(self, commands)
+            navigate.assertAtPos(self.state, homeLoc.cmps.pos)
+        end,
+        after = function(self, commands)
+            if _G.mockComputerCraftApi ~= nil then
+                _G.mockComputerCraftApi.hooks.registerCobblestoneRegenerationBlock(homeLoc.cmps.coordAt({ up=-1 }))
             end
+            cobblestoneGeneratorMill:activate(commands, self.state)
         end,
-        nextSprint = function(commands, state, taskState)
-            local startPos = util.copyTable(state.turtlePos)
+        nextSprint = function(self, commands)
+            local state = self.state
+            local startPos = state.turtlePos
 
             -- Wait for ice to melt
             navigate.moveToCoord(commands, state, homeLoc.cmps.coordAt({ forward=-1 }))
@@ -190,39 +223,41 @@ local waitForIceToMeltAndfinishCobblestoneGeneratorProject = function(opts)
             navigate.moveToPos(commands, state, startPos)
             commands.turtle.digDown(state)
 
-            return taskState, true
+            return true
         end,
-    })
-    return act.project.create(taskRunnerId, {
-        requiredResources = {
-            ['minecraft:bucket'] = { quantity=1, at='INVENTORY', consumed=false }
-        },
         preConditions = function(currentConditions)
             return currentConditions.mainIsland.startedCobblestoneGeneratorConstruction
         end,
+        requiredResources = {
+            ['minecraft:bucket'] = { quantity=1, at='INVENTORY' }
+        },
     })
 end
 
-local buildFurnacesProject = function(opts)
+local registerBuildFurnacesProject = function(opts)
     local inFrontOfChestLoc = opts.inFrontOfChestLoc
     local inFrontOfFirstFurnaceLoc = opts.inFrontOfFirstFurnaceLoc
 
-    local taskRunnerId = 'project:mainIsland:buildFurnaces'
-    act.task.registerTaskRunner(taskRunnerId, {
-        enter = function(commands, state, taskState)
-            location.travelToLocation(commands, state, inFrontOfChestLoc)
+    return act.Project.register({
+        id = 'mainIsland:buildFurnaces',
+        init = function(self, state)
+            self.state = state
         end,
-        exit = function(commands, state, taskState, info)
-            navigate.assertAtPos(state, inFrontOfChestLoc.cmps.pos)
-            if info.complete then
-                location.registerPath(inFrontOfChestLoc, inFrontOfFirstFurnaceLoc, {
-                    inFrontOfChestLoc.cmps.coordAt({ right=1 }),
-                    inFrontOfChestLoc.cmps.coordAt({ right=1, up=1 }),
-                })
-            end
+        enter = function(self, commands)
+            inFrontOfChestLoc:travelHere(commands, self.state)
         end,
-        nextSprint = function(commands, state, taskState)
-            local startPos = util.copyTable(state.turtlePos)
+        exit = function(self, commands)
+            navigate.assertAtPos(self.state, inFrontOfChestLoc.cmps.pos)
+        end,
+        after = function(self, commands)
+            Location.addPath(self.state, inFrontOfChestLoc, inFrontOfFirstFurnaceLoc, {
+                inFrontOfChestLoc.cmps.coordAt({ right=1 }),
+                inFrontOfChestLoc.cmps.coordAt({ right=1, up=1 }),
+            })
+        end,
+        nextSprint = function(self, commands)
+            local state = self.state
+            local startPos = state.turtlePos
 
             local aboveFirstFurnaceCmps = inFrontOfFirstFurnaceLoc.cmps.compassAt({ forward=1, up=1, face='forward' })
             for i = 0, 2 do
@@ -232,35 +267,37 @@ local buildFurnacesProject = function(opts)
 
             navigate.moveToPos(commands, state, startPos, { 'right', 'forward', 'up' })
 
-            return taskState, true
+            return true
         end,
-    })
-    return act.project.create(taskRunnerId, {
         requiredResources = {
             ['minecraft:furnace'] = { quantity=3, at='INVENTORY' }
         },
     })
 end
 
-local smeltInitialCharcoalProject = function(opts)
+local registerSmeltInitialCharcoalProject = function(opts)
     local inFrontOfFirstFurnaceLoc = opts.inFrontOfFirstFurnaceLoc
     local furnaceMill = opts.furnaceMill
     local simpleCharcoalSmeltingMill = opts.simpleCharcoalSmeltingMill
 
-    local taskRunnerId = 'project:mainIsland:smeltInitialCharcoal'
-    act.task.registerTaskRunner(taskRunnerId, {
-        enter = function(commands, state, taskState)
-            location.travelToLocation(commands, state, inFrontOfFirstFurnaceLoc)
+    return act.Project.register({
+        id = 'mainIsland:smeltInitialCharcoal',
+        init = function(self, state)
+            self.state = state
         end,
-        exit = function(commands, state, taskState, info)
-            navigate.assertAtPos(state, inFrontOfFirstFurnaceLoc.cmps.pos)
-            if info.complete then
-                furnaceMill.activate(commands, state)
-                simpleCharcoalSmeltingMill.activate(commands, state)
-            end
+        enter = function(self, commands)
+            inFrontOfFirstFurnaceLoc:travelHere(commands, self.state)
         end,
-        nextSprint = function(commands, state, taskState)
-            local startPos = util.copyTable(state.turtlePos)
+        exit = function(self, commands)
+            navigate.assertAtPos(self.state, inFrontOfFirstFurnaceLoc.cmps.pos)
+        end,
+        after = function(self, commands)
+            furnaceMill:activate(commands, self.state)
+            simpleCharcoalSmeltingMill:activate(commands, self.state)
+        end,
+        nextSprint = function(self, commands)
+            local state = self.state
+            local startPos = state.turtlePos
 
             -- Same values that were put in "requiredResources"
             local logCount = 3
@@ -296,12 +333,10 @@ local smeltInitialCharcoalProject = function(opts)
 
             navigate.moveToPos(commands, state, inFrontOfFirstFurnaceLoc.cmps.pos, { 'right', 'up' })
 
-            return taskState, true
+            return true
         end,
-    })
-    return act.project.create(taskRunnerId, {
         requiredResources = {
-            -- Uses four a total of four logs. One as planks for fuel to smelt 3 charcoal.
+            -- Uses a total of four logs. One as planks for fuel to smelt 3 charcoal.
             -- Some of that charcoal will be used as future fuel, other will be used for torches.
             ['minecraft:log'] = { quantity=3, at='INVENTORY' },
             ['minecraft:planks'] = { quantity=2, at='INVENTORY' },
@@ -309,18 +344,22 @@ local smeltInitialCharcoalProject = function(opts)
     })
 end
 
-local torchUpIslandProject = function(opts)
+local registerTorchUpIslandProject = function(opts)
     local inFrontOfChestLoc = opts.inFrontOfChestLoc
 
-    local taskRunnerId = 'project:mainIsland:torchUpIsland'
-    act.task.registerTaskRunner(taskRunnerId, {
-        enter = function(commands, state, taskState)
-            location.travelToLocation(commands, state, inFrontOfChestLoc)
+    return act.Project.register({
+        id = 'mainIsland:torchUpIsland',
+        init = function(self, state)
+            self.state = state
         end,
-        exit = function(commands, state, taskState, info)
-            navigate.assertAtPos(state, inFrontOfChestLoc.cmps.pos)
+        enter = function(self, commands)
+            inFrontOfChestLoc:travelHere(commands, self.state)
         end,
-        nextSprint = function(commands, state, taskState)
+        exit = function(self, commands)
+            navigate.assertAtPos(self.state, inFrontOfChestLoc.cmps.pos)
+        end,
+        nextSprint = function(self, commands)
+            local state = self.state
             -- torch 1 is directly left of the disk drive
             local torch1Cmps = inFrontOfChestLoc.cmps.compassAt({ forward=1, right=-1, up=1 })
             navigate.moveToPos(commands, state, torch1Cmps.pos, {'right', 'forward', 'up'})
@@ -345,69 +384,77 @@ local torchUpIslandProject = function(opts)
 
             navigate.moveToPos(commands, state, inFrontOfChestLoc.cmps.pos, {'forward', 'right', 'up'})
 
-            return taskState, true
+            return true
         end,
-    })
-    return act.project.create(taskRunnerId, {
         requiredResources = {
             ['minecraft:torch'] = { quantity=4, at='INVENTORY' },
         },
     })
 end
 
-local createFurnaceMill = function(opts)
+local registerFurnaceMill = function(opts)
     local inFrontOfFirstFurnaceLoc = opts.inFrontOfFirstFurnaceLoc
 
-    local taskRunnerId = 'mill:mainIsland:furnace'
-    act.task.registerTaskRunner(taskRunnerId, {
-        createTaskState = function()
-            return {
+    local whatIsSmeltedFromWhat = {}
+    for _, recipe in ipairs(recipes.smelting) do
+        whatIsSmeltedFromWhat[recipe.to] = recipe.from
+    end
+
+    return act.Mill.register({
+        id = 'mainIsland:furnace',
+        init = function(self, state, resourceRequests)
+            self.state = state
+            -- mutable state
+            self.taskState = {
                 currentlyInFurnaces = { 0, 0, 0 },
                 collected = 0,
             }
-        end,
-        enter = function(commands, state, taskState)
-            location.travelToLocation(commands, state, inFrontOfFirstFurnaceLoc)
-        end,
-        exit = function(commands, state, taskState)
-            navigate.moveToPos(commands, state, inFrontOfFirstFurnaceLoc.cmps.pos, { 'right', 'forward', 'up' })
-        end,
-        nextSprint = function(commands, state, taskState, resourceRequests)
-            local newTaskState = util.copyTable(taskState)
 
             if util.tableSize(resourceRequests) ~= 1 then
                 error('Only supports smelting one item type at a time')
             end
             local targetResource, requestedQuantity = util.getASortedEntry(resourceRequests)
 
-            targetRecipe = util.findInArrayTable(recipes.smelting, function(recipe)
+            local targetRecipe = util.findInArrayTable(recipes.smelting, function(recipe)
                 return recipe.to == targetResource
             end)
-            sourceResource = targetRecipe.from
 
             -- I don't have inventory management techniques in place to handle a larger quantity
-            if requestedQuantity > 64 * 8 then error('Can not handle that large of a quantity yet') end
+            util.assert(requestedQuantity <= 64 * 8, 'Can not handle that large of a quantity yet')
+
+            self.sourceResource = targetRecipe.from
+            self.requestedQuantity = requestedQuantity
+        end,
+        enter = function(self, commands)
+            inFrontOfFirstFurnaceLoc:travelHere(commands, self.state)
+        end,
+        exit = function(self, commands)
+            navigate.moveToPos(commands, self.state, inFrontOfFirstFurnaceLoc.cmps.pos, { 'right', 'forward', 'up' })
+        end,
+        nextSprint = function(self, commands)
+            local state = self.state
+            local newTaskState = util.copyTable(self.taskState)
 
             -- Index of first furnace that has 32 or more items being smelted, or nil if there is no such furnace.
             -- Alternatively, if there isn't a need to restock, this is the index of the furnace with the most content.
             local furnaceIndexToWaitOn = nil
-            local restockRequired = taskState.collected + util.sum(taskState.currentlyInFurnaces) < requestedQuantity
+            local restockRequired = self.taskState.collected + util.sum(self.taskState.currentlyInFurnaces) < self.requestedQuantity
             if restockRequired then
                 for i = 1, 3 do
-                    if taskState.currentlyInFurnaces[i] > 32 then
+                    if self.taskState.currentlyInFurnaces[i] > 32 then
                         furnaceIndexToWaitOn = i
                         break
                     end
                 end
             else
-                _, furnaceIndexToWaitOn = util.maxNumber(table.unpack(taskState.currentlyInFurnaces))
+                _, furnaceIndexToWaitOn = util.maxNumber(table.unpack(self.taskState.currentlyInFurnaces))
             end
 
             -- Insert raw materials and fuel
             if furnaceIndexToWaitOn == nil then
                 -- Calculate items to place
-                local willBeInFurnaces = util.copyTable(taskState.currentlyInFurnaces)
-                local willBeRemaining = requestedQuantity - newTaskState.collected - util.sum(willBeInFurnaces)
+                local willBeInFurnaces = util.copyTable(self.taskState.currentlyInFurnaces)
+                local willBeRemaining = self.requestedQuantity - self.taskState.collected - util.sum(willBeInFurnaces)
                 while true do
                     local minStackIndex = util.indexOfMinNumber(table.unpack(willBeInFurnaces))
                     if willBeInFurnaces[minStackIndex] > 64 - 8 then break end
@@ -419,7 +466,7 @@ local createFurnaceMill = function(opts)
 
                 local willBeAdded = {}
                 for i = 1, 3 do
-                    willBeAdded[i] = willBeInFurnaces[i] - taskState.currentlyInFurnaces[i]
+                    willBeAdded[i] = willBeInFurnaces[i] - self.taskState.currentlyInFurnaces[i]
                 end
 
                 -- Fill fuel from the bottom
@@ -439,10 +486,10 @@ local createFurnaceMill = function(opts)
                 local aboveFirstFurnaceCmps = inFrontOfFirstFurnaceLoc.cmps.compassAt({ forward=1, up=1 })
                 navigate.moveToPos(commands, state, aboveFirstFurnaceCmps.posAt({ face='right' }), { 'up', 'right' })
                 for i = 1, 2 do
-                    highLevelCommands.dropItemDown(commands, state, sourceResource, willBeAdded[i])
+                    highLevelCommands.dropItemDown(commands, state, self.sourceResource, willBeAdded[i])
                     commands.turtle.forward(state)
                 end
-                highLevelCommands.dropItemDown(commands, state, sourceResource, willBeAdded[3])
+                highLevelCommands.dropItemDown(commands, state, self.sourceResource, willBeAdded[3])
 
                 navigate.moveToCoord(commands, state, aboveFirstFurnaceCmps.coord)
                 navigate.moveToPos(commands, state, inFrontOfFirstFurnaceLoc.cmps.pos, { 'forward', 'right', 'up' })
@@ -454,7 +501,7 @@ local createFurnaceMill = function(opts)
                 -- Move into position if needed
                 local belowFirstFurnaceCmps = inFrontOfFirstFurnaceLoc.cmps.compassAt({ forward=1, up=-1 })
                 local targetFurnaceCmps = belowFirstFurnaceCmps.compassAt({ right = furnaceIndexToWaitOn - 1 })
-                if inFrontOfFirstFurnaceLoc.cmps.compareCmps(state.turtleCmps()) then
+                if inFrontOfFirstFurnaceLoc.cmps.compareCmps(state:turtleCmps()) then
                     navigate.moveToPos(commands, state, belowFirstFurnaceCmps.posAt({ face='right' }), { 'up', 'forward' })
                 end
                 navigate.moveToCoord(commands, state, targetFurnaceCmps.coord)
@@ -469,7 +516,7 @@ local createFurnaceMill = function(opts)
                     -- would have been sufficient. I just didn't want to make a function for that yet.
                     highLevelCommands.organizeInventory(commands, state)
 
-                    newTaskState.currentlyInFurnaces = util.copyTable(taskState.currentlyInFurnaces)
+                    newTaskState.currentlyInFurnaces = util.copyTable(self.taskState.currentlyInFurnaces)
                     newTaskState.currentlyInFurnaces[furnaceIndexToWaitOn] = (
                         newTaskState.currentlyInFurnaces[furnaceIndexToWaitOn] - amountSucked
                     )
@@ -479,16 +526,9 @@ local createFurnaceMill = function(opts)
                 end
             end
 
-            return newTaskState, newTaskState.collected == requestedQuantity
+            self.taskState = newTaskState
+            return newTaskState.collected == self.requestedQuantity
         end,
-    })
-
-    local whatIsSmeltedFromWhat = {}
-    for _, recipe in ipairs(recipes.smelting) do
-        whatIsSmeltedFromWhat[recipe.to] = recipe.from
-    end
-
-    return act.mill.create(taskRunnerId, {
         getRequiredResources = function(resourceRequest)
             if whatIsSmeltedFromWhat[resourceRequest.resourceName] == nil then
                 error('Unreachable: Requested an invalid resource')
@@ -513,7 +553,7 @@ local createFurnaceMill = function(opts)
     })
 end
 
-createSimpleCharcoalSmeltingMill = function(opts)
+local registerSimpleCharcoalSmeltingMill = function(opts)
     local inFrontOfFirstFurnaceLoc = opts.inFrontOfFirstFurnaceLoc
 
     -- Figures out the number of logs that will be used in
@@ -527,31 +567,36 @@ createSimpleCharcoalSmeltingMill = function(opts)
         return roundedQuantity
     end
 
-    local taskRunnerId = 'mill:mainIsland:simpleCharcoalSmeltingMill'
-    act.task.registerTaskRunner(taskRunnerId, {
-        createTaskState = function()
-            return {
+    return act.Mill.register({
+        id = 'mainIsland:simpleCharcoalSmeltingMill',
+        init = function(self, state, resourceRequests)
+            self.state = state
+            -- mutable state
+            self.taskState = {
                 quantityInFirstFurnace = 0,
                 collected = 0,
             }
-        end,
-        enter = function(commands, state, taskState)
-            location.travelToLocation(commands, state, inFrontOfFirstFurnaceLoc)
-        end,
-        exit = function(commands, state, taskState)
-            navigate.moveToPos(commands, state, inFrontOfFirstFurnaceLoc.cmps.pos, { 'right', 'forward', 'up' })
-        end,
-        nextSprint = function(commands, state, taskState, resourceRequests)
-            local newTaskState = util.copyTable(taskState)
+
             local requestedQuantity = resourceRequests['minecraft:charcoal']
 
+            util.assert(requestedQuantity ~= nil, 'Must supply a request for cobblestone to use this mill')
             -- I don't have inventory management techniques in place to handle a larger quantity
-            if requestedQuantity > 64 * 8 then error('Can not handle that large of a quantity yet') end
+            util.assert(requestedQuantity <= 64 * 8, 'Can not handle that large of a quantity yet')
 
-            local logsBeingSmelted = calcAmountToSmelt(requestedQuantity)
+            self.logsBeingSmelted = calcAmountToSmelt(requestedQuantity)
+        end,
+        enter = function(self, commands)
+            inFrontOfFirstFurnaceLoc:travelHere(commands, self.state)
+        end,
+        exit = function(self, commands)
+            navigate.moveToPos(commands, self.state, inFrontOfFirstFurnaceLoc.cmps.pos, { 'right', 'forward', 'up' })
+        end,
+        nextSprint = function(self, commands)
+            local state = self.state
+            local newTaskState = util.copyTable(self.taskState)
 
             -- Insert raw materials and fuel
-            if newTaskState.quantityInFirstFurnace == 0 then
+            if self.taskState.quantityInFirstFurnace == 0 then
                 -- Fill fuel from the bottom
                 local belowFirstFurnaceCmps = inFrontOfFirstFurnaceLoc.cmps.compassAt({ forward=1, up=-1 })
                 navigate.moveToPos(commands, state, belowFirstFurnaceCmps.pos, { 'up', 'forward', 'right' })
@@ -584,18 +629,16 @@ createSimpleCharcoalSmeltingMill = function(opts)
                     -- would have been sufficient. I just didn't want to make a function for that yet.
                     highLevelCommands.organizeInventory(commands, state)
 
-                    newTaskState.quantityInFirstFurnace = newTaskState.quantityInFirstFurnace - amountSucked
-                    newTaskState.collected = newTaskState.collected + amountSucked
+                    newTaskState.quantityInFirstFurnace = self.taskState.quantityInFirstFurnace - amountSucked
+                    newTaskState.collected = self.taskState.collected + amountSucked
                 else
                     highLevelCommands.busyWait(commands, state)
                 end
             end
 
-            return newTaskState, newTaskState.collected >= logsBeingSmelted
+            self.taskState = newTaskState
+            return newTaskState.collected >= self.logsBeingSmelted
         end,
-    })
-
-    return act.mill.create(taskRunnerId, {
         getRequiredResources = function (resourceRequest)
             if resourceRequest.resourceName ~= 'minecraft:charcoal' then
                 error('Only charcoal is supported')
@@ -604,31 +647,37 @@ createSimpleCharcoalSmeltingMill = function(opts)
                 ['minecraft:log'] = calcAmountToSmelt(resourceRequest.quantity),
             }
         end,
-        supplies = {'minecraft:charcoal'},
+        supplies = { 'minecraft:charcoal' },
     })
 end
 
-local createCobblestoneGeneratorMill = function(opts)
+local registerCobblestoneGeneratorMill = function(opts)
     local homeLoc = opts.homeLoc
 
-    local taskRunnerId = 'mill:mainIsland:cobblestoneGenerator'
-    act.task.registerTaskRunner(taskRunnerId, {
-        createTaskState = function()
-            return { harvested = 0 }
-        end,
-        enter = function(commands, state, taskState)
-            location.travelToLocation(commands, state, homeLoc)
-        end,
-        exit = function(commands, state, taskState)
-            navigate.face(commands, state, homeLoc.cmps.facing)
-            navigate.assertAtPos(state, homeLoc.cmps.pos)
-        end,
-        nextSprint = function(commands, state, taskState, resourceRequests)
-            local newTaskState = util.copyTable(taskState)
-            local quantity = resourceRequests['minecraft:cobblestone']
-            if quantity == nil then error('Must supply a request for cobblestone to use this mill') end
+    return act.Mill.register({
+        id = 'mainIsland:cobblestoneGenerator',
+        init = function(self, state, resourceRequests)
+            self.state = state
+
+            -- mutable state
+            self.harvested = 0
+
+            local requestedQuantity = resourceRequests['minecraft:cobblestone']
+            util.assert(requestedQuantity ~= nil, 'Must supply a request for cobblestone to use this mill')
             -- I don't have inventory management techniques in place to handle a larger quantity
-            if quantity > 64 * 8 then error('Can not handle that large of a quantity yet') end
+            util.assert(requestedQuantity <= 64 * 8, 'Can not handle that large of a quantity yet')
+
+            self.quantityRequested = requestedQuantity
+        end,
+        enter = function(self, commands)
+            homeLoc:travelHere(commands, self.state)
+        end,
+        exit = function(self, commands)
+            navigate.face(commands, self.state, homeLoc.cmps.facing)
+            navigate.assertAtPos(self.state, homeLoc.cmps.pos)
+        end,
+        nextSprint = function(self, commands)
+            local state = self.state
 
             highLevelCommands.waitUntilDetectBlock(commands, state, {
                 expectedBlockId = 'minecraft:cobblestone',
@@ -636,30 +685,34 @@ local createCobblestoneGeneratorMill = function(opts)
                 endFacing = 'ANY',
             })
             commands.turtle.digDown(state)
-            newTaskState.harvested = newTaskState.harvested + 1
+            self.harvested = self.harvested + 1
             
-            return newTaskState, newTaskState.harvested == quantity
+            return self.harvested == self.quantityRequested
         end,
-    })
-    return act.mill.create(taskRunnerId, {
         supplies = { 'minecraft:cobblestone' },
     })
 end
 
-local createStartingIslandTreeFarm = function(opts)
+local registerStartingIslandTreeFarm = function(opts)
     local homeLoc = opts.homeLoc
     local bedrockPos = opts.bedrockPos
 
-    local taskRunnerId = act.task.registerTaskRunner('farm:mainIsland:startingIslandTreeFarm', {
-        enter = function(commands, state, taskState)
-            location.travelToLocation(commands, state, homeLoc)
+    return act.Farm.register({
+        id = 'mainIsland:startingIslandTreeFarm',
+        init = function(self, state)
+            self.state = state
         end,
-        exit = function(commands, state, taskState)
-            navigate.assertAtPos(state, homeLoc.cmps.pos)
+        enter = function(self, commands)
+            homeLoc:travelHere(commands, self.state)
         end,
-        nextSprint = function(commands, state, taskState)
+        exit = function(self, commands)
+            navigate.assertAtPos(self.state, homeLoc.cmps.pos)
+        end,
+        nextSprint = function(self, commands)
+            local state = self.state
+
             commands.turtle.select(state, 1)
-            local startPos = util.copyTable(state.turtlePos)
+            local startPos = state.turtlePos
 
             local mainCmps = homeLoc.cmps.compassAt({ forward=-5 })
             navigate.moveToCoord(commands, state, mainCmps.coord)
@@ -676,39 +729,40 @@ local createStartingIslandTreeFarm = function(opts)
 
             navigate.moveToPos(commands, state, startPos, { 'up', 'right', 'forward' })
 
-            return taskState, true
+            return true
         end,
-    })
-    return act.farm.register(taskRunnerId, {
         supplies = treeFarmBehavior.stats.supplies,
         calcExpectedYield = treeFarmBehavior.stats.calcExpectedYield,
     })
 end
 
-local createCraftingMills = function()
+local registerCraftingMills = function()
     local millList = {}
     for i, recipe in pairs(recipes.crafting) do
-        local taskRunnerId = 'mill:mainIsland:crafting:'..recipe.to..':'..i
-        act.task.registerTaskRunner(taskRunnerId, {
-            createTaskState = function()
-                return { produced = 0 }
-            end,
-            nextSprint = function(commands, state, taskState, resourceRequests)
-                local newTaskState = util.copyTable(taskState)
-                local quantity = resourceRequests[recipe.to]
-                if quantity == nil then error('Must supply a request for '..recipe.to..' to use this mill') end
+        local mill = act.Mill.register({
+            id = 'mainIsland:crafting:'..recipe.to..':'..i,
+            init = function(self, state, resourceRequests)
+                self.state = state
+
+                -- mutable state
+                self.produced = 0
+
+                local requestedQuantity = resourceRequests[recipe.to]
+                util.assert(requestedQuantity ~= nil, 'Must supply a request for '..recipe.to..' to use this mill')
                 -- I don't have inventory management techniques in place to handle a larger quantity
-                if quantity > 64 * 8 then error('Can not handle that large of a quantity yet') end
-    
-                local amountNeeded = quantity - taskState.produced
+                util.assert(requestedQuantity <= 64 * 8, 'Can not handle that large of a quantity yet')
+                self.requestedQuantity = requestedQuantity
+            end,
+            nextSprint = function(self, commands)
+                local state = self.state
+
+                local amountNeeded = self.requestedQuantity - self.produced
                 local craftAmount = util.minNumber(64 * recipe.yields, amountNeeded)
                 highLevelCommands.craft(commands, state, recipe, craftAmount)
                 
-                newTaskState.produced = newTaskState.produced + craftAmount
-                return newTaskState, newTaskState.produced == quantity
+                self.produced = self.produced + craftAmount
+                return self.produced == self.requestedQuantity
             end,
-        })
-        local mill = act.mill.create(taskRunnerId, {
             getRequiredResources = function (resourceRequest)
                 if resourceRequest.resourceName ~= recipe.to then
                     error('Unreachable: Requested an invalid resource')
@@ -734,21 +788,25 @@ local createCraftingMills = function()
     return millList
 end
 
-local harvestExcessDirt = function(opts)
+local registerHarvestExcessDirtProject = function(opts)
     local bedrockPos = opts.bedrockPos
     local homeLoc = opts.homeLoc
-
     local bedrockCmps = space.createCompass(bedrockPos)
-    local taskRunnerId = 'project:mainIsland:harvestExcessDirt'
-    act.task.registerTaskRunner(taskRunnerId, {
-        enter = function(commands, state, taskState)
-            location.travelToLocation(commands, state, homeLoc)
+
+    return act.Project.register({
+        id = 'mainIsland:harvestExcessDirt',
+        init = function(self, state)
+            self.state = state
         end,
-        exit = function(commands, state, taskState, info)
-            navigate.assertAtPos(state, homeLoc.cmps.pos)
+        enter = function(self, commands)
+            homeLoc:travelHere(commands, self.state)
         end,
-        nextSprint = function(commands, state, taskState)
-            local startPos = util.copyTable(state.turtlePos)
+        exit = function(self, commands)
+            navigate.assertAtPos(self.state, homeLoc.cmps.pos)
+        end,
+        nextSprint = function(self, commands)
+            local state = self.state
+            local startPos = state.turtlePos
             local digStartCmps = bedrockCmps.compassAt({ forward=2, up=-1 })
 
             navigate.moveToCoord(commands, state, digStartCmps.coord, { 'forward', 'up' })
@@ -779,25 +837,29 @@ local harvestExcessDirt = function(opts)
             navigate.moveToCoord(commands, state, digStartCmps.coord)
             navigate.moveToPos(commands, state, startPos, { 'up', 'forward' })
 
-            return taskState, true
+            return true
         end,
     })
-    return act.project.create(taskRunnerId)
 end
 
-local createTowerProject = function(opts)
+local registerTowerProject = function(opts)
     local homeLoc = opts.homeLoc
     local towerNumber = opts.towerNumber
 
-    local taskRunnerId = act.task.registerTaskRunner('project:mainIsland:createTower:'..towerNumber, {
-        enter = function(commands, state, taskState)
-            location.travelToLocation(commands, state, homeLoc)
+    return act.Project.register({
+        id = 'mainIsland:tower:'..towerNumber,
+        init = function(self, state)
+            self.state = state
         end,
-        exit = function(commands, state, taskState)
-            navigate.assertAtPos(state, homeLoc.cmps.pos)
+        enter = function(self, commands)
+            homeLoc:travelHere(commands, self.state)
         end,
-        nextSprint = function(commands, state, taskState)
-            local startPos = util.copyTable(state.turtlePos)
+        exit = function(self, commands)
+            navigate.assertAtPos(self.state, homeLoc.cmps.pos)
+        end,
+        nextSprint = function(self, commands)
+            local state = self.state
+            local startPos = state.turtlePos
 
             local nextToTowers = homeLoc.cmps.compassAt({ right = -5 })
             local towerBaseCmps = homeLoc.cmps.compassAt({ right = -6 - (towerNumber*2) })
@@ -826,10 +888,8 @@ local createTowerProject = function(opts)
             navigate.moveToCoord(commands, state, nextToTowers.coord, { 'forward', 'right', 'up' })
             navigate.moveToPos(commands, state, startPos, { 'right', 'forward', 'up' })
 
-            return taskState, true
+            return true
         end,
-    })
-    return act.project.create(taskRunnerId, {
         requiredResources = {
             -- ['minecraft:cobblestone'] = { quantity=64 * 4, at='INVENTORY' }
             -- ['minecraft:furnace'] = { quantity=32, at='INVENTORY' }
@@ -838,27 +898,25 @@ local createTowerProject = function(opts)
     })
 end
 
-function module.init()
+function module.register()
     local bedrockCmps = space.createCompass({ forward = 3, right = 0, up = 64, face = 'forward' })
 
     -- homeLoc is right above the bedrock
-    local homeLoc = location.register(bedrockCmps.posAt({ up=3 }))
+    local homeLoc = Location.register(bedrockCmps.posAt({ up=3 }))
     -- in front of chest, but facing north
-    local inFrontOfChestLoc = location.register(homeLoc.cmps.posAt({ right=3 }))
+    local inFrontOfChestLoc = Location.register(homeLoc.cmps.posAt({ right=3 }))
     -- facing away from the chest, with the disk drive to the right
-    local initialLoc = location.register(inFrontOfChestLoc.cmps.posAt({ face='left' }))
-    local inFrontOfFirstFurnaceLoc = location.register(
+    local initialLoc = Location.register(inFrontOfChestLoc.cmps.posAt({ face='left' }))
+    local inFrontOfFirstFurnaceLoc = Location.register(
         -- faces the furnace
         inFrontOfChestLoc.cmps.posAt({ forward=1, right=1, up=1, face='right' })
     )
-    location.registerPath(inFrontOfChestLoc, homeLoc)
-    location.registerPath(inFrontOfChestLoc, initialLoc)
 
-    local cobblestoneGeneratorMill = createCobblestoneGeneratorMill({ homeLoc = homeLoc })
-    local startingIslandTreeFarm = createStartingIslandTreeFarm({ bedrockPos = bedrockCmps.pos, homeLoc = homeLoc })
-    local furnaceMill = createFurnaceMill({ inFrontOfFirstFurnaceLoc = inFrontOfFirstFurnaceLoc })
-    local simpleCharcoalSmeltingMill = createSimpleCharcoalSmeltingMill({ inFrontOfFirstFurnaceLoc = inFrontOfFirstFurnaceLoc })
-    local craftingMills = createCraftingMills()
+    local cobblestoneGeneratorMill = registerCobblestoneGeneratorMill({ homeLoc = homeLoc })
+    local startingIslandTreeFarm = registerStartingIslandTreeFarm({ bedrockPos = bedrockCmps.pos, homeLoc = homeLoc })
+    local furnaceMill = registerFurnaceMill({ inFrontOfFirstFurnaceLoc = inFrontOfFirstFurnaceLoc })
+    local simpleCharcoalSmeltingMill = registerSimpleCharcoalSmeltingMill({ inFrontOfFirstFurnaceLoc = inFrontOfFirstFurnaceLoc })
+    local craftingMills = registerCraftingMills()
 
     return {
         -- locations
@@ -867,21 +925,22 @@ function module.init()
         homeLoc = homeLoc,
 
         -- projects
-        startBuildingCobblestoneGenerator = startBuildingCobblestoneGeneratorProject({ homeLoc = homeLoc, craftingMills = craftingMills }),
-        harvestInitialTreeAndPrepareTreeFarm = harvestInitialTreeAndPrepareTreeFarmProject({ bedrockPos = bedrockCmps.pos, homeLoc = homeLoc, startingIslandTreeFarm = startingIslandTreeFarm }),
-        waitForIceToMeltAndfinishCobblestoneGenerator = waitForIceToMeltAndfinishCobblestoneGeneratorProject({ homeLoc = homeLoc, cobblestoneGeneratorMill = cobblestoneGeneratorMill }),
-        buildFurnaces = buildFurnacesProject({ inFrontOfChestLoc = inFrontOfChestLoc, inFrontOfFirstFurnaceLoc = inFrontOfFirstFurnaceLoc }),
-        smeltInitialCharcoal = smeltInitialCharcoalProject({ inFrontOfFirstFurnaceLoc = inFrontOfFirstFurnaceLoc, furnaceMill = furnaceMill, simpleCharcoalSmeltingMill = simpleCharcoalSmeltingMill }),
-        torchUpIsland = torchUpIslandProject({ inFrontOfChestLoc = inFrontOfChestLoc }),
-        harvestExcessDirt = harvestExcessDirt({ bedrockPos = bedrockCmps.pos, homeLoc = homeLoc }),
-        createTower1 = createTowerProject({ homeLoc = homeLoc, towerNumber = 1 }),
-        createTower2 = createTowerProject({ homeLoc = homeLoc, towerNumber = 2 }),
-        createTower3 = createTowerProject({ homeLoc = homeLoc, towerNumber = 3 }),
-        createTower4 = createTowerProject({ homeLoc = homeLoc, towerNumber = 4 }),
+        initialization = registerInitializationProject({ initialLoc = initialLoc, homeLoc = homeLoc, inFrontOfChestLoc = inFrontOfChestLoc }),
+        startBuildingCobblestoneGenerator = registerStartBuildingCobblestoneGeneratorProject({ homeLoc = homeLoc, craftingMills = craftingMills }),
+        harvestInitialTreeAndPrepareTreeFarm = registerHarvestInitialTreeAndPrepareTreeFarmProject({ bedrockPos = bedrockCmps.pos, homeLoc = homeLoc, startingIslandTreeFarm = startingIslandTreeFarm }),
+        waitForIceToMeltAndfinishCobblestoneGenerator = registerWaitForIceToMeltAndfinishCobblestoneGeneratorProject({ homeLoc = homeLoc, cobblestoneGeneratorMill = cobblestoneGeneratorMill }),
+        buildFurnaces = registerBuildFurnacesProject({ inFrontOfChestLoc = inFrontOfChestLoc, inFrontOfFirstFurnaceLoc = inFrontOfFirstFurnaceLoc }),
+        smeltInitialCharcoal = registerSmeltInitialCharcoalProject({ inFrontOfFirstFurnaceLoc = inFrontOfFirstFurnaceLoc, furnaceMill = furnaceMill, simpleCharcoalSmeltingMill = simpleCharcoalSmeltingMill }),
+        torchUpIsland = registerTorchUpIslandProject({ inFrontOfChestLoc = inFrontOfChestLoc }),
+        harvestExcessDirt = registerHarvestExcessDirtProject({ bedrockPos = bedrockCmps.pos, homeLoc = homeLoc }),
+        tower1 = registerTowerProject({ homeLoc = homeLoc, towerNumber = 1 }),
+        tower2 = registerTowerProject({ homeLoc = homeLoc, towerNumber = 2 }),
+        tower3 = registerTowerProject({ homeLoc = homeLoc, towerNumber = 3 }),
+        tower4 = registerTowerProject({ homeLoc = homeLoc, towerNumber = 4 }),
     }
 end
 
-act.project.registerStartingConditionInitializer(function(startingConditions)
+act.Project.registerStartingConditionInitializer(function(startingConditions)
     startingConditions.mainIsland = {
         startedCobblestoneGeneratorConstruction = false,
     }

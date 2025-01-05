@@ -242,7 +242,7 @@ function module.craft(commands, state, recipe, maxQuantity)
     -- Evenly spread the recipe resources
     local updatedInventory = module.takeInventory(commands, state)
     local resourcesInInventory = module.countResourcesInInventory(updatedInventory, craftSlotIds)
-    local recipeResourcessToSlotCount = util.countOccurancesOfValuesInTable(flattenedRecipe)
+    local recipeResourcessToSlotCount = util.countOccurrencesOfValuesInTable(flattenedRecipe)
     local minStackSize = 999
     for i, slotId in ipairs(craftSlotIds) do
         local resourceName = flattenedRecipe[slotId]
@@ -372,7 +372,7 @@ function module.waitUntilDetectBlock(commands, state, opts)
     local endFacing = opts.endFacing
 
     if endFacing == 'CURRENT' or endFacing == nil then
-        endFacing = state.turtleCmps().facing
+        endFacing = state:turtleCmps().facing
     end
 
     local inspectFn

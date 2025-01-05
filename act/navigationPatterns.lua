@@ -1,6 +1,6 @@
 --[[
     High-level navigation tools, for building up complex movement patterns.
---]]
+]]
 
 local util = import('util.lua')
 local commands = import('./_commands.lua')

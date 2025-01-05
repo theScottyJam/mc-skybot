@@ -7,19 +7,20 @@ local mainIsland = import('./mainIsland.lua')
 local basicTreeFarm = import('./basicTreeFarm.lua')
 local curves = act.curves
 
-local mainIsland = mainIsland.init()
-local basicTreeFarm = basicTreeFarm.init({ homeLoc = mainIsland.homeLoc })
+local mainIsland = mainIsland.register()
+local basicTreeFarm = basicTreeFarm.register({ homeLoc = mainIsland.homeLoc })
 
 local debugProject = inspect.debugProject or function(homeLoc)
     error('No debug project specified in inspect.lua.')
 end
 
 function module.createPlan()
-    return {
+    return act.Plan.new({
         initialTurtlePos = mainIsland.initialLoc.cmps.pos,
-        projectList = act.project.createProjectList({
+        projectList = {
             -- To run a custom project for debugging purposes, use the following anywhere it's needed:
             --   debugProject(mainIsland.homeLoc),
+            mainIsland.initialization,
             mainIsland.startBuildingCobblestoneGenerator,
             mainIsland.harvestInitialTreeAndPrepareTreeFarm,
             mainIsland.waitForIceToMeltAndfinishCobblestoneGenerator,
@@ -27,16 +28,16 @@ function module.createPlan()
             mainIsland.smeltInitialCharcoal,
             mainIsland.torchUpIsland,
             mainIsland.harvestExcessDirt,
-            basicTreeFarm.createFunctionalScaffolding,
-            mainIsland.createTower4,
-            mainIsland.createTower3,
-            mainIsland.createTower2,
-            mainIsland.createTower1,
-        }),
-    }
+            basicTreeFarm.functionalScaffolding,
+            mainIsland.tower4,
+            mainIsland.tower3,
+            mainIsland.tower2,
+            mainIsland.tower1,
+        },
+    })
 end
 
-act.farm.registerValueOfResources({
+act.Farm.registerValueOfFarmableResources({
     ['minecraft:log'] = function(quantitiesOwned)
         return curves.inverseSqrtCurve({ yIntercept = 35, factor = 1/50 })(quantitiesOwned)
     end,
