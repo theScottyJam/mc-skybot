@@ -49,14 +49,16 @@ do
     local moduleLoader = {}
     local moduleLoadingSentinel = { purpose = 'moduleLoadingSentinel' }
 
-    -- Givin 'abc/def/ghi.lua', this returns 'abc/def/'
-    local dirName = function(path)
+    -- Givin 'abc/def/ghi.lua', this returns 'abc/def'
+    -- Givin 'abc/def/ghi', this returns 'abc/def'
+    -- The provided path must not end with a trailing slash.
+    local containingDir = function(path)
         local reversed = string.reverse(path)
         local slashPos = string.find(reversed, '/')
         if slashPos == nil then
             return ''
         else
-            return string.reverse(string.sub(reversed, slashPos))
+            return string.reverse(string.sub(reversed, slashPos + 1))
         end
     end
 
@@ -72,8 +74,12 @@ do
         end
 
         local baseFilePath = importStack[#importStack]
-        local basePath = dirName(baseFilePath)
-        return basePath .. path
+        local basePath = containingDir(baseFilePath) -- Remove the file name from the path
+        while string.sub(path, 1, 3) == '../' do
+            path = string.sub(path, 4)
+            basePath = containingDir(basePath)
+        end
+        return basePath..'/'..path
     end
 
     -- Can be used to help with circular dependencies.

@@ -1,7 +1,7 @@
 local util = import('util.lua')
-local commands = import('./_commands.lua')
-local highLevelCommands = import('./highLevelCommands.lua')
-local serializer = import('./_serializer.lua')
+local commands = import('../_commands.lua')
+local highLevelCommands = import('../highLevelCommands.lua')
+local serializer = import('../_serializer.lua')
 
 local static = {}
 local prototype = {}

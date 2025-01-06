@@ -5,14 +5,14 @@
 
 local util = import('util.lua')
 local inspect = moduleLoader.tryImport('inspect.lua')
-local State = import('./_State.lua')
-local commands = import('./_commands.lua')
+local State = import('../_State.lua')
+local commands = import('../_commands.lua')
 local Farm = import('./Farm.lua')
-local highLevelCommands = import('./highLevelCommands.lua')
+local highLevelCommands = import('../highLevelCommands.lua')
 local Project = import('./Project.lua')
-local time = import('./_time.lua')
+local time = import('../_time.lua')
 local resourceCollection = import('./_resourceCollection.lua')
-local serializer = import('./_serializer.lua')
+local serializer = import('../_serializer.lua')
 
 local module = {}
 

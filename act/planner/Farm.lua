@@ -3,11 +3,11 @@
 ]]
 
 local util = import('util.lua')
-local time = import('./_time.lua')
+local time = import('../_time.lua')
 local TaskFactory = import('./_TaskFactory.lua')
-local serializer = import('./_serializer.lua')
+local serializer = import('../_serializer.lua')
 local resourceCollection = import('./_resourceCollection.lua')
-local State = import('./_State.lua')
+local State = import('../_State.lua')
 
 local static = {}
 local prototype = {}

@@ -1,11 +1,11 @@
 local util = import('util.lua')
 local TaskFactory = import('./_TaskFactory.lua')
-local commands = import('./_commands.lua')
-local highLevelCommands = import('./highLevelCommands.lua')
+local commands = import('../_commands.lua')
+local highLevelCommands = import('../highLevelCommands.lua')
 local MillModule = moduleLoader.lazyImport('./Mill.lua')
 local FarmModule = moduleLoader.lazyImport('./Farm.lua')
-local serializer = import('./_serializer.lua')
-local State = import('./_State.lua')
+local serializer = import('../_serializer.lua')
+local State = import('../_State.lua')
 
 local module = {}
 

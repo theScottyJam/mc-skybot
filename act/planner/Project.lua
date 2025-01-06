@@ -1,6 +1,6 @@
 local util = import('util.lua')
 local TaskFactory = import('./_TaskFactory.lua')
-local serializer = import('./_serializer.lua')
+local serializer = import('../_serializer.lua')
 
 local static = {}
 local prototype = {}

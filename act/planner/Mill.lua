@@ -5,7 +5,7 @@
 
 local util = import('util.lua')
 local TaskFactory = import('./_TaskFactory.lua')
-local serializer = import('./_serializer.lua')
+local serializer = import('../_serializer.lua')
 local resourceCollection = import('./_resourceCollection.lua')
 
 local static = {}
