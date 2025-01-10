@@ -54,6 +54,15 @@ Inputs:
     ...taskFactoryOpts
         Any options accepted by the generate-task-factory function
         can also be used here.
+        Because farms don't get interrupted, there's not really a difference
+        between the behaviors of before()/after() and enter()/exit() except
+        for a conceptual difference - typically movement actions are handled
+        by enter()/exit() while before()/after() handles other kinds of
+        state changes.
+        Even if farms don't get interrupted by other tasks, they still
+        need to be capable of pausing in the middle in case the game
+        needs to be shut down. As such, it is still a good idea to split
+        the task up into multiple sprints when reasonably possible.
 ]]
 function static.register(opts)
     opts = util.copyTable(opts or {})

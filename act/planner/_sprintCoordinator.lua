@@ -30,7 +30,7 @@ end)
 
 local assertProjectListProvided = function()
     util.assert(
-        type(planStateManager.get()) == 'table',
+        type(planStateManager:get()) == 'table',
         'The project list must be provided, through useProjectList(), before this function can be called.'
     )
 end
@@ -107,7 +107,7 @@ end
 
 function module.runNextSprint()
     assertProjectListProvided()
-    local planState = planStateManager.getAndModify()
+    local planState = planStateManager:getAndModify()
     -- Prepare the next project task, or resource-fetching task
     -- planState.primaryTask should be set to a value after this.
     local resourcesInInventory = nil
