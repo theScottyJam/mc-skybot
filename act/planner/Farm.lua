@@ -7,14 +7,14 @@ local time = import('../_time.lua')
 local TaskFactory = import('./_TaskFactory.lua')
 local serializer = import('../_serializer.lua')
 local resourceCollection = import('./_resourceCollection.lua')
-local State = import('../_State.lua')
+local state = import('../state.lua')
 
 local static = {}
 local prototype = {}
 
 local resourceValues = {}
 
-local FarmStateManager = State.registerModuleState('module:Farm', function()
+local farmStateManager = state.__registerPieceOfState('module:Farm', function()
     return {
         -- A list of info objects related to enabled farms that require occasional attention.
         activeFarms = {},
@@ -68,17 +68,14 @@ function static.register(opts)
 
     local taskFactory = TaskFactory.register(util.mergeTables(opts, {
         id = id,
-        init = function(self, state)
-            self.state = state
-        end,
-        after = function(self, commands)
+        after = function(self)
             if after then
-                after(self, commands)
+                after(self)
             end
-            local farmState = self.state:getAndModify(FarmStateManager)
+            local farmState = farmStateManager:getAndModify()
             for i, iterFarmInfo in pairs(farmState.activeFarms) do
                 if iterFarmInfo.farm._id == id then
-                    iterFarmInfo.lastVisited = time.get(self.state)
+                    iterFarmInfo.lastVisited = time.get()
                     return
                 end
             end
@@ -100,8 +97,8 @@ function static.__isInstance(instance)
     return util.hasPrototype(instance, prototype)
 end
 
-function static.__getActiveFarms(state)
-    return state:get(FarmStateManager).activeFarms
+function static.__getActiveFarms()
+    return farmStateManager:get().activeFarms
 end
 
 function prototype:__calcExpectedYield(elapsedTime)
@@ -112,20 +109,20 @@ function prototype:__resourcesSupplied()
     return self._supplies
 end
 
-function prototype:activate(commands, state)
-    local farmState = state:getAndModify(FarmStateManager)
+function prototype:activate()
+    local farmState = farmStateManager:getAndModify()
     table.insert(farmState.activeFarms, {
         farm = self,
         -- We're going to count a newly activated farm as just visited,
         -- because we typically don't need to harvest it right after it has been built.
-        lastVisited = time.get(state),
+        lastVisited = time.get(),
     })
 
-    resourceCollection.markSupplierAsAvailable(state, self)
+    resourceCollection.markSupplierAsAvailable(self)
 end
 
-function prototype:__createTask(state)
-    return self._taskFactory:createTask(state)
+function prototype:__createTask()
+    return self._taskFactory:createTask()
 end
 
 return static

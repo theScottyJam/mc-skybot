@@ -57,21 +57,20 @@ function module.isIdling(idling_)
 end
 
 -- Called after imports have happened and the main code is about to start running
-function module.onStart()
+function module.onPlanStart()
     -- Only show debug info if we're in the mock environment.
     if _G.mockComputerCraftApi == nil then
         return
     end
 
     -- Printing this to make it easy to visually see how performant the code is.
-    -- i.e. you can see how long it takes between the time it starts running and
+    -- i.e. you can see how long it takes between the time the plan starts running and
     -- the time it finishes, excluding module-load time.
     print('Starting')
 end
 
 -- Called after each action the turtle takes
-function module.onStep(state)
-    local plan = act().Plan.fromState(state)
+function module.onStep()
     -- Only show debug info if we're in the mock environment.
     if _G.mockComputerCraftApi == nil then
         return
@@ -90,7 +89,7 @@ function module.onStep(state)
         -- _G.mockComputerCraftApi.present.displayMap({ minX = -8, maxX = 5, minY = 0, maxY = 999, minZ = -5, maxZ = 5 }, { showKey = false })
         _G.mockComputerCraftApi.present.displayCentered({ width = 20, height = 12 })
         print('step: '..step)
-        -- plan:displayInProgressTasks()
+        -- act().plan.displayInProgressTasks()
         -- _G.mockComputerCraftApi.present.inventory()
         _G.mockComputerCraftApi.present.turtlePosition()
 
@@ -99,7 +98,7 @@ function module.onStep(state)
 end
 
 -- Called when the turtle has finished
-function module.showFinalState(finalPlan)
+function module.showFinalState()
     -- Only show debug info if we're in the mock environment.
     if _G.mockComputerCraftApi == nil then
         return
@@ -109,7 +108,7 @@ function module.showFinalState(finalPlan)
     mockComputerCraftApi.present.turtlePosition()
     mockComputerCraftApi.present.now()
     mockComputerCraftApi.present.inventory()
-    -- print(finalPlan:serialize())
+    -- print(act().state.createSerializeSnapshot())
 end
 
 -- A special project you can register in your project list to let you run arbitrary code at a specific point in time.
@@ -120,16 +119,16 @@ function module.debugProject(homeLoc)
 
     return act().Project.register({
         id = 'inspect:debugProject',
-        enter = function(commands, state, taskState)
-            -- homeLoc:travelHere(commands, state)
+        enter = function(taskState)
+            -- homeLoc:travelHere()
         end,
-        nextSprint = function(commands, state, taskState)
-            -- local startPos = state.turtlePos
+        nextSprint = function(taskState)
+            -- local startPos = act().state.getTurtlePos()
             -- local currentWorld = _G.mockComputerCraftApi.world
             -- worldTools().addToInventory('minecraft:charcoal', 64)
             debugGlobal.showStepByStep = true
 
-            -- navigate.moveToPos(commands, state, startPos)
+            -- navigate.moveToPos(startPos)
             return taskState, true
         end,
     })

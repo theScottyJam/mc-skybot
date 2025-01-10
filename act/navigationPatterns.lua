@@ -3,9 +3,10 @@
 ]]
 
 local util = import('util.lua')
-local commands = import('./_commands.lua')
+local commands = import('./commands.lua')
 local space = import('./space.lua')
 local navigate = import('./navigate.lua')
+local state = import('./state.lua')
 
 local module = {}
 
@@ -13,7 +14,7 @@ local module = {}
 -- a clockwise spiral to the center. You must start facing in a direction such that
 -- no turning is required before movement.
 -- The `onVisit` function is called at each cell visited.
-function module.spiralInwards(commands, state, opts)
+function module.spiralInwards(opts)
     -- This function is used to harvest the leaves on trees.
     -- We could probably use the snake function instead, but this one
     -- is more fine-tuned to allow the turtle to harvest both in front and below
@@ -27,13 +28,13 @@ function module.spiralInwards(commands, state, opts)
         local firstIter = segmentLength == sideLength - 1
         for i = 1, (firstIter and 3 or 2) do
             for j = 1, segmentLength do
-                onVisit(commands, state)
-                commands.turtle.forward(state)
+                onVisit()
+                commands.turtle.forward()
             end
-            commands.turtle.turnRight(state)
+            commands.turtle.turnRight()
         end
     end
-    onVisit(commands, state)
+    onVisit()
 end
 
 --[[
@@ -48,7 +49,7 @@ inputs:
         and returns true if the turtle should travel there.
     onVisit = a function that is called each time the turtle visits a designated spot.
 ]]
-function module.snake(commands, state, opts)
+function module.snake(opts)
     local boundingBoxCoords = opts.boundingBoxCoords
     local shouldVisit = opts.shouldVisit or function(x, y) return true end
     local onVisit = opts.onVisit
@@ -72,7 +73,7 @@ function module.snake(commands, state, opts)
     end
 
     util.assert(
-        inBounds(state.turtlePos),
+        inBounds(state.getTurtlePos()),
         'The turtle is not inside of the provided bounding box.'
     )
 
@@ -80,7 +81,7 @@ function module.snake(commands, state, opts)
     local verDelta
     local hozDelta
     -- if you're more forwards than backwards within the box
-    if boundingBox.mostForward - state.turtlePos.forward < state.turtlePos.forward - boundingBox.leastForward then
+    if boundingBox.mostForward - state.getTurtlePos().forward < state.getTurtlePos().forward - boundingBox.leastForward then
         firstCoord.forward = boundingBox.mostForward
         verDelta = { forward = -1 }
     else
@@ -88,7 +89,7 @@ function module.snake(commands, state, opts)
         verDelta = { forward = 1 }
     end
     -- if you're more right than left within the box
-    if boundingBox.mostRight - state.turtlePos.right < state.turtlePos.right - boundingBox.leastRight then
+    if boundingBox.mostRight - state.getTurtlePos().right < state.getTurtlePos().right - boundingBox.leastRight then
         firstCoord.right = boundingBox.mostRight
         hozDelta = { right = -1 }
     else
@@ -99,7 +100,7 @@ function module.snake(commands, state, opts)
     local curCmps = space.createCompass(util.mergeTables(firstCoord, { face = 'forward' }))
     while inBounds(curCmps.coord) do
         if shouldVisit(curCmps.coord) then
-            navigate.moveToCoord(commands, state, curCmps.coord)
+            navigate.moveToCoord(curCmps.coord)
             onVisit()
         end
         

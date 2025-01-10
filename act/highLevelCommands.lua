@@ -1,5 +1,7 @@
 local util = import('util.lua')
 local navigate = import('./navigate.lua')
+local commands = import('./commands.lua')
+local state = import('./state.lua')
 
 local module = {}
 
@@ -39,15 +41,15 @@ end
 --     end
 -- )
 
-function module.findAndSelectSlotWithItem(commands, state, itemIdToFind, opts)
+function module.findAndSelectSlotWithItem(itemIdToFind, opts)
     if opts == nil then opts = {} end
     local allowMissing = opts.allowMissing or false
     for i = 1, 16 do
-        local slotInfo = commands.turtle.getItemDetail(state, i)
+        local slotInfo = commands.turtle.getItemDetail(i)
         if slotInfo ~= nil then
             local itemIdInSlot = slotInfo.name
             if itemIdInSlot == itemIdToFind then
-                commands.turtle.select(state, i)
+                commands.turtle.select(i)
                 return true
             end
         end
@@ -58,14 +60,14 @@ function module.findAndSelectSlotWithItem(commands, state, itemIdToFind, opts)
     error('Failed to find the item '..itemIdToFind..' in the inventory')
 end
 
-function module.findAndSelectEmptySlot(commands, state, opts)
+function module.findAndSelectEmptySlot(opts)
     -- A potential option I could add, is to auto-reorganize the inventory if an empty slot can't be found.
     if opts == nil then opts = {} end
     local allowMissing = opts.allowMissing or false
     for i = 1, 16 do
-        local slotInfo = commands.turtle.getItemDetail(state, i)
+        local slotInfo = commands.turtle.getItemDetail(i)
         if slotInfo == nil then
-            commands.turtle.select(state, i)
+            commands.turtle.select(i)
             return true
         end
     end
@@ -77,67 +79,58 @@ end
 
 local placeItemUsing
 
-function module.placeItem(commands, state, itemId, opts)
-    placeItemUsing(commands, state, itemId, opts, commands.turtle.place)
+function module.placeItem(itemId, opts)
+    placeItemUsing(itemId, opts, commands.turtle.tryPlace)
 end
 
-function module.placeItemUp(commands, state, itemId, opts)
-    placeItemUsing(commands, state, itemId, opts, commands.turtle.placeUp)
+function module.placeItemUp(itemId, opts)
+    placeItemUsing(itemId, opts, commands.turtle.tryPlaceUp)
 end
 
-function module.placeItemDown(commands, state, itemId, opts)
-    placeItemUsing(commands, state, itemId, opts, commands.turtle.placeDown)
+function module.placeItemDown(itemId, opts)
+    placeItemUsing(itemId, opts, commands.turtle.tryPlaceDown)
 end
 
-placeItemUsing = function(commands, state, itemId, opts, placeFn)
+placeItemUsing = function(itemId, opts, placeFn)
     opts = opts or {}
     local allowMissing = opts.allowMissing or false
 
-    local foundItem = module.findAndSelectSlotWithItem(commands, state, itemId, { allowMissing = allowMissing })
+    local foundItem = module.findAndSelectSlotWithItem(itemId, { allowMissing = allowMissing })
     if foundItem then
-        local success = placeFn(state)
+        local success = placeFn()
         util.assert(success, 'Failed to place "'..itemId..' (maybe there is already something at that location?)')
-        commands.turtle.select(state, 1)
+        commands.turtle.select(1)
     end
 end
 
-local dropItemAt
-function module.dropItem(commands, state, itemId, amount)
-    dropItemAt(commands, state, itemId, amount, 'forward')
+local dropItemUsing
+function module.dropItem(itemId, amount)
+    dropItemUsing(itemId, amount, commands.turtle.drop)
 end
 
-function module.dropItemUp(commands, state, itemId, amount)
-    dropItemAt(commands, state, itemId, amount, 'up')
+function module.dropItemUp(itemId, amount)
+    dropItemUsing(itemId, amount, commands.turtle.dropUp)
 end
 
-function module.dropItemDown(commands, state, itemId, amount)
-    dropItemAt(commands, state, itemId, amount, 'down')
+function module.dropItemDown(itemId, amount)
+    dropItemUsing(itemId, amount, commands.turtle.dropDown)
 end
 
-dropItemAt = function(commands, state, itemId, amount, direction)
-    local dropFn
-    if direction == 'forward' then
-        dropFn = commands.turtle.drop
-    elseif direction == 'up' then
-        dropFn = commands.turtle.dropUp
-    elseif direction == 'down' then
-        dropFn = commands.turtle.dropDown
-    end
-
+dropItemUsing = function(itemId, amount, dropFn)
     while amount > 0 do
-        module.findAndSelectSlotWithItem(commands, state, itemId)
-        local quantityInSlot = commands.turtle.getItemCount(state)
+        module.findAndSelectSlotWithItem(itemId)
+        local quantityInSlot = commands.turtle.getItemCount()
         local amountToDrop = util.minNumber(quantityInSlot, amount)
 
         if amountToDrop == 0 then
             error('Internal error when using dropItemAt command.')
         end
 
-        dropFn(state, amountToDrop)
+        dropFn(amountToDrop)
 
         amount = amount - amountToDrop
     end
-    commands.turtle.select(state, 1)
+    commands.turtle.select(1)
 end
 
 -- recipe is a 3x3 grid of itemIds.
@@ -145,7 +138,7 @@ end
 -- which is a stack per item the recipe produces. (e.g. reeds
 -- produce multiple paper with a single craft)
 -- pre-condition: There must be an empty space above the turtle
-function module.craft(commands, state, recipe, maxQuantity)
+function module.craft(recipe, maxQuantity)
     maxQuantity = maxQuantity or 99999
     if util.tableSize(recipe.from) == 0 then error('Empty recipe') end
 
@@ -159,17 +152,17 @@ function module.craft(commands, state, recipe, maxQuantity)
         end
     end
 
-    if commands.turtle.detectUp(state) then
+    if commands.turtle.detectUp() then
         error('Can not craft unless there is room above the turtle')
     end
 
-    module.findAndSelectSlotWithItem(commands, state, 'minecraft:chest')
-    commands.turtle.placeUp(state)
+    module.findAndSelectSlotWithItem('minecraft:chest')
+    commands.turtle.placeUpAndAssert()
     -- Put any remaining chests into the chest, to make sure we have at least one empty inventory slot
-    commands.turtle.dropUp(state, 64)
-    module.findAndSelectSlotWithItem(commands, state, 'minecraft:crafting_table')
-    commands.turtle.equipRight(state)
-    commands.turtle.select(state, 1)
+    commands.turtle.dropUp(64)
+    module.findAndSelectSlotWithItem('minecraft:crafting_table')
+    commands.turtle.equipRight()
+    commands.turtle.select(1)
 
     local findLocationsOfItems = function(whereItemsAre, itemId)
         local itemLocations = {}
@@ -182,9 +175,9 @@ function module.craft(commands, state, recipe, maxQuantity)
     end
 
     local craftSlotIds = { 1, 2, 3, 5, 6, 7, 9, 10, 11 }
-    local startingInventory = module.takeInventory(commands, state)
-    -- emptySlot and whereItemsAre will be updated in the following for
-    -- loop to state up-to-date as things shift around.
+    local startingInventory = module.takeInventory()
+    -- emptySlot and whereItemsAre will be updated in the following for loop
+    -- to stay up-to-date as things shift around.
     local emptySlot = findEmptyInventorySlots(startingInventory)[1]
     local whereItemsAre = util.mapMapTable(startingInventory, function(entry) return entry.name end)
     local usedRecipeCells = {}
@@ -199,8 +192,8 @@ function module.craft(commands, state, recipe, maxQuantity)
     -- found in the correct slots, or the slot will be left empty (after the next loop runs
     -- that throws the garbage stuff into the chest above)
     for _, i in ipairs(craftSlotIds) do
-        commands.turtle.select(state, i)
-        commands.turtle.transferTo(state, emptySlot)
+        commands.turtle.select(i)
+        commands.turtle.transferTo(emptySlot)
         whereItemsAre[emptySlot] = whereItemsAre[i]
         whereItemsAre[i] = nil
         emptySlot = i
@@ -212,35 +205,35 @@ function module.craft(commands, state, recipe, maxQuantity)
             table.insert(usedRecipeCells, i)
         end
         for _, resourceLocation in ipairs(locationsOfThisResource) do
-            commands.turtle.select(state, resourceLocation)
-            commands.turtle.transferTo(state, i)
+            commands.turtle.select(resourceLocation)
+            commands.turtle.transferTo(i)
             if emptySlot == i then
                 emptySlot = resourceLocation
             end
             whereItemsAre[i] = whereItemsAre[resourceLocation]
-            if commands.turtle.getItemCount(state, resourceLocation) == 0 then
+            if commands.turtle.getItemCount(resourceLocation) == 0 then
                 whereItemsAre[resourceLocation] = nil
             end
-            if commands.turtle.getItemSpace(state, i) == 0 then
+            if commands.turtle.getItemSpace(i) == 0 then
                 break
             end
         end
     end
-    commands.turtle.select(state, 1)
+    commands.turtle.select(1)
 
     -- Drop everything in the 3x3 grid into the chest above that isn't part of the recipe
     -- Also drop everything into the chest outside of the 3x3 grid
     for i = 1, 16 do
         if not util.tableContains(usedRecipeCells, i) then
-            commands.turtle.select(state, i)
-            commands.turtle.dropUp(state, 64)
+            commands.turtle.select(i)
+            commands.turtle.dropUp(64)
             numOfItemsInChest = numOfItemsInChest + 1
         end
     end
-    commands.turtle.select(state, 1)
+    commands.turtle.select(1)
 
     -- Evenly spread the recipe resources
-    local updatedInventory = module.takeInventory(commands, state)
+    local updatedInventory = module.takeInventory()
     local resourcesInInventory = module.countResourcesInInventory(updatedInventory, craftSlotIds)
     local recipeResourcessToSlotCount = util.countOccurrencesOfValuesInTable(flattenedRecipe)
     local minStackSize = 999
@@ -254,7 +247,7 @@ function module.craft(commands, state, recipe, maxQuantity)
             if amountPerSlot == 0 then
                 error("There isn't enough items in the inventory to craft the requested item.")
             end
-            local amountToRemove = commands.turtle.getItemCount(state, slotId) - amountPerSlot
+            local amountToRemove = commands.turtle.getItemCount(slotId) - amountPerSlot
             util.assert(amountToRemove >= 0)
             -- If it fails to find another slot afterwards, then it'll just
             -- keep any remainder in the current slot
@@ -262,57 +255,57 @@ function module.craft(commands, state, recipe, maxQuantity)
                 if amountToRemove == 0 then break end
                 local iterSlotId = craftSlotIds[j]
                 if flattenedRecipe[slotId] == flattenedRecipe[iterSlotId] then
-                    commands.turtle.select(state, slotId)
-                    commands.turtle.transferTo(state, iterSlotId, amountToRemove)
-                    amountToRemove = commands.turtle.getItemCount(state, slotId) - amountPerSlot
+                    commands.turtle.select(slotId)
+                    commands.turtle.transferTo(iterSlotId, amountToRemove)
+                    amountToRemove = commands.turtle.getItemCount(slotId) - amountPerSlot
                 end
             end
         end
     end
-    commands.turtle.select(state, 1)
+    commands.turtle.select(1)
 
-    commands.turtle.select(state, 4)
+    commands.turtle.select(4)
     local quantityUsing = util.minNumber(minStackSize, math.ceil(maxQuantity / recipe.yields))
     while quantityUsing > 0 do
-        commands.turtle.craft(state, util.minNumber(64, quantityUsing * recipe.yields))
-        quantityUsing = quantityUsing - commands.turtle.getItemCount(state) / recipe.yields
-        commands.turtle.dropUp(state, 64)
+        commands.turtle.craft(util.minNumber(64, quantityUsing * recipe.yields))
+        quantityUsing = quantityUsing - commands.turtle.getItemCount() / recipe.yields
+        commands.turtle.dropUp(64)
         numOfItemsInChest = numOfItemsInChest + 1
     end
-    commands.turtle.select(state, 1)
+    commands.turtle.select(1)
 
     for i = 1, numOfItemsInChest do
-        commands.turtle.suckUp(state, 64)
+        commands.turtle.suckUp(64)
     end
 
-    module.findAndSelectSlotWithItem(commands, state, 'minecraft:diamond_pickaxe')
-    commands.turtle.equipRight(state)
-    commands.turtle.select(state, 1)
-    commands.turtle.digUp(state)
+    module.findAndSelectSlotWithItem('minecraft:diamond_pickaxe')
+    commands.turtle.equipRight()
+    commands.turtle.select(1)
+    commands.turtle.digUp()
 end
 
 -- Move everything to the earlier slots in the inventory
 -- and combines split stacks.
-function module.organizeInventory(commands, state)
+function module.organizeInventory()
     local lastStackLocations = {}
     local emptySpaces = {}
     for i = 1, 16 do
-        local itemDetails = commands.turtle.getItemDetail(state, i)
+        local itemDetails = commands.turtle.getItemDetail(i)
 
         -- First, try to transfer to an existing stack
         if itemDetails ~= nil and lastStackLocations[itemDetails.name] ~= nil then
-            commands.turtle.select(state, i)
-            commands.turtle.transferTo(state, lastStackLocations[itemDetails.name])
-            itemDetails = commands.turtle.getItemDetail(state, i)
+            commands.turtle.select(i)
+            commands.turtle.transferTo(lastStackLocations[itemDetails.name])
+            itemDetails = commands.turtle.getItemDetail(i)
         end
 
         -- Then, try to transfer it to an earlier empty slot
         if itemDetails ~= nil and #emptySpaces > 0 then
             local emptySpace = table.remove(emptySpaces, 1)
-            commands.turtle.select(state, i)
-            commands.turtle.transferTo(state, emptySpace)
+            commands.turtle.select(i)
+            commands.turtle.transferTo(emptySpace)
             lastStackLocations[itemDetails.name] = emptySpace
-            itemDetails = commands.turtle.getItemDetail(state, i)
+            itemDetails = commands.turtle.getItemDetail(i)
         end
         
         -- If you were able to get it moved, then note the empty cell
@@ -323,13 +316,13 @@ function module.organizeInventory(commands, state)
             lastStackLocations[itemDetails.name] = i
         end
     end
-    commands.turtle.select(state, 1)
+    commands.turtle.select(1)
 end
 
-function module.takeInventory(commands, state)
+function module.takeInventory()
     local inventory = {}
     for i = 1, 16 do
-        local itemDetails = commands.turtle.getItemDetail(state, i)
+        local itemDetails = commands.turtle.getItemDetail(i)
         if itemDetails ~= nil then
             inventory[i] = {
                 name = itemDetails.name,
@@ -356,23 +349,23 @@ end
 
 -- Do a 360. This causes a bit of time to pass,
 -- and visually shows that the turtle is actively waiting for something.
-function module.busyWait(commands, state)
-    commands.turtle.turnRight(state)
-    commands.turtle.turnRight(state)
-    commands.turtle.turnRight(state)
-    commands.turtle.turnRight(state)
+function module.busyWait()
+    commands.turtle.turnRight()
+    commands.turtle.turnRight()
+    commands.turtle.turnRight()
+    commands.turtle.turnRight()
 end
 
 -- opts.expectedBlockId is the blockId you're waiting for
 -- opts.direction is 'up' or 'down' ('front' is not yet supported).
 -- opts.endFacing. Can be a facing or 'ANY', or 'CURRENT' (the default)
-function module.waitUntilDetectBlock(commands, state, opts)
+function module.waitUntilDetectBlock(opts)
     local expectedBlockId = opts.expectedBlockId
     local direction = opts.direction
     local endFacing = opts.endFacing
 
     if endFacing == 'CURRENT' or endFacing == nil then
-        endFacing = state:turtleCmps().facing
+        endFacing = state.getTurtleCmps().facing
     end
 
     local inspectFn
@@ -385,7 +378,7 @@ function module.waitUntilDetectBlock(commands, state, opts)
     end
 
     while true do
-        local success, blockInfo = inspectFn(state)
+        local success, blockInfo = inspectFn()
         local blockId = blockInfo.name
         if not success then
             minecraftBlockId = 'minecraft:air'
@@ -393,12 +386,12 @@ function module.waitUntilDetectBlock(commands, state, opts)
 
         if blockId == expectedBlockId then
             if endFacing ~= 'ANY' then
-                navigate.face(commands, state, endFacing)
+                navigate.face(endFacing)
             end
             break
         end
 
-        commands.turtle.turnRight(state) -- Wait for a bit
+        commands.turtle.turnRight() -- Wait for a bit
     end
 end
 

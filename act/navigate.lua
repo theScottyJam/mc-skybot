@@ -5,18 +5,20 @@
 
 local util = import('util.lua')
 local space = import('./space.lua')
+local state = import('./state.lua')
+local commands = import('./commands.lua')
 
 local module = {}
 
-function module.assertTurtleFacing(state, expectedFace)
-    local currentFace = state.turtlePos.face
+function module.assertTurtleFacing(expectedFace)
+    local currentFace = state.getTurtlePos().face
     if currentFace ~= expectedFace then
         error('Expected current face '..currentFace..' to be expected face '..expectedFace)
     end
 end
 
-function module.assertAtCoord(state, expectedCoord)
-    local currentCoord = state:turtleCmps().coord
+function module.assertAtCoord(expectedCoord)
+    local currentCoord = state.getTurtleCmps().coord
     currentCoordStr = '(f='..currentCoord.forward..',r='..currentCoord.right..',u='..currentCoord.up..')'
     expectedCoordStr = '(f='..expectedCoord.forward..',r='..expectedCoord.right..',u='..expectedCoord.up..')'
     if currentCoordStr ~= expectedCoordStr then
@@ -24,8 +26,8 @@ function module.assertAtCoord(state, expectedCoord)
     end
 end
 
-function module.assertAtPos(state, expectedPos)
-    local currentPos = state.turtlePos
+function module.assertAtPos(expectedPos)
+    local currentPos = state.getTurtlePos()
     currentPosStr = '(f='..currentPos.forward..',r='..currentPos.right..',u='..currentPos.up..',f='..currentPos.face..')'
     expectedPosStr = '(f='..expectedPos.forward..',r='..expectedPos.right..',u='..expectedPos.up..',f='..expectedPos.face..')'
     if currentPosStr ~= expectedPosStr then
@@ -37,57 +39,55 @@ end
 -- The turtle will end facing the direction of travel. (To pick a different facing or preserve facing, use moveToPos())
 -- dimensionOrder is optional, and indicates which dimensions to travel first. e.g. {'right', 'up'}.
 -- It defaults to { 'forward', 'right', 'up' }. Dimensions can be omited to prevent movement in that direction.
-function module.moveToCoord(commands, state, destinationCoord, dimensionOrder)
-    if state.turtlePos == nil then error('Failed to provide a valid state') end
+function module.moveToCoord(destinationCoord, dimensionOrder)
     local dimensionOrder = dimensionOrder or { 'forward', 'right', 'up' }
 
     for _, dimension in ipairs(dimensionOrder) do
-        while dimension == 'forward' and state.turtlePos.forward < destinationCoord.forward do
-            module.face(commands, state, { face='forward' })
-            commands.turtle.forward(state)
+        while dimension == 'forward' and state.getTurtlePos().forward < destinationCoord.forward do
+            module.face({ face='forward' })
+            commands.turtle.forward()
         end
-        while dimension == 'forward' and state.turtlePos.forward > destinationCoord.forward do
-            module.face(commands, state, { face='backward' })
-            commands.turtle.forward(state)
+        while dimension == 'forward' and state.getTurtlePos().forward > destinationCoord.forward do
+            module.face({ face='backward' })
+            commands.turtle.forward()
         end
-        while dimension == 'right' and state.turtlePos.right < destinationCoord.right do
-            module.face(commands, state, { face='right' })
-            commands.turtle.forward(state)
+        while dimension == 'right' and state.getTurtlePos().right < destinationCoord.right do
+            module.face({ face='right' })
+            commands.turtle.forward()
         end
-        while dimension == 'right' and state.turtlePos.right > destinationCoord.right do
-            module.face(commands, state, { face='left' })
-            commands.turtle.forward(state)
+        while dimension == 'right' and state.getTurtlePos().right > destinationCoord.right do
+            module.face({ face='left' })
+            commands.turtle.forward()
         end
-        while dimension == 'up' and state.turtlePos.up < destinationCoord.up do
-            commands.turtle.up(state)
+        while dimension == 'up' and state.getTurtlePos().up < destinationCoord.up do
+            commands.turtle.up()
         end
-        while dimension == 'up' and state.turtlePos.up > destinationCoord.up do
-            commands.turtle.down(state)
+        while dimension == 'up' and state.getTurtlePos().up > destinationCoord.up do
+            commands.turtle.down()
         end
     end
 end
 
 -- Parameters are generally the same as module.moveToCoord().
 -- destinationPos has a "face" field, which decides the final direction the turtle will face.
-function module.moveToPos(commands, state, destinationPos, dimensionOrder)
-    if state.turtlePos == nil then error('Failed to provide a valid state') end
+function module.moveToPos(destinationPos, dimensionOrder)
     local destinationCmps = space.createCompass(destinationPos)
 
-    module.moveToCoord(commands, state, destinationCmps.coord, dimensionOrder)
-    module.face(commands, state, destinationCmps.facing)
+    module.moveToCoord(destinationCmps.coord, dimensionOrder)
+    module.face(destinationCmps.facing)
 end
 
-function module.face(commands, state, targetFacing)
-    local beforeFace = state.turtlePos.face
+function module.face(targetFacing)
+    local beforeFace = state.getTurtlePos().face
     local rotations = space.__countClockwiseRotations(beforeFace, targetFacing.face)
 
     if rotations == 1 then
-        commands.turtle.turnRight(state)
+        commands.turtle.turnRight()
     elseif rotations == 2 then
-        commands.turtle.turnRight(state)
-        commands.turtle.turnRight(state)
+        commands.turtle.turnRight()
+        commands.turtle.turnRight()
     elseif rotations == 3 then
-        commands.turtle.turnLeft(state)
+        commands.turtle.turnLeft()
     end
 end
 

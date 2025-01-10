@@ -215,50 +215,49 @@ if turtle == nil then
     return
 end
 
-local savedPlan = nil -- may or may not be serialized, depending on if a full pause/unpause is happening between each cycle.
-local finalPlan = nil
-local moduleCacheSnapshot = moduleLoader.snapshotModuleCache()
-while true do
+if inspect.pauseUnpauseAfterEachSprint then
+    local initialized = false
+    local serializedStateSnapshot = nil
+    local moduleCacheSnapshot = moduleLoader.snapshotModuleCache()
+    while true do
+        -- Some of these imports may depend on the mock computer craft API being registered
+        local act = import('act/init.lua')
+        local plan = import('plan/init.lua').register()
+
+        if not initialized then
+            plan:startFromBeginning()
+            initialized = true
+        else
+            act.state.initFromSerializedSnapshot(serializedStateSnapshot)
+        end
+
+        if plan:isPlanExhausted() then
+            break
+        end
+
+        plan:runNextSprint()
+
+        if inspect.pauseUnpauseAfterEachSprint then
+            -- We don't want to completely empty the module cache, as that would
+            -- mess up the state of the mock computer craft API, but we do want
+            -- to revert it before the point where we started importing non-mocking modules,
+            -- to make sure any local variables in those modules won't persist.
+            moduleLoader.restoreModuleCacheSnapshot(moduleCacheSnapshot)
+            serializedStateSnapshot = act.state.createSerializeSnapshot()
+        end
+    end
+else
     -- Some of these imports may depend on the mock computer craft API being registered
     local act = import('act/init.lua')
-    local planModule = import('plan/init.lua')
-
-    local plan
-    if savedPlan == nil then
-        plan = planModule.createPlan()
-        turtle.refuel(16)
-        if inspect.onStart then
-            inspect.onStart()
-        end
-    else
-        if inspect.pauseUnpauseAfterEachSprint then
-            plan = act.Plan.deserialize(savedPlan)
-        else
-            plan = savedPlan
-        end
+    local plan = import('plan/init.lua').register()
+    plan:startFromBeginning()
+    while not plan:isPlanExhausted() do
+        plan:runNextSprint()
     end
-
-    if plan:isExhausted() then
-        break
-    end
-
-    plan:runNextSprint()
-
-    if inspect.pauseUnpauseAfterEachSprint then
-        -- We don't want to completely empty the module cache, as that would
-        -- mess up the state of the mock computer craft API, but we do want
-        -- to revert it before the point where we started importing non-mocking modules,
-        -- to make sure any local variables in those modules won't persist.
-        moduleLoader.restoreModuleCacheSnapshot(moduleCacheSnapshot)
-        savedPlan = plan:serialize()
-    else
-        savedPlan = plan
-    end
-    finalPlan = plan
 end
 
 if inspect.showFinalState then
-    inspect.showFinalState(finalPlan)
+    inspect.showFinalState()
 elseif inputs.useMockLib then
     print('Finished running simulated run.')
     print('Copy-paste inspect.example.lua as inspect.lua and modify it to your liking to view the results of the simulated run.')

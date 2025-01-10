@@ -1,65 +1,59 @@
 --[[
-    A Plan is a wrapper around a state object, intended as an interface for users
-    outside of act/ to create and run plans.
+    The overall plan the turtle will follow, describing its first actions to its last.
 ]]
 
 local util = import('util.lua')
-local inspect = moduleLoader.tryImport('inspect.lua')
-local State = import('../_State.lua')
-local commands = import('../_commands.lua')
-local Farm = import('./Farm.lua')
-local highLevelCommands = import('../highLevelCommands.lua')
+local state = import('../state.lua')
 local Project = import('./Project.lua')
-local time = import('../_time.lua')
-local resourceCollection = import('./_resourceCollection.lua')
+local Farm = import('./Farm.lua')
 local serializer = import('../_serializer.lua')
 local sprintCoordinator = import('./_sprintCoordinator.lua')
+local inspect = moduleLoader.tryImport('inspect.lua') 
 
 local static = {}
 local prototype = {}
-serializer.registerValue('class-prototype:Plan', prototype)
 
---[[
-Inputs:
-    opts.initialTurtlePos
-    opts.projectList: <Project instance>[]
-]]
-function static.new(opts)
-    Project.__validateProjectList(opts.projectList)
-    local state = State.newInitialState({
-        startingPos = opts.initialTurtlePos,
-        projectList = opts.projectList,
-    })
+local INITIAL_CHARCOAL_REQUIRED = 16
+
+-- Sets this plan as the active plan to run.
+function static.register(opts)
+    local initialTurtlePos = opts.initialTurtlePos
+    local projectList = opts.projectList
+    local valueOfFarmableResources = opts.valueOfFarmableResources
+    Project.__validateProjectList(projectList)
     
-    return util.attachPrototype(prototype, { _state = state })
+    Farm.registerValueOfFarmableResources(valueOfFarmableResources)
+
+    return util.attachPrototype(prototype, {
+        _initialTurtlePos = initialTurtlePos,
+        _projectList = projectList,
+    })
 end
 
--- It's valid to have multiple plan instances wrapping and mutating the same state instance.
--- Though it's encouraged to pass around the pre-existing plan instance instead of creating new ones, where possible.
-function static.fromState(state)
-    return util.attachPrototype(prototype, { _state = state })
-end
+-- Any functions with "register" in the name should be called before this function is called.
+function prototype:startFromBeginning()
+    state.init({ startingPos = self._initialTurtlePos })
+    sprintCoordinator.useProjectList(self._projectList)
 
-function prototype:serialize()
-    return serializer.serialize(self)
-end
+    if inspect.onPlanStart then
+        inspect.onPlanStart()
+    end
 
-function static.deserialize(text)
-    return serializer.deserialize(text)
+    turtle.refuel(INITIAL_CHARCOAL_REQUIRED)
 end
 
 -- Is there nothing else for this plan to do?
-function prototype:isExhausted()
-    return sprintCoordinator.noSprintsRemaining(self._state)
+function prototype:isPlanExhausted()
+    return sprintCoordinator.noSprintsRemaining()
 end
 
 function prototype:runNextSprint()
-    sprintCoordinator.runNextSprint(self._state)
+    sprintCoordinator.runNextSprint()
 end
 
 -- Used for introspection purposes.
-function prototype:displayInProgressTasks()
-    planExecutor.displayInProgressTasks(self._state)
+function static.displayInProgressTasks()
+    sprintCoordinator.displayInProgressTasks()
 end
 
 return static

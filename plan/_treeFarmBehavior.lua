@@ -8,78 +8,80 @@ local navigationPatterns = act.navigationPatterns
 local space = act.space
 local highLevelCommands = act.highLevelCommands
 local curves = act.curves
+local commands = act.commands
+local state = act.state
 
 -- Above a tree is typically a floating block, then an optional torch.
 -- This function expects you to to be right above where the torch would be.
-function module.harvestTreeFromAbove(commands, state, opts)
+function module.harvestTreeFromAbove(opts)
     local bottomLogPos = opts.bottomLogPos
     local bottomLogCmps = space.createCompass(bottomLogPos)
 
-    navigate.assertAtCoord(state, bottomLogCmps.coordAt({ up=10 }))
-    navigate.face(commands, state, bottomLogCmps.facingAt({ face='forward' }))
-    commands.turtle.forward(state)
+    navigate.assertAtCoord(bottomLogCmps.coordAt({ up=10 }))
+    navigate.face(bottomLogCmps.facingAt({ face='forward' }))
+    commands.turtle.forward()
 
     -- Move down until you hit leaves
     while true do
-        commands.turtle.down(state)
-        local isThereABlockBelow, blockBelowInfo = commands.turtle.inspectDown(state)
+        commands.turtle.down()
+        local isThereABlockBelow, blockBelowInfo = commands.turtle.inspectDown()
         if isThereABlockBelow and blockBelowInfo.name == 'minecraft:leaves' then
             break
         end
     end
 
     -- Harvest top-half of leaves
-    local topLeafCmps = state:turtleCmps().compassAt({ forward=-1, up=-1 })
+    local topLeafCmps = state.getTurtleCmps().compassAt({ forward=-1, up=-1 })
     local cornerPos = topLeafCmps.posAt({ forward = 1, right = 1, face='backward' })
-    navigate.moveToPos(commands, state, cornerPos, { 'right', 'forward', 'up' })
-    navigationPatterns.spiralInwards(commands, state, {
+    navigate.moveToPos(cornerPos, { 'right', 'forward', 'up' })
+    navigationPatterns.spiralInwards({
         sideLength = 3,
-        onVisit = function(commands, state)
-            commands.turtle.dig(state)
-            commands.turtle.digDown(state)
+        onVisit = function()
+            commands.turtle.dig()
+            commands.turtle.digDown()
         end
     })
 
     -- Harvest bottom-half of leaves
     local aboveCornerPos = topLeafCmps.posAt({ forward = 2, right = 2, up = -1, face='backward' })
-    navigate.moveToPos(commands, state, aboveCornerPos, { 'right', 'forward', 'up' })
-    commands.turtle.digDown(state)
-    commands.turtle.down(state)
-    navigationPatterns.spiralInwards(commands, state, {
+    navigate.moveToPos(aboveCornerPos, { 'right', 'forward', 'up' })
+    commands.turtle.digDown()
+    commands.turtle.down()
+    navigationPatterns.spiralInwards({
         sideLength = 5,
-        onVisit = function(commands, state)
-            commands.turtle.dig(state)
-            commands.turtle.digDown(state)
+        onVisit = function()
+            commands.turtle.dig()
+            commands.turtle.digDown()
         end
     })
-    navigate.face(commands, state, topLeafCmps.facingAt({ face='forward' }))
+    navigate.face(topLeafCmps.facingAt({ face='forward' }))
 
     -- Harvest trunk
     while true do
-        commands.turtle.digDown(state)
-        commands.turtle.down(state)
-        local isThereABlockBelow, blockBelowInfo = commands.turtle.inspectDown(state)
+        commands.turtle.digDown()
+        commands.turtle.down()
+        local isThereABlockBelow, blockBelowInfo = commands.turtle.inspectDown()
         if not isThereABlockBelow or blockBelowInfo.name ~= 'minecraft:log' then
             break
         end
     end
 
-    navigate.assertAtPos(state, bottomLogCmps.pos)
+    navigate.assertAtPos(bottomLogCmps.pos)
 end
 
 -- You must be standing at the inFrontOfTreeCmps position before calling this.
 -- This will check if the tree has grown, and if so, harvest it.
-function module.tryHarvestTree(commands, state, inFrontOfTreeCmps)
-    local success, blockInfo = commands.turtle.inspect(state)
+function module.tryHarvestTree(inFrontOfTreeCmps)
+    local success, blockInfo = commands.turtle.inspect()
 
     local blockIsLog = success and blockInfo.name == 'minecraft:log'
     if blockIsLog then
         local bottomLogCmps = inFrontOfTreeCmps.compassAt({ forward=1 })
-        navigate.moveToCoord(commands, state, inFrontOfTreeCmps.coordAt({ forward=-2 }))
-        navigate.moveToPos(commands, state, bottomLogCmps.posAt({ up=10 }), { 'up', 'forward', 'right' })
-        module.harvestTreeFromAbove(commands, state, { bottomLogPos = bottomLogCmps.pos })
-        navigate.moveToPos(commands, state, inFrontOfTreeCmps.pos)
-        highLevelCommands.placeItem(commands, state, 'minecraft:sapling', { allowMissing = true })
+        navigate.moveToCoord(inFrontOfTreeCmps.coordAt({ forward=-2 }))
+        navigate.moveToPos(bottomLogCmps.posAt({ up=10 }), { 'up', 'forward', 'right' })
+        module.harvestTreeFromAbove({ bottomLogPos = bottomLogCmps.pos })
+        navigate.moveToPos(inFrontOfTreeCmps.pos)
+        highLevelCommands.placeItem('minecraft:sapling', { allowMissing = true })
     end
 end
 

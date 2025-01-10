@@ -1,5 +1,6 @@
 return {
     blueprint = import('./blueprint.lua'),
+    commands = import('./commands.lua'),
     curves = import('./curves.lua'),
     Farm = import('./planner/Farm.lua'),
     highLevelCommands = import('./highLevelCommands.lua'),
@@ -9,5 +10,6 @@ return {
     navigationPatterns = import('./navigationPatterns.lua'),
     Project = import('./planner/Project.lua'),
     space = import('./space.lua'),
+    state = import('./state.lua'),
     Plan = import('./planner/Plan.lua'),
 }

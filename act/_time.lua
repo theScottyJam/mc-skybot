@@ -4,7 +4,7 @@ terms:
     (One minecraft day is 20 minutes)
 ]]
 
-local State = import('./_State.lua')
+local state = import('./state.lua')
 
 local module = {}
 
@@ -13,13 +13,13 @@ local getRawTimestamp = function()
     return os.day() + os.time() / 24
 end
 
-local initialTimeStateManager = State.registerModuleState('module:time', function()
+local initialTimeStateManager = state.__registerPieceOfState('module:time', function()
     return getRawTimestamp()
 end)
 
 -- Returns the number of minecraft days that have elapsed since the program started, as a decimal.
-function module.get(state)
-    local initialTime = state:get(initialTimeStateManager)
+function module.get()
+    local initialTime = initialTimeStateManager:get()
     return getRawTimestamp() - initialTime
 end
 

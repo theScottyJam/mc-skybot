@@ -58,8 +58,8 @@ function static.__isInstance(instance)
     return util.hasPrototype(instance, prototype)
 end
 
-function prototype:activate(commands, state)
-    resourceCollection.markSupplierAsAvailable(state, self)
+function prototype:activate()
+    resourceCollection.markSupplierAsAvailable(self)
     self._onActivated()
 end
 
@@ -71,8 +71,8 @@ function prototype:__getRequiredResources(resourceRequest)
     return self._getRequiredResources(resourceRequest)
 end
 
-function prototype:__createTask(state, resourceRequests)
-    return self._taskFactory:createTask(state, resourceRequests)
+function prototype:__createTask(resourceRequests)
+    return self._taskFactory:createTask(resourceRequests)
 end
 
 return static

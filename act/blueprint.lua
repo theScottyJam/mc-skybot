@@ -339,13 +339,13 @@ function module.create(opts) -- opts should contain { key=..., labeledPositions=
                 nextRelCoord = nextRelCoord,
             }
         end,
-        enter = function(commands, state, taskState)
-            navigate.assertAtPos(state, taskState.buildStartPos)
+        enter = function(taskState)
+            navigate.assertAtPos(taskState.buildStartPos)
         end,
-        exit = function(commands, state, taskState, info)
-            navigate.moveToPos(commands, state, taskState.buildStartPos, {'forward', 'right', 'up'})
+        exit = function(taskState, info)
+            navigate.moveToPos(taskState.buildStartPos, {'forward', 'right', 'up'})
         end,
-        nextSprint = function(commands, state, taskState)
+        nextSprint = function(taskState)
             local nextTaskState = util.copyTable(taskState)
             local originCmps = space.createCompass(taskState.absOriginPos)
             local relTargetCoord = taskState.nextRelCoord
@@ -358,8 +358,8 @@ function module.create(opts) -- opts should contain { key=..., labeledPositions=
             local targetItem = normalizedLayers[relTargetCoord.z][relTargetCoord.y][relTargetCoord.x].id
             util.assert(targetItem)
 
-            navigate.moveToCoord(commands, state, targetCmps.coordAt({ up = 1 }), {'up', 'right', 'forward'})
-            highLevelCommands.placeItemDown(commands, state, targetItem)
+            navigate.moveToCoord(targetCmps.coordAt({ up = 1 }), {'up', 'right', 'forward'})
+            highLevelCommands.placeItemDown(targetItem)
 
             nextTaskState.nextRelCoord = nextCoordToVisit(normalizedLayers, taskState.nextRelCoord)
             util.mergeTablesInPlace(taskState, nextTaskState)

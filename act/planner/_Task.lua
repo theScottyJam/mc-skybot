@@ -1,5 +1,4 @@
 local util = import('util.lua')
-local commands = import('../_commands.lua')
 local highLevelCommands = import('../highLevelCommands.lua')
 local serializer = import('../_serializer.lua')
 
@@ -17,7 +16,7 @@ serializer.registerValue('class-prototype:Task', prototype)
 -- then return true.
 function prototype:nextSprint()
     if not self._started then
-        self._behaviors.before(self._taskState, commands)
+        self._behaviors.before(self._taskState)
         self._started = true
     end
 
@@ -26,18 +25,18 @@ function prototype:nextSprint()
     end
 
     if not self._entered then
-        self._behaviors.enter(self._taskState, commands)
+        self._behaviors.enter(self._taskState)
         self._entered = true
     end
 
-    local complete = self._behaviors.nextSprint(self._taskState, commands)
+    local complete = self._behaviors.nextSprint(self._taskState)
     util.assert(type(complete) == 'boolean', 'nextSprint() must return a boolean.')
     self._exhausted = complete
 
     if complete then
-        self._behaviors.exit(self._taskState, commands)
+        self._behaviors.exit(self._taskState)
         self._entered = false
-        self._behaviors.after(self._taskState, commands)
+        self._behaviors.after(self._taskState)
     end
 
     return self._exhausted
@@ -47,13 +46,13 @@ end
 -- to a registered location.
 function prototype:prepareForInterrupt()
     if self._entered then
-        self._behaviors.exit(self._taskState, commands)
+        self._behaviors.exit(self._taskState)
         self._entered = false
     end
 end
 
 --[[
-Select inputs:
+Inputs:
     displayName:
         This isn't tied to any behaviors, it's only used for display purposes.
     behaviors:
@@ -64,7 +63,7 @@ Select inputs:
     args:
         Optional. This is an arbitrary value that will be passed along to behaviors.init().
 ]]
-function static.new(displayName, state, behaviors, args)
+function static.new(displayName, behaviors, args)
     local instance = util.attachPrototype(prototype, {
         -- Used for introspection, so if others want to display this task, they have a name to display it by.
         displayName = displayName,
@@ -81,7 +80,7 @@ function static.new(displayName, state, behaviors, args)
         _behaviors = behaviors,
     })
 
-    behaviors.init(instance._taskState, state, args)
+    behaviors.init(instance._taskState, args)
 
     return instance
 end

@@ -9,14 +9,14 @@
 local util = import('util.lua')
 local space = import('./space.lua')
 local navigate = import('./navigate.lua')
-local State = import('./_State.lua')
+local state = import('./state.lua')
 
 local static = {}
 local prototype = {}
 
 local allLocations = {}
 
-local availablePathsStateManager = State.registerModuleState('module:Location', function()
+local availablePathsStateManager = state.__registerPieceOfState('module:Location', function()
     -- A mapping of paths the turtle can travel to move from one location to the next.
     return {}
 end)
@@ -46,13 +46,13 @@ local calcPathCost = function(coords)
     return length
 end
 
-function prototype:_getPaths(state)
-    return state:get(availablePathsStateManager)[self._key]
+function prototype:_getPaths()
+    return availablePathsStateManager:get()[self._key]
 end
 
 -- Finds the best route by exploring all closets locations until it runs into the target.
 -- (this means it'll have to look at almost every registered location to find distant routes).
-local findBestRoute = function(state, loc1, loc2)
+local findBestRoute = function(loc1, loc2)
     if loc1._key == loc2._key then return {} end
     local toExplore = {{ to = loc1, route = {}, routeCost = 0 }}
     local seen = { [loc1._key] = true }
@@ -65,7 +65,7 @@ local findBestRoute = function(state, loc1, loc2)
             end
         end
         local entry = table.remove(toExplore, bestIndex)
-        for i, path in ipairs(entry.to:_getPaths(state)) do
+        for i, path in ipairs(entry.to:_getPaths()) do
             if not seen[path.to] then
                 seen[path.to] = true
                 local newRoute = util.copyTable(entry.route)
@@ -102,7 +102,7 @@ function static.register(pos)
 end
 
 -- midPoints is a list of coordinates
-function static.addPath(state, loc1, loc2, midPoints)
+function static.addPath(loc1, loc2, midPoints)
     midPoints = midPoints or {}
 
     local allCoordsInPath = util.copyTable(midPoints)
@@ -110,7 +110,7 @@ function static.addPath(state, loc1, loc2, midPoints)
     table.insert(allCoordsInPath, loc2.cmps.coord)
     local cost = calcPathCost(allCoordsInPath)
 
-    local availablePaths = state:getAndModify(availablePathsStateManager)
+    local availablePaths = availablePathsStateManager:getAndModify()
     if availablePaths[loc1._key] == nil then
         availablePaths[loc1._key] = {}
     end
@@ -132,19 +132,19 @@ function static.addPath(state, loc1, loc2, midPoints)
 end
 
 -- Finds the shortest route to a location among the registered paths and travels there.
-function prototype:travelHere(commands, state)
-    if state:turtleCmps().compareCmps(self.cmps) then return end
-    local turtleLoc = lookupLoc(posToKey(state.turtlePos))
-    local route = findBestRoute(state, turtleLoc, self).route
+function prototype:travelHere()
+    if state.getTurtleCmps().compareCmps(self.cmps) then return end
+    local turtleLoc = lookupLoc(posToKey(state.getTurtlePos()))
+    local route = findBestRoute(turtleLoc, self).route
     util.assert(route ~= nil, 'Failed to navigate to a particular location - there was no route to this location.')
 
     for _, path in ipairs(route) do
         for i, coord in ipairs(path.midPoints) do
-            navigate.moveToCoord(commands, state, coord)
+            navigate.moveToCoord(coord)
         end
-        navigate.moveToCoord(commands, state, lookupLoc(path.to).cmps.coord)
+        navigate.moveToCoord(lookupLoc(path.to).cmps.coord)
     end
-    navigate.face(commands, state, self.cmps.facing)
+    navigate.face(self.cmps.facing)
 end
 
 return static

@@ -5,8 +5,7 @@
 
 local util = import('util.lua')
 local inspect = moduleLoader.tryImport('inspect.lua')
-local State = import('../_State.lua')
-local commands = import('../_commands.lua')
+local state = import('../state.lua')
 local Farm = import('./Farm.lua')
 local highLevelCommands = import('../highLevelCommands.lua')
 local Project = import('./Project.lua')
@@ -16,11 +15,10 @@ local serializer = import('../_serializer.lua')
 
 local module = {}
 
-local planStateManager = State.registerModuleState('module:planExecutor', function(opts)
-    local projectList = opts.projectList
+local planStateManager = state.__registerPieceOfState('module:planExecutor', function()
     return {
         -- List of projects that still need to be tackled
-        projectList = projectList,
+        projectList = nil,
         -- The project currently being worked on, or that we're currently gathering resources for
         primaryTask = nil,
         -- A task, like a farm-tending task, that's interrupting the active one
@@ -29,6 +27,13 @@ local planStateManager = State.registerModuleState('module:planExecutor', functi
 end)
 
 -- HELPER FUNCTIONS --
+
+local assertProjectListProvided = function()
+    util.assert(
+        type(planStateManager.get()) == 'table',
+        'The project list must be provided, through useProjectList(), before this function can be called.'
+    )
+end
 
 -- `expectedYieldInfo` is what gets returned by a farm's __calcExpectedYield() function.
 local scoreFromExpectedYieldInfo = function(expectedYieldInfo, resourcesInInventory)
@@ -51,14 +56,14 @@ end
 -- and whenever an interruption has finished.
 -- Returns an interrupt task, or nil if there
 -- are no interruptions.
-local checkForInterruptions = function(state, resourcesInInventory)
-    local currentTime = time.get(state)
+local checkForInterruptions = function(resourcesInInventory)
+    local currentTime = time.get()
     local winningFarm = {
         farm = nil,
         score = 0,
     }
 
-    for _, farmInfo in pairs(Farm.__getActiveFarms(state)) do
+    for _, farmInfo in pairs(Farm.__getActiveFarms()) do
         local elapsedTime = currentTime - farmInfo.lastVisited
 
         local expectedYieldInfo = farmInfo.farm:__calcExpectedYield(elapsedTime)
@@ -72,15 +77,15 @@ local checkForInterruptions = function(state, resourcesInInventory)
     end
 
     if winningFarm.farm ~= nil then
-        return winningFarm.farm:__createTask(state)
+        return winningFarm.farm:__createTask()
     else
         return nil
     end
 end
 
-local countNonReservedResourcesInInventory = function(state)
+local countNonReservedResourcesInInventory = function()
     local resourcesInInventory = util.copyTable(
-        highLevelCommands.countResourcesInInventory(highLevelCommands.takeInventory(commands, state))
+        highLevelCommands.countResourcesInInventory(highLevelCommands.takeInventory())
     )
 
     -- At least one charcoal is reserved so if you need to smelt something, you can get more charcoal to do so.
@@ -94,21 +99,23 @@ local countNonReservedResourcesInInventory = function(state)
     return resourcesInInventory
 end
 
-function module.noSprintsRemaining(state)
-    local planState = state:get(planStateManager)
+function module.noSprintsRemaining()
+    assertProjectListProvided()
+    local planState = planStateManager:get()
     return planState.primaryTask == nil and #planState.projectList == 0
 end
 
-function module.runNextSprint(state)
-    local planState = state:getAndModify(planStateManager)
+function module.runNextSprint()
+    assertProjectListProvided()
+    local planState = planStateManager.getAndModify()
     -- Prepare the next project task, or resource-fetching task
     -- planState.primaryTask should be set to a value after this.
     local resourcesInInventory = nil
     if planState.primaryTask == nil then
         util.assert(#planState.projectList >= 1)
-        resourcesInInventory = countNonReservedResourcesInInventory(state)
+        resourcesInInventory = countNonReservedResourcesInInventory()
         local nextProject = planState.projectList[1]
-        local resourceCollectionTask, isIdleTask = resourceCollection.collectResources(state, nextProject, resourcesInInventory)
+        local resourceCollectionTask, isIdleTask = resourceCollection.collectResources(nextProject, resourcesInInventory)
         if resourceCollectionTask ~= nil then
             if inspect.isIdling then
                 inspect.isIdling(isIdleTask)
@@ -116,7 +123,7 @@ function module.runNextSprint(state)
             planState.primaryTask = resourceCollectionTask
         else
             table.remove(planState.projectList, 1)
-            planState.primaryTask = nextProject:__createTask(state)
+            planState.primaryTask = nextProject:__createTask()
         end
     end
 
@@ -125,9 +132,9 @@ function module.runNextSprint(state)
     if planState.interruptTask == nil then
         -- If we haven't inspected our inventory yet, do so now.
         if resourcesInInventory == nil then
-            resourcesInInventory = countNonReservedResourcesInInventory(state)
+            resourcesInInventory = countNonReservedResourcesInInventory()
         end
-        local interruptTask = checkForInterruptions(state, resourcesInInventory)
+        local interruptTask = checkForInterruptions(resourcesInInventory)
         if interruptTask ~= nil then
             planState.interruptTask = interruptTask
             if planState.primaryTask ~= nil then
@@ -152,11 +159,18 @@ function module.runNextSprint(state)
 end
 
 -- Used for introspection purposes.
-function module.displayInProgressTasks(state)
-    local planState = state:get(planStateManager)
+function module.displayInProgressTasks()
+    assertProjectListProvided() -- No tasks would be started if a project list has not been provided yet.
+    local planState = planStateManager:get()
     print('primary task: '..(planState.primaryTask and planState.primaryTask.displayName or 'nil'))
     print('interrupt task: '..(planState.interruptTask and planState.interruptTask.displayName or 'nil'))
     print()
+end
+
+-- Should be called right after state has been initialized.
+function module.useProjectList(projectList)
+    local planState = planStateManager:getAndModify()
+    planState.projectList = projectList
 end
 
 return module

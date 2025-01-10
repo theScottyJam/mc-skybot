@@ -58,8 +58,8 @@ function static.register(opts)
     return project
 end
 
-function prototype:__createTask(state)
-    return self._taskFactory:createTask(state)
+function prototype:__createTask()
+    return self._taskFactory:createTask()
 end
 
 -- Use this to insert initial data into the currentConditions table that gets

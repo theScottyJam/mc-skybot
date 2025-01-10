@@ -1,15 +1,14 @@
 local util = import('util.lua')
 local TaskFactory = import('./_TaskFactory.lua')
-local commands = import('../_commands.lua')
 local highLevelCommands = import('../highLevelCommands.lua')
 local MillModule = moduleLoader.lazyImport('./Mill.lua')
 local FarmModule = moduleLoader.lazyImport('./Farm.lua')
 local serializer = import('../_serializer.lua')
-local State = import('../_State.lua')
+local state = import('../state.lua')
 
 local module = {}
 
-local resourceCollectionStateManager = State.registerModuleState('module:resourceCollection', function()
+local resourceCollectionStateManager = state.__registerPieceOfState('module:resourceCollection', function()
     return {
         -- A mapping that lets us know where resources can be found.
         resourceSuppliers = {},
@@ -18,11 +17,8 @@ end)
 
 module.idleTaskRunnerFactory = TaskFactory.register({
     id = 'act:idle',
-    init = function(self, state)
-        self.state = state
-    end,
-    nextSprint = function(self, commands)
-        highLevelCommands.busyWait(commands, self.state)
+    nextSprint = function(self)
+        highLevelCommands.busyWait()
         return true
     end,
 })
@@ -32,8 +28,8 @@ module.idleTaskRunnerFactory = TaskFactory.register({
 -- For mills, this means it will start gathering resources from this supplier when the resources are needed.
 -- For farms, this means it'll know it can wait for resources to periodically be gathered
 -- (instead of throwing an error because it doesn't know how to retrieve a particular resource).
-function module.markSupplierAsAvailable(state, resourceSupplier)
-    local resourceSuppliers = state:getAndModify(resourceCollectionStateManager)
+function module.markSupplierAsAvailable(resourceSupplier)
+    local resourceSuppliers = resourceCollectionStateManager:getAndModify()
     for _, resourceName in ipairs(resourceSupplier:__resourcesSupplied()) do
         if resourceSuppliers[resourceName] == nil then
             resourceSuppliers[resourceName] = {}
@@ -48,10 +44,10 @@ end
 -- The second return value is a flag indicating if this was an idling task,
 -- because we have to wait for farms to produce resources. This will also
 -- be set to nil if the first return value was nil.
-function module.collectResources(state, project, resourcesInInventory_)
+function module.collectResources(project, resourcesInInventory_)
     local resourceMap = {}
     local resourcesInInventory = util.copyTable(resourcesInInventory_)
-    local resourceSuppliers = state:get(resourceCollectionStateManager)
+    local resourceSuppliers = resourceCollectionStateManager:get()
 
     -- Collect the nested requirement tree into a flat mapping (resourceMap)
     -- Factors in your inventory's contents to figure out what's needed.
@@ -170,14 +166,14 @@ function module.collectResources(state, project, resourcesInInventory_)
             end
 
             if requirementsFulfilled then
-                return resourceInfo.mill:__createTask(state, { [resourceName] = resourceInfo.quantity }), false
+                return resourceInfo.mill:__createTask({ [resourceName] = resourceInfo.quantity }), false
             end
         end
     end
 
     -- It's assumed we got to this point because there is no active "mill" work that could be done,
     -- but there are farms we need to wait on.
-    return module.idleTaskRunnerFactory:createTask(state), true
+    return module.idleTaskRunnerFactory:createTask(), true
 end
 
 return module
