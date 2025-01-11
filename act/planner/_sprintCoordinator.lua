@@ -66,7 +66,7 @@ local checkForInterruptions = function(resourcesInInventory)
     for _, farmInfo in pairs(Farm.__getActiveFarms()) do
         local elapsedTime = currentTime - farmInfo.lastVisited
 
-        local expectedYieldInfo = farmInfo.farm:__calcExpectedYield(elapsedTime)
+        local expectedYieldInfo = farmInfo.farm.__calcExpectedYield(elapsedTime)
         local score = scoreFromExpectedYieldInfo(expectedYieldInfo, resourcesInInventory)
         if score > winningFarm.score then
             winningFarm = {

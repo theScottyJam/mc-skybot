@@ -1,8 +1,8 @@
 local util = import('util.lua')
 local TaskFactory = import('./_TaskFactory.lua')
 local highLevelCommands = import('../highLevelCommands.lua')
-local MillModule = moduleLoader.lazyImport('./Mill.lua')
-local FarmModule = moduleLoader.lazyImport('./Farm.lua')
+local Mill = import('./Mill.lua')
+local Farm = import('./Farm.lua')
 local serializer = import('../_serializer.lua')
 local state = import('../state.lua')
 
@@ -28,9 +28,9 @@ module.idleTaskRunnerFactory = TaskFactory.register({
 -- For mills, this means it will start gathering resources from this supplier when the resources are needed.
 -- For farms, this means it'll know it can wait for resources to periodically be gathered
 -- (instead of throwing an error because it doesn't know how to retrieve a particular resource).
-function module.markSupplierAsAvailable(resourceSupplier)
+local markSupplierAsAvailable = function(resourceSupplier)
     local resourceSuppliers = resourceCollectionStateManager:getAndModify()
-    for _, resourceName in ipairs(resourceSupplier:__resourcesSupplied()) do
+    for _, resourceName in ipairs(resourceSupplier.__supplies) do
         if resourceSuppliers[resourceName] == nil then
             resourceSuppliers[resourceName] = {}
         end
@@ -38,6 +38,8 @@ function module.markSupplierAsAvailable(resourceSupplier)
         table.insert(resourceSuppliers[resourceName], 1, resourceSupplier)
     end
 end
+Mill.__onActivated:subscribe(markSupplierAsAvailable)
+Farm.__onActivated:subscribe(markSupplierAsAvailable)
 
 -- Returns a task that will collect some of the required resources, or nil if there
 -- aren't any requirements left to fulfill.
@@ -82,7 +84,7 @@ function module.collectResources(project, resourcesInInventory_)
             -- Other suppliers are still valid, but will be ignored until the first supplier is decommissioned.
             local supplier = resourceSuppliers[resourceName][1]
 
-            if FarmModule.load().__isInstance(supplier) then
+            if Farm.__isInstance(supplier) then
                 if resourceMap[resourceName] == nil then
                     resourceMap[resourceName] = {
                         type = 'farm'
@@ -93,7 +95,7 @@ function module.collectResources(project, resourcesInInventory_)
                     -- having different supplier types for a single resource is not supported.
                     util.assert(resourceMap[resourceName].type == 'farm')
                 end
-            elseif MillModule.load().__isInstance(supplier) then
+            elseif Mill.__isInstance(supplier) then
                 if resourceMap[resourceName] == nil then
                     resourceMap[resourceName] = {
                         type = 'mill',
@@ -105,13 +107,13 @@ function module.collectResources(project, resourcesInInventory_)
                 end
 
                 local previousQuantity = resourceMap[resourceName].quantity
-                local previousRequiredResources = supplier:__getRequiredResources({
+                local previousRequiredResources = supplier.__getRequiredResources({
                     resourceName = resourceName,
                     quantity = previousQuantity
                 })
 
                 local newQuantity = resourceMap[resourceName].quantity + requiredQuantity
-                local requiredResources = supplier:__getRequiredResources({
+                local requiredResources = supplier.__getRequiredResources({
                     resourceName = resourceName,
                     quantity = newQuantity
                 })
@@ -121,8 +123,7 @@ function module.collectResources(project, resourcesInInventory_)
                     -- if we really need to. This kind of behavior just hasn't been tested yet.
                     util.assert(
                         requiredResources[dependentResourceName] ~= nil and requiredResources[dependentResourceName] >= previousDependentQuantity,
-                        -- This message is referring to the getRequiredResources() function the end-user passes in when initializing the Mill,
-                        -- not the Mill's __getRequiredResources() method.
+                        -- The "__" is omitted from the getRequiredResources name, because that's how the end-user passes it in.
                         'getRequiredResources() currently must return larger quantities whenever larger requests are passed in. ' ..
                         'The quantities can never shrink.'
                     )
@@ -154,7 +155,7 @@ function module.collectResources(project, resourcesInInventory_)
     for resourceName, resourceInfo in util.sortedMapTablePairs(resourceMap) do
         if resourceInfo.type == 'mill' then
             local requirementsFulfilled = true
-            local requiredResources = resourceInfo.mill:__getRequiredResources({
+            local requiredResources = resourceInfo.mill.__getRequiredResources({
                 resourceName = resourceName,
                 quantity = resourceInfo.quantity
             })

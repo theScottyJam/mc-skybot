@@ -6,7 +6,6 @@ local util = import('util.lua')
 local time = import('../_time.lua')
 local TaskFactory = import('./_TaskFactory.lua')
 local serializer = import('../_serializer.lua')
-local resourceCollection = import('./_resourceCollection.lua')
 local state = import('../state.lua')
 
 local static = {}
@@ -38,6 +37,10 @@ function static.__getValueOfFarmableResource(resourceName)
     local getWorkToYieldThreshold = resourceValues[resourceName]
     return getWorkToYieldThreshold
 end
+
+-- Triggered with a farm instance as an argument.
+-- Outside modules can subscribe to it, but should not trigger it.
+static.__onActivated = util.createEventEmitter()
 
 --[[
 Inputs:
@@ -95,8 +98,8 @@ function static.register(opts)
     local farm = util.attachPrototype(prototype, {
         _id = id,
         _taskFactory = taskFactory,
-        _calcExpectedYield = calcExpectedYield,
-        _supplies = supplies,
+        __calcExpectedYield = calcExpectedYield,
+        __supplies = supplies,
     })
     serializer.registerValue(id, farm)
     return farm
@@ -110,14 +113,6 @@ function static.__getActiveFarms()
     return farmStateManager:get().activeFarms
 end
 
-function prototype:__calcExpectedYield(elapsedTime)
-    return self._calcExpectedYield(elapsedTime)
-end
-
-function prototype:__resourcesSupplied()
-    return self._supplies
-end
-
 function prototype:activate()
     local farmState = farmStateManager:getAndModify()
     table.insert(farmState.activeFarms, {
@@ -127,7 +122,7 @@ function prototype:activate()
         lastVisited = time.get(),
     })
 
-    resourceCollection.markSupplierAsAvailable(self)
+    static.__onActivated:trigger(self)
 end
 
 function prototype:__createTask()

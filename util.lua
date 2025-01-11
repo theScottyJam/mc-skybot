@@ -274,4 +274,22 @@ function module.assert(condition, message)
     return condition
 end
 
+function module.createEventEmitter()
+    local prototype = {}
+
+    function prototype:subscribe(fn)
+        table.insert(self._listeners, fn)
+    end
+
+    function prototype:trigger(...)
+        for i, fn in ipairs(self._listeners) do
+            fn(table.unpack({ ... }))
+        end
+    end
+
+    return module.attachPrototype(prototype, {
+        _listeners = {},
+    })
+end
+
 return module

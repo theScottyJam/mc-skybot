@@ -6,10 +6,13 @@
 local util = import('util.lua')
 local TaskFactory = import('./_TaskFactory.lua')
 local serializer = import('../_serializer.lua')
-local resourceCollection = import('./_resourceCollection.lua')
 
 local static = {}
 local prototype = {}
+
+-- Triggered with a mill instance as an argument.
+-- Outside modules can subscribe to it, but should not trigger it.
+static.__onActivated = util.createEventEmitter()
 
 --[[
 inputs:
@@ -21,8 +24,6 @@ inputs:
         the shape of { <name> = <quantity>, ... }.
     opts.supplies
         A list of resources the mill is capable of supplying.
-    opts?.onActivated()
-        This gets called when the mill is first activated
     ...taskFactoryOpts
         Any options accepted by the generate-task-factory function
         can also be used here.
@@ -32,11 +33,9 @@ function static.register(opts)
     local id = 'mill:'..opts.id
     local getRequiredResources = opts.getRequiredResources or function() return {} end
     local supplies = opts.supplies
-    local onActivated = opts.onActivated or function() end
     opts.id = nil
     opts.getRequiredResources = nil
     opts.supplies = nil
-    opts.onActivated = nil
 
     local taskFactory = TaskFactory.register(
         util.mergeTables(opts, { id = id })
@@ -45,9 +44,8 @@ function static.register(opts)
     local mill = util.attachPrototype(prototype, {
         _id = id,
         _taskFactory = taskFactory,
-        _getRequiredResources = getRequiredResources,
-        _supplies = supplies,
-        _onActivated = onActivated,
+        __getRequiredResources = getRequiredResources,
+        __supplies = supplies,
     })
     serializer.registerValue(id, mill)
 
@@ -59,20 +57,11 @@ function static.__isInstance(instance)
 end
 
 function prototype:activate()
-    resourceCollection.markSupplierAsAvailable(self)
-    self._onActivated()
+    static.__onActivated:trigger(self)
 end
 
-function prototype:__resourcesSupplied()
-    return self._supplies
-end
-
-function prototype:__getRequiredResources(resourceRequest)
-    return self._getRequiredResources(resourceRequest)
-end
-
-function prototype:__createTask(resourceRequests)
-    return self._taskFactory:createTask(resourceRequests)
+function prototype:__createTask(args)
+    return self._taskFactory:createTask(args)
 end
 
 return static
