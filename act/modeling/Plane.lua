@@ -1,3 +1,7 @@
+--[[
+Contains various functions to inspect 2d ASCII maps.
+]]
+
 local util = import('util.lua')
 local space = import('../space.lua')
 
@@ -23,36 +27,29 @@ function prototype:_getSize()
 end
 
 function prototype:getCmpsAtMarker(markerId)
-    local relCoordFromTopLeft = self._markerIdToMetadata[markerId].relCoordFromTopLeft
-    return self._topLeftCmps.compassAt({
-        forward = -relCoordFromTopLeft.y,
-        right = relCoordFromTopLeft.x,
-    })
+    local cmps = self._markerIdToCmps[markerId]
+    util.assert(cmps ~= nil)
+    return cmps
 end
 
 function prototype:cmpsListFromMarkerSet(markerSetId)
-    local metadataList = self._markerSetIdToMetadataList[markerSetId]
-    return util.mapArrayTable(metadataList, function(metadata)
-        local relCoordFromTopLeft = metadata.relCoordFromTopLeft
-        return self._topLeftCmps.compassAt({
-            forward = -relCoordFromTopLeft.y,
-            right = relCoordFromTopLeft.x,
-        })
-    end)
+    local cmpsList = self._markerSetIdToCmpsList[markerSetId]
+    util.assert(cmpsList ~= nil)
+    return cmpsList
 end
 
 -- Returns a table containing left/forward/right/backward fields, saying how many steps
 -- you have to move to reach (and not cross) a boundary.
 -- For example, A 1x1 grid containing the marker would have all values set to 0.
 function prototype:getBoundsAtMarker(markerId)
-    local relCoordFromTopLeft = self._markerIdToMetadata[markerId].relCoordFromTopLeft
+    local coord = self._markerIdToCmps[markerId].coord
     local dimensions = self:_getSize()
 
     return {
-        left = relCoordFromTopLeft.x,
-        forward = relCoordFromTopLeft.y,
-        right = dimensions.width - relCoordFromTopLeft.x - 1,
-        backward = dimensions.height - relCoordFromTopLeft.y - 1,
+        left = coord.right,
+        forward = -coord.forward,
+        right = dimensions.width - coord.right - 1,
+        backward = dimensions.height + coord.forward - 1,
     }
 end
 
@@ -69,8 +66,8 @@ function prototype:anchorMarker(markerId, coord)
         self,
         {
             _topLeftCmps = space.createCompass({
-                forward = coord.forward - self._markerIdToMetadata[markerId].relCoordFromTopLeft.y,
-                right = coord.right - self._markerIdToMetadata[markerId].relCoordFromTopLeft.x,
+                forward = coord.forward + self._markerIdToCmps[markerId].coord.forward,
+                right = coord.right - self._markerIdToCmps[markerId].coord.right,
                 up = coord.up,
                 face = 'forward',
             }),
@@ -112,15 +109,23 @@ function static.new(opts)
     util.assert(#asciiMap > 0)
     util.assert(#asciiMap[1] > 0)
 
-    local charToIntermediateMarkerData = {} -- Intermediate mapping to help us populate markerIdToMetadata and markerSetIdToMetadataList
-    local markerIdToMetadata = {}
-    local markerSetIdToMetadataList = {}
+    -- The top-left corner is, by default, set to (0,0,0). To change it, call an anchor function.
+    local topLeftCmps = space.createCompass({
+        forward = 0,
+        right = 0,
+        up = 0,
+        face = 'forward',
+    })
+
+    local charToIntermediateMarkerData = {} -- Intermediate mapping to help us populate markerIdToCmps and markerSetIdToCmpsList
+    local markerIdToCmps = {}
+    local markerSetIdToCmpsList = {}
     for markerId, markerConf in util.sortedMapTablePairs(markerConfs or {}) do
         charToIntermediateMarkerData[markerConf.char] = { type = 'marker', id = markerId, conf = markerConf }
     end
     for markerSetId, markerSetConf in util.sortedMapTablePairs(markerSetConfs or {}) do
         charToIntermediateMarkerData[markerSetConf.char] = { type = 'markerSet', id = markerSetId, conf = markerSetConf }
-        markerSetIdToMetadataList[markerSetId] = {}
+        markerSetIdToCmpsList[markerSetId] = {}
     end
 
     for y, row in ipairs(asciiMap) do
@@ -130,44 +135,34 @@ function static.new(opts)
             if intermediateMarkerData ~= nil and intermediateMarkerData.type == 'marker' then
                 local markerId = intermediateMarkerData.id
                 local markerConf = intermediateMarkerData.conf
-                util.assert(markerIdToMetadata[markerId] == nil, 'Marker "'..markerConf.char..'" was found multiple times')
+                util.assert(markerIdToCmps[markerId] == nil, 'Marker "'..markerConf.char..'" was found multiple times')
 
                 local targetOffset = markerConf.targetOffset or {}
-                markerIdToMetadata[markerId] = {
-                    relCoordFromTopLeft = {
-                        x = x - 1 + (targetOffset.x or 0),
-                        y = y - 1 + (targetOffset.y or 0),
-                    }
-                }
+                markerIdToCmps[markerId] = topLeftCmps.compassAt({
+                    forward = -(y - 1 + (targetOffset.y or 0)),
+                    right = x - 1 + (targetOffset.x or 0),
+                })
             elseif intermediateMarkerData ~= nil and intermediateMarkerData.type == 'markerSet' then
                 local markerId = intermediateMarkerData.id
                 local markerConf = intermediateMarkerData.conf
                 util.assert(markerConf.targetOffset == nil, 'targetOffset is currently not supported with marker sets')
-                table.insert(markerSetIdToMetadataList[markerId], {
-                    relCoordFromTopLeft = {
-                        x = x - 1,
-                        y = y - 1,
-                    }
-                })
+                table.insert(markerSetIdToCmpsList[markerId], topLeftCmps.compassAt({
+                    forward = -(y - 1),
+                    right = x - 1,
+                }))
             end
         end
     end
 
     for markerId, markerConf in util.sortedMapTablePairs(markerConfs) do
-        util.assert(markerIdToMetadata[markerId] ~= nil, 'Marker "'..markerConf.char..'" was not found')
+        util.assert(markerIdToCmps[markerId] ~= nil, 'Marker "'..markerConf.char..'" was not found')
     end
 
     return util.attachPrototype(prototype, {
         _asciiMap = asciiMap,
-        _markerIdToMetadata = markerIdToMetadata,
-        _markerSetIdToMetadataList = markerSetIdToMetadataList,
-        -- The top-left corner is, by default, set to (0,0,0). To change it, call an anchor function.
-        _topLeftCmps = space.createCompass({
-            forward = 0,
-            right = 0,
-            up = 0,
-            face = 'forward',
-        })
+        _markerIdToCmps = markerIdToCmps,
+        _markerSetIdToCmpsList = markerSetIdToCmpsList,
+        _topLeftCmps = topLeftCmps,
     })
 end
 
