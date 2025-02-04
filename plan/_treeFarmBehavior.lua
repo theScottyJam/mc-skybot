@@ -4,7 +4,6 @@ local act = import('act/init.lua')
 local module = {}
 
 local navigate = act.navigate
-local navigationPatterns = act.navigationPatterns
 local space = act.space
 local highLevelCommands = act.highLevelCommands
 local curves = act.curves
@@ -34,7 +33,7 @@ function module.harvestTreeFromAbove(opts)
     local topLeafCmps = state.getTurtleCmps().compassAt({ forward=-1, up=-1 })
     local cornerPos = topLeafCmps.posAt({ forward = 1, right = 1, face='backward' })
     navigate.moveToPos(cornerPos, { 'right', 'forward', 'up' })
-    navigationPatterns.spiralInwards({
+    highLevelCommands.spiralInwards({
         sideLength = 3,
         onVisit = function()
             commands.turtle.dig()
@@ -47,7 +46,7 @@ function module.harvestTreeFromAbove(opts)
     navigate.moveToPos(aboveCornerPos, { 'right', 'forward', 'up' })
     commands.turtle.digDown()
     commands.turtle.down()
-    navigationPatterns.spiralInwards({
+    highLevelCommands.spiralInwards({
         sideLength = 5,
         onVisit = function()
             commands.turtle.dig()

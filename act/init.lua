@@ -1,5 +1,5 @@
 return {
-    blueprint = import('./blueprint.lua'),
+    blueprint = import('./modeling/blueprint.lua'),
     commands = import('./commands.lua'),
     curves = import('./curves.lua'),
     Farm = import('./planner/Farm.lua'),
@@ -7,9 +7,9 @@ return {
     Location = import('./Location.lua'),
     Mill = import('./planner/Mill.lua'),
     navigate = import('./navigate.lua'),
-    navigationPatterns = import('./navigationPatterns.lua'),
     Project = import('./planner/Project.lua'),
     space = import('./space.lua'),
     state = import('./state.lua'),
     Plan = import('./planner/Plan.lua'),
+    Plane = import('./modeling/Plane.lua'),
 }

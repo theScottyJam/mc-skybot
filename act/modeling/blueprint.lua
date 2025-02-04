@@ -8,10 +8,10 @@
 -- Also, the coordinates used assume that `z` is up and down, which is different from Minecraft.
 
 local util = import('util.lua')
-local space = import('./space.lua')
-local navigate = import('./navigate.lua')
-local navigationPatterns = import('./navigationPatterns.lua')
-local highLevelCommands = import('./highLevelCommands.lua')
+local space = import('../space.lua')
+local navigate = import('../navigate.lua')
+local highLevelCommands = import('../highLevelCommands.lua')
+local Plane = import('./Plane.lua')
 
 local module = {}
 
@@ -39,8 +39,8 @@ function getBearings(opts)
     local secondaryReferencePointsMap = {}
 
     for z, layer in pairs(layers) do
-        local plane = navigationPatterns.compilePlane({
-            plane = layer,
+        local plane = Plane.new({
+            asciiMap = layer,
             markers = {
                 primaryReferencePoint = { char = ',' },
             },
