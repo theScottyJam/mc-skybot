@@ -10,6 +10,7 @@
 local util = import('util.lua')
 local space = import('./space.lua')
 local navigate = import('./navigate.lua')
+local navigationPatterns = import('./navigationPatterns.lua')
 local highLevelCommands = import('./highLevelCommands.lua')
 
 local module = {}
@@ -38,37 +39,38 @@ function getBearings(opts)
     local secondaryReferencePointsMap = {}
 
     for z, layer in pairs(layers) do
-        local primaryReferencePoint = nil
-        local secondaryReferencePoints = {}
-        local rowLen = nil
-        for y, row in pairs(layer) do
-            if rowLen == nil then
-                rowLen = #row
-            else
-                util.assert(rowLen == #row)
-            end
+        local plane = navigationPatterns.compilePlane({
+            plane = layer,
+            markers = {
+                primaryReferencePoint = { char = ',' },
+            },
+            markerSets = {
+                secondaryReferencePoints = { char = '.' },
+            },
+        })
 
-            for x, cell in util.stringPairs(row) do
-                if cell == ',' then
-                    util.assert(primaryReferencePoint == nil, 'Duplicate primary reference point (,) found in layer '..z)
-                    primaryReferencePoint = { x = x, y = y }
-                elseif cell == '.' then
-                    table.insert(secondaryReferencePoints, { x = x, y = y })
-                end
-            end
-        end
-        util.assert(rowLen ~= nil, 'The rows must have some length to them')
-        util.assert(primaryReferencePoint ~= nil, 'No primary reference point (,) found in layer '..z)
-        table.insert(metadata.layers, { primaryReferencePoint = primaryReferencePoint })
+        local primaryReferencePoint = plane:getCmpsAtMarker('primaryReferencePoint').coord
+        local primaryReferencePointBounds = plane:getBoundsAtMarker('primaryReferencePoint')
+        local secondaryReferencePoints = util.mapArrayTable(
+            plane:cmpsListFromMarkerSet('secondaryReferencePoints'),
+            function (cmps) return cmps.coord end
+        )
 
-        metadata.bounds.left = util.maxNumber(metadata.bounds.left, primaryReferencePoint.x - 1)
-        metadata.bounds.forward = util.maxNumber(metadata.bounds.forward, primaryReferencePoint.y - 1)
-        metadata.bounds.right = util.maxNumber(metadata.bounds.right, rowLen - primaryReferencePoint.x)
-        metadata.bounds.backward = util.maxNumber(metadata.bounds.backward, #layer - primaryReferencePoint.y)
+        table.insert(metadata.layers, {
+            primaryReferencePoint = {
+                x = primaryReferencePoint.right + 1,
+                y = -primaryReferencePoint.forward + 1,
+            }
+        })
 
-        for i, refPoint in pairs(secondaryReferencePoints) do
-            local relX = refPoint.x - primaryReferencePoint.x
-            local relY = refPoint.y - primaryReferencePoint.y
+        metadata.bounds.left = util.maxNumber(metadata.bounds.left, primaryReferencePointBounds.left)
+        metadata.bounds.forward = util.maxNumber(metadata.bounds.forward, primaryReferencePointBounds.forward)
+        metadata.bounds.right = util.maxNumber(metadata.bounds.right, primaryReferencePointBounds.right)
+        metadata.bounds.backward = util.maxNumber(metadata.bounds.backward, primaryReferencePointBounds.backward)
+
+        for i, secondaryReferencePoint in pairs(secondaryReferencePoints) do
+            local relX = secondaryReferencePoint.right - primaryReferencePoint.right
+            local relY = primaryReferencePoint.forward - secondaryReferencePoint.forward
             if secondaryReferencePointsMap[relY] == nil then
                 secondaryReferencePointsMap[relY] = {}
             end
@@ -81,7 +83,7 @@ function getBearings(opts)
 
     for y, row in pairs(secondaryReferencePointsMap) do
         for x, info in pairs(row) do
-            util.assert(info.count > 1,'Found a lone secondary reference point (.) on layer '..info.firstLayerFoundOn)
+            util.assert(info.count > 1, 'Found a lone secondary reference point (.) on layer ' .. info.firstLayerFoundOn)
             table.insert(metadata.secondaryReferencePoints, { x = x, y = y })
         end
     end
@@ -157,7 +159,7 @@ function normalizeMap(opts)
             local y = metadata.layers[z].primaryReferencePoint.y + refPoint.y
             if x >= 1 and y >= 1 and x <= #layer[1] and y <= #layer then
                 local char = string.sub(layer[y], x, x)
-                util.assert(char == '.', 'Expected layer '..z..' to have a reference point at row='..y..' col='..x..'.')
+                util.assert(char == '.', 'Expected layer '..z..' to have a secondary reference point at row='..y..' col='..x..'.')
             end
         end
     end

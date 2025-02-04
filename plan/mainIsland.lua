@@ -764,23 +764,28 @@ local registerHarvestExcessDirtProject = function(opts)
 
             navigate.moveToCoord(digStartCmps.coord, { 'forward', 'up' })
 
-            local dirtPlaneToDig = navigationPatterns.compilePlane({
-                -- "d" marks the dirt to dig
-                -- "D" marks dirt we don't want to dig
-                -- "B" marks bedrock
-                ' ,    ',
-                'dddddd',
-                'dBdddd',
-                'dDdddd',
-                'ddd   ',
-                'ddd   ',
-                'ddd   ',
-            }, { referencePointCmps = digStartCmps })
+            local dirtToDig = navigationPatterns.compilePlane({
+                plane = {
+                    -- "d" marks the dirt to dig
+                    -- "D" marks dirt we don't want to dig
+                    -- "B" marks bedrock
+                    ' !    ',
+                    'dddddd',
+                    'dBdddd',
+                    'dDdddd',
+                    'ddd   ',
+                    'ddd   ',
+                    'ddd   ',
+                },
+                markers = {
+                    digStart = { char = '!' }
+                },
+            }):anchorMarker('digStart', digStartCmps.coord)
 
             navigationPatterns.snake({
-                boundingBoxCoords = { dirtPlaneToDig.topLeftCmps.coord, dirtPlaneToDig.bottomRightCmps.coord },
+                boundingBoxCoords = { dirtToDig:getTopLeftCmps().coord, dirtToDig:getBottomRightCmps().coord },
                 shouldVisit = function(coord)
-                    return dirtPlaneToDig.getCharAt(coord) == 'd'
+                    return dirtToDig:getCharAt(coord) == 'd'
                 end,
                 onVisit = function()
                     commands.turtle.digUp()
