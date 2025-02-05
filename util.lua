@@ -214,7 +214,11 @@ function module.stringPairs(str)
 end
 
 function module.charAt(str, index)
-    return string.sub(str, index, index)
+    local char = string.sub(str, index, index)
+    if char == '' then
+        return nil
+    end
+    return char
 end
 
 function module.joinArrayTable(curTable, sep)

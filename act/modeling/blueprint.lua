@@ -24,21 +24,21 @@ function getBearings(opts)
 
     -- What gets eventually returned.
     local metadata = {
-        -- Contains a list of { primaryReferencePoint = {x=x, y=y} } tables
-        -- These are relative to index 1, 1 of the (unnormalized) layer (not 0, 0 - these coordinates act like layer indices).
+        -- Contains a list of { plane = <plane> } tables
         layers = {},
-        -- List of points relative to the primary reference point
+        -- List of forward/right points relative to the primary reference point
         secondaryReferencePoints = {},
         -- `left = 2` means, starting from the primary reference point, you
         -- can take two steps left and still be in bounds.
         bounds = { left = 0, forward = 0, right = 0, backward = 0 }
     }
 
-    -- Used like secondaryReferencePointMap[y][x] = { count = ..., firstLayerFoundOn = ... }
+    -- Used like secondaryReferencePointMap[forward][right] = { count = ..., firstLayerFoundOn = ... }
+    -- where forward/right are relative to the primary reference point.
     -- Some of this information is used for the returned metadata object, and some is simply used for assertions.
     local secondaryReferencePointsMap = {}
 
-    for z, layer in pairs(layers) do
+    for zIndex, layer in pairs(layers) do
         local plane = Plane.new({
             asciiMap = layer,
             markers = {
@@ -47,44 +47,41 @@ function getBearings(opts)
             markerSets = {
                 secondaryReferencePoints = { char = '.' },
             },
-        })
+        }):anchorMarker('primaryReferencePoint', { forward = 0, right = 0, up = 0 })
 
-        local primaryReferencePoint = plane:getCmpsAtMarker('primaryReferencePoint').coord
         local primaryReferencePointBounds = plane:getBoundsAtMarker('primaryReferencePoint')
         local secondaryReferencePoints = util.mapArrayTable(
             plane:cmpsListFromMarkerSet('secondaryReferencePoints'),
             function (cmps) return cmps.coord end
         )
 
-        table.insert(metadata.layers, {
-            primaryReferencePoint = {
-                x = primaryReferencePoint.right + 1,
-                y = -primaryReferencePoint.forward + 1,
-            }
-        })
+        table.insert(metadata.layers, { plane = plane })
 
         metadata.bounds.left = util.maxNumber(metadata.bounds.left, primaryReferencePointBounds.left)
         metadata.bounds.forward = util.maxNumber(metadata.bounds.forward, primaryReferencePointBounds.forward)
         metadata.bounds.right = util.maxNumber(metadata.bounds.right, primaryReferencePointBounds.right)
         metadata.bounds.backward = util.maxNumber(metadata.bounds.backward, primaryReferencePointBounds.backward)
 
-        for i, secondaryReferencePoint in pairs(secondaryReferencePoints) do
-            local relX = secondaryReferencePoint.right - primaryReferencePoint.right
-            local relY = primaryReferencePoint.forward - secondaryReferencePoint.forward
-            if secondaryReferencePointsMap[relY] == nil then
-                secondaryReferencePointsMap[relY] = {}
+        for i, point in pairs(secondaryReferencePoints) do
+            local refMap = secondaryReferencePointsMap
+            if refMap[point.forward] == nil then
+                refMap[point.forward] = {}
             end
-            if secondaryReferencePointsMap[relY][relX] == nil then
-                secondaryReferencePointsMap[relY][relX] = { count = 0, firstLayerFoundOn = z }
+            if refMap[point.forward][point.right] == nil then
+                refMap[point.forward][point.right] = { count = 0, firstLayerFoundOn = zIndex }
             end
-            secondaryReferencePointsMap[relY][relX].count = secondaryReferencePointsMap[relY][relX].count + 1
+            refMap[point.forward][point.right].count = refMap[point.forward][point.right].count + 1
         end
     end
 
-    for y, row in pairs(secondaryReferencePointsMap) do
-        for x, info in pairs(row) do
-            util.assert(info.count > 1, 'Found a lone secondary reference point (.) on layer ' .. info.firstLayerFoundOn)
-            table.insert(metadata.secondaryReferencePoints, { x = x, y = y })
+    for forward, row in pairs(secondaryReferencePointsMap) do
+        for right, info in pairs(row) do
+            util.assert(
+                info.count > 1,
+                'Found a secondary reference point (.) on layer ' .. info.firstLayerFoundOn
+                .. ' that does not line up with any reference points on any other layer.'
+            )
+            table.insert(metadata.secondaryReferencePoints, { forward = forward, right = right })
         end
     end
 
@@ -120,7 +117,7 @@ function normalizeMap(opts)
     -- These variables get mutated by normalizeCell()
     local requiredResources = {} -- maps block ids to quantity required for the build
     local buildStartCoord = nil
-    local normalizeCell = function(cell, coord)
+    local normalizeCell = function(cell, layersIndex)
         if cell == ' ' or cell == '.' or cell == ',' then
             return empty
         end
@@ -134,9 +131,9 @@ function normalizeMap(opts)
             util.assert(buildStartCoord == nil, 'Two buildStartCoord labels were found.')
             local delta = key[cell].targetOffset or {}
             buildStartCoord = {
-                x = coord.x + (delta.right or 0),
-                y = coord.y - (delta.forward or 0),
-                z = coord.z - (delta.up or 0),
+                x = layersIndex.xIndex + (delta.right or 0),
+                y = layersIndex.yIndex - (delta.forward or 0),
+                z = layersIndex.zIndex - (delta.up or 0),
             }
             return empty
         elseif key[cell].type == 'block' then
@@ -152,15 +149,20 @@ function normalizeMap(opts)
         end
     end
 
-    local verifySecondaryReferencePoints = function(layer, z)
+    local verifySecondaryReferencePoints = function(layer, zIndex)
         for i, refPoint in ipairs(metadata.secondaryReferencePoints) do
-            -- Get coordinates relative to the layer's original 1, 1
-            local x = metadata.layers[z].primaryReferencePoint.x + refPoint.x
-            local y = metadata.layers[z].primaryReferencePoint.y + refPoint.y
-            if x >= 1 and y >= 1 and x <= #layer[1] and y <= #layer then
-                local char = string.sub(layer[y], x, x)
-                util.assert(char == '.', 'Expected layer '..z..' to have a secondary reference point at row='..y..' col='..x..'.')
-            end
+            local char, planeIndex = metadata.layers[zIndex].plane:tryGetCharAt(
+                -- Recalculate the secondary reference point to have an "up" field relative to the layer.
+                {
+                    forward = refPoint.forward,
+                    right = refPoint.right,
+                    up = 0,
+                }
+            )
+            util.assert(
+                char == nil or char == '.',
+                'Expected layer '..zIndex..' to have a secondary reference point at xIndex='..planeIndex.x..' yIndex='..planeIndex.y..'.'
+            )
         end
     end
 
@@ -184,33 +186,36 @@ function normalizeMap(opts)
     end
 
     local newLayers = {}
-    for z, layer in ipairs(layers) do
-        verifySecondaryReferencePoints(layer, z)
+    for zIndex, layer in ipairs(layers) do
+        verifySecondaryReferencePoints(layer, zIndex)
         local newLayer = {}
-        local padTop = metadata.bounds.forward + 1 - metadata.layers[z].primaryReferencePoint.y
+        local layerBounds = metadata.layers[zIndex].plane:getBoundsAtMarker('primaryReferencePoint')
+        local padBottom = metadata.bounds.backward - layerBounds.backward
+        local padTop = overallHeight - #layer - padBottom
         padLayer(newLayer, {
             numOfNewRows = padTop,
             sizeOfRows = overallWidth,
         })
-        for y, row in ipairs(layer) do
+        for yIndex, row in ipairs(layer) do
             local newRow = {}
-            local padLeft = metadata.bounds.left + 1 - metadata.layers[z].primaryReferencePoint.x
+            local padLeft = metadata.bounds.left - layerBounds.left
+            local padRight = overallWidth - #row - padLeft
             padRow(newRow, padLeft)
-            for x, cell in util.stringPairs(row) do
-                -- The x, y, z variables are relative to 1,1,1 of `layers`, while this new coord
+            for xIndex, cell in util.stringPairs(row) do
+                -- The x, y, z variables are relative to 1,1,1 of `layers`, while this new layers-index
                 -- variable is instead relative to 1,1,1 of `newLayers` (i.e. the layers that have extra padding).
-                local coord = {
-                    x = padLeft + x,
-                    y = padTop + y,
-                    z = z,
+                local layersIndex = {
+                    xIndex = padLeft + xIndex,
+                    yIndex = padTop + yIndex,
+                    zIndex = zIndex,
                 }
-                table.insert(newRow, normalizeCell(cell, coord))
+                table.insert(newRow, normalizeCell(cell, layersIndex))
             end
-            padRow(newRow, overallWidth - #row - padLeft)
+            padRow(newRow, padRight)
             table.insert(newLayer, newRow)
         end
         padLayer(newLayer, {
-            numOfNewRows = overallHeight - #layer - padTop,
+            numOfNewRows = padBottom,
             sizeOfRows = overallWidth,
         })
         table.insert(newLayers, newLayer)

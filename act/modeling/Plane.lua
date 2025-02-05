@@ -8,34 +8,39 @@ local space = import('../space.lua')
 local static = {}
 local prototype = {}
 
-function prototype:getTopLeftCmps()
-    return self._topLeftCmps
+function prototype:getBackwardLeftCmps()
+    return self._backwardLeftCmps
 end
 
-function prototype:getBottomRightCmps()
-    return self._topLeftCmps.compassAt({
-        forward = -(#self._asciiMap - 1),
-        right = #self._asciiMap[1] - 1,
+function prototype:getForwardRightCmps()
+    return self._backwardLeftCmps.compassAt({
+        forward = self.height - 1,
+        right = self.width - 1,
     })
-end
-
-function prototype:_getSize()
-    return {
-        width = #self._asciiMap[1],
-        height = #self._asciiMap,
-    }
 end
 
 function prototype:getCmpsAtMarker(markerId)
     local cmps = self._markerIdToCmps[markerId]
     util.assert(cmps ~= nil)
-    return cmps
+    -- Recalculate the cmps against whatever is currently set as the backward-left
+    return self._backwardLeftCmps.compassAt({
+        forward = cmps.coord.forward,
+        right = cmps.coord.right,
+        up = cmps.coord.up,
+    })
 end
 
 function prototype:cmpsListFromMarkerSet(markerSetId)
     local cmpsList = self._markerSetIdToCmpsList[markerSetId]
     util.assert(cmpsList ~= nil)
-    return cmpsList
+    return util.mapArrayTable(cmpsList, function(cmps)
+        -- Recalculate the cmps against whatever is currently set as the backward-left
+        return self._backwardLeftCmps.compassAt({
+            forward = cmps.coord.forward,
+            right = cmps.coord.right,
+            up = cmps.coord.up,
+        })
+    end)
 end
 
 -- Returns a table containing left/forward/right/backward fields, saying how many steps
@@ -43,20 +48,34 @@ end
 -- For example, A 1x1 grid containing the marker would have all values set to 0.
 function prototype:getBoundsAtMarker(markerId)
     local coord = self._markerIdToCmps[markerId].coord
-    local dimensions = self:_getSize()
 
     return {
+        forward = self.height - coord.forward - 1,
+        right = self.width - coord.right - 1,
+        backward = coord.forward,
         left = coord.right,
-        forward = -coord.forward,
-        right = dimensions.width - coord.right - 1,
-        backward = dimensions.height + coord.forward - 1,
     }
 end
 
+-- Attempts to get the character at the coordinate, or returns nil if it is out of bounds.
+-- The second return value is the plane-index used for the lookup. Mostly useful for building error messages.
+function prototype:tryGetCharAt(coord)
+    local deltaCoord = self._backwardLeftCmps.distanceTo(coord)
+    local planeIndex = {
+        x = deltaCoord.right + 1,
+        y = self.height - deltaCoord.forward
+    }
+
+    if deltaCoord.up ~= 0 then return nil, planeIndex end
+    local row = self._asciiMap[planeIndex.y]
+    if row == nil then return nil, planeIndex end
+    local char = util.charAt(row, planeIndex.x)
+    -- char might be nil
+    return char, planeIndex
+end
+
 function prototype:getCharAt(coord)
-    local deltaCoord = self._topLeftCmps.distanceTo(coord)
-    assert(deltaCoord.up == 0)
-    local char = self._asciiMap[-deltaCoord.forward + 1] and util.charAt(self._asciiMap[-deltaCoord.forward + 1], deltaCoord.right + 1)
+    local char = self:tryGetCharAt(coord)
     assert(char ~= nil)
     return char
 end
@@ -65,8 +84,8 @@ function prototype:anchorMarker(markerId, coord)
     return util.attachPrototype(prototype, util.mergeTables(
         self,
         {
-            _topLeftCmps = space.createCompass({
-                forward = coord.forward + self._markerIdToCmps[markerId].coord.forward,
+            _backwardLeftCmps = space.createCompass({
+                forward = coord.forward - self._markerIdToCmps[markerId].coord.forward,
                 right = coord.right - self._markerIdToCmps[markerId].coord.right,
                 up = coord.up,
                 face = 'forward',
@@ -75,11 +94,11 @@ function prototype:anchorMarker(markerId, coord)
     ))
 end
 
-function prototype:anchorTopLeft(coord)
+function prototype:anchorBottomLeft(coord)
     return util.attachPrototype(prototype, util.mergeTables(
         self,
         {
-            _topLeftCmps = space.createCompass({
+            _backwardLeftCmps = space.createCompass({
                 forward = coord.forward,
                 right = coord.right,
                 up = coord.up,
@@ -105,12 +124,13 @@ function static.new(opts)
     local markerConfs = opts.markers or {}
     local markerSetConfs = opts.markerSets or {}
 
-    -- The asciiMap must contain something
-    util.assert(#asciiMap > 0)
-    util.assert(#asciiMap[1] > 0)
+    local width = #asciiMap[1]
+    local height = #asciiMap
+    util.assert(width > 0)
+    util.assert(height > 0)
 
-    -- The top-left corner is, by default, set to (0,0,0). To change it, call an anchor function.
-    local topLeftCmps = space.createCompass({
+    -- The backward-left corner is, by default, set to (0,0,0). To change it, call an anchor function.
+    local backwardLeftCmps = space.createCompass({
         forward = 0,
         right = 0,
         up = 0,
@@ -128,9 +148,9 @@ function static.new(opts)
         markerSetIdToCmpsList[markerSetId] = {}
     end
 
-    for y, row in ipairs(asciiMap) do
-        util.assert(#row == #asciiMap[1], 'All rows must be of the same length')
-        for x, cell in util.stringPairs(row) do
+    for yIndex, row in ipairs(asciiMap) do
+        util.assert(#row == width, 'All rows must be of the same length')
+        for xIndex, cell in util.stringPairs(row) do
             local intermediateMarkerData = charToIntermediateMarkerData[cell]
             if intermediateMarkerData ~= nil and intermediateMarkerData.type == 'marker' then
                 local markerId = intermediateMarkerData.id
@@ -138,17 +158,17 @@ function static.new(opts)
                 util.assert(markerIdToCmps[markerId] == nil, 'Marker "'..markerConf.char..'" was found multiple times')
 
                 local targetOffset = markerConf.targetOffset or {}
-                markerIdToCmps[markerId] = topLeftCmps.compassAt({
-                    forward = -(y - 1 + (targetOffset.y or 0)),
-                    right = x - 1 + (targetOffset.x or 0),
+                markerIdToCmps[markerId] = backwardLeftCmps.compassAt({
+                    forward = height - yIndex + (targetOffset.y or 0),
+                    right = xIndex - 1 + (targetOffset.x or 0),
                 })
             elseif intermediateMarkerData ~= nil and intermediateMarkerData.type == 'markerSet' then
                 local markerId = intermediateMarkerData.id
                 local markerConf = intermediateMarkerData.conf
                 util.assert(markerConf.targetOffset == nil, 'targetOffset is currently not supported with marker sets')
-                table.insert(markerSetIdToCmpsList[markerId], topLeftCmps.compassAt({
-                    forward = -(y - 1),
-                    right = x - 1,
+                table.insert(markerSetIdToCmpsList[markerId], backwardLeftCmps.compassAt({
+                    forward = height - yIndex,
+                    right = xIndex - 1,
                 }))
             end
         end
@@ -159,10 +179,12 @@ function static.new(opts)
     end
 
     return util.attachPrototype(prototype, {
+        width = width,
+        height = height,
         _asciiMap = asciiMap,
         _markerIdToCmps = markerIdToCmps,
         _markerSetIdToCmpsList = markerSetIdToCmpsList,
-        _topLeftCmps = topLeftCmps,
+        _backwardLeftCmps = backwardLeftCmps,
     })
 end
 
