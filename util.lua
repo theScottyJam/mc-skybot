@@ -81,6 +81,15 @@ function module.mapMapTable(curTable, mapFn)
     return newTable
 end
 
+function module.flipMapTable(curTable)
+    local newTable = {}
+    for key, value in pairs(curTable) do
+        module.assert(newTable[value] == nil)
+        newTable[value] = key
+    end
+    return newTable
+end
+
 function module.flatArrayTable(curTable)
     local newTable = {}
     for i, array in ipairs(curTable) do

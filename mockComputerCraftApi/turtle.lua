@@ -403,7 +403,7 @@ local placeAt = function(placeCoord)
         itemBeingPlaced.outputSlot = { size = 1, slots = {} }
         itemBeingPlaced.fuelSlot = { size = 1, slots = {} }
         -- The number of items that will be smelted, with the fuel that was just consumed.
-        -- Decreses by 1 every time the item gets smelted.
+        -- Decreases by 1 every time the item gets smelted.
         itemBeingPlaced.activelySmelting = 0
     end
 

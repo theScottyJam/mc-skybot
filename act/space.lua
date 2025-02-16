@@ -5,7 +5,7 @@
     * coordinate: a forward,right,up coordinate.
     * position: A coordinate and facing combined - it has the fields from both.
     * location: A specific, known point in space that you often travel to. These are managed in Location.lua.
-    * compass: A tool to generate coords/positions/facings from the compass's location. Often abreviated "cmps"
+    * compass: A tool to generate coords/positions/facings from the compass's location. Often abbreviated "cmps"
 ]]
 
 local util = import('util.lua')

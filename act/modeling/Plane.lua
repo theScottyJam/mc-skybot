@@ -14,8 +14,8 @@ end
 
 function prototype:getForwardRightCmps()
     return self._backwardLeftCmps.compassAt({
-        forward = self.height - 1,
-        right = self.width - 1,
+        forward = self.bounds.depth - 1,
+        right = self.bounds.width - 1,
     })
 end
 
@@ -46,38 +46,59 @@ end
 -- Returns a table containing left/forward/right/backward fields, saying how many steps
 -- you have to move to reach (and not cross) a boundary.
 -- For example, A 1x1 grid containing the marker would have all values set to 0.
-function prototype:getBoundsAtMarker(markerId)
+function prototype:borderDistancesAtMarker(markerId)
     local coord = self._markerIdToCmps[markerId].coord
 
     return {
-        forward = self.height - coord.forward - 1,
-        right = self.width - coord.right - 1,
+        forward = self.bounds.depth - coord.forward - 1,
+        right = self.bounds.width - coord.right - 1,
         backward = coord.forward,
         left = coord.right,
     }
 end
 
--- Attempts to get the character at the coordinate, or returns nil if it is out of bounds.
--- The second return value is the plane-index used for the lookup. Mostly useful for building error messages.
-function prototype:tryGetCharAt(coord)
+-- May return nil if it is out of range
+function prototype:planeIndexFromCoord(coord)
     local deltaCoord = self._backwardLeftCmps.distanceTo(coord)
     local planeIndex = {
         x = deltaCoord.right + 1,
-        y = self.height - deltaCoord.forward
+        y = self.bounds.depth - deltaCoord.forward
     }
 
-    if deltaCoord.up ~= 0 then return nil, planeIndex end
+    local inBounds = (
+        planeIndex.x >= 1 and
+        planeIndex.x <= self.bounds.width and
+        planeIndex.y >= 1 and
+        planeIndex.y <= self.bounds.depth and
+        deltaCoord.up == 0
+    )
+
+    if not inBounds then
+        return nil
+    end
+    return planeIndex
+end
+
+--<-- Continue to return the planeIndex, or have callers use the dedicated function to get it if they want it?
+--<-- The planeIndex return value makes more sense on getCharAt() instead of tryGetCharAt(), because this it won't be nil
+-- Attempts to get the character at the coordinate, or returns nil if it is out of bounds.
+-- The second return value is the plane-index used for the lookup. Mostly useful for building error messages.
+function prototype:tryGetCharAt(coord)
+    local planeIndex = self:planeIndexFromCoord(coord)
+    if planeIndex == nil then
+        return nil, planeIndex
+    end
+
     local row = self._asciiMap[planeIndex.y]
-    if row == nil then return nil, planeIndex end
     local char = util.charAt(row, planeIndex.x)
-    -- char might be nil
     return char, planeIndex
 end
 
+--<-- Keep the double return?
 function prototype:getCharAt(coord)
-    local char = self:tryGetCharAt(coord)
-    assert(char ~= nil)
-    return char
+    local char, planeIndex = self:tryGetCharAt(coord)
+    assert(char ~= nil, 'Attempted to get an out-of-bounds character in the plane')
+    return char, planeIndex
 end
 
 function prototype:anchorMarker(markerId, coord)
@@ -91,7 +112,7 @@ function prototype:anchorMarker(markerId, coord)
                 face = 'forward',
             }),
         }
-    ))
+    )):_init()
 end
 
 function prototype:anchorBottomLeft(coord)
@@ -105,7 +126,7 @@ function prototype:anchorBottomLeft(coord)
                 face = 'forward',
             }),
         }
-    ))
+    )):_init()
 end
 
 --[[
@@ -125,9 +146,9 @@ function static.new(opts)
     local markerSetConfs = opts.markerSets or {}
 
     local width = #asciiMap[1]
-    local height = #asciiMap
+    local depth = #asciiMap
     util.assert(width > 0)
-    util.assert(height > 0)
+    util.assert(depth > 0)
 
     -- The backward-left corner is, by default, set to (0,0,0). To change it, call an anchor function.
     local backwardLeftCmps = space.createCompass({
@@ -159,7 +180,7 @@ function static.new(opts)
 
                 local targetOffset = markerConf.targetOffset or {}
                 markerIdToCmps[markerId] = backwardLeftCmps.compassAt({
-                    forward = height - yIndex + (targetOffset.y or 0),
+                    forward = depth - yIndex + (targetOffset.y or 0),
                     right = xIndex - 1 + (targetOffset.x or 0),
                 })
             elseif intermediateMarkerData ~= nil and intermediateMarkerData.type == 'markerSet' then
@@ -167,7 +188,7 @@ function static.new(opts)
                 local markerConf = intermediateMarkerData.conf
                 util.assert(markerConf.targetOffset == nil, 'targetOffset is currently not supported with marker sets')
                 table.insert(markerSetIdToCmpsList[markerId], backwardLeftCmps.compassAt({
-                    forward = height - yIndex,
+                    forward = depth - yIndex,
                     right = xIndex - 1,
                 }))
             end
@@ -180,12 +201,30 @@ function static.new(opts)
 
     return util.attachPrototype(prototype, {
         width = width,
-        height = height,
+        depth = depth,
         _asciiMap = asciiMap,
         _markerIdToCmps = markerIdToCmps,
         _markerSetIdToCmpsList = markerSetIdToCmpsList,
         _backwardLeftCmps = backwardLeftCmps,
-    })
+    }):_init()
+end
+
+function prototype:_init()
+    --<-- I believe all of these are actually unused at the moment
+    local width = #self._asciiMap[1]
+    local depth = #self._asciiMap
+    self.bounds = {
+        width = width,
+        depth = depth,
+        -- All inclusive
+        left = self._backwardLeftCmps.coord.right,
+        backward = self._backwardLeftCmps.coord.forward,
+        right = self._backwardLeftCmps.coord.right + width - 1,
+        forward = self._backwardLeftCmps.coord.forward + depth - 1,
+        up = self._backwardLeftCmps.coord.up,
+        down = self._backwardLeftCmps.coord.up,
+    }
+    return self
 end
 
 return static

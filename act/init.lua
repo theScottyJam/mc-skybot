@@ -12,4 +12,5 @@ return {
     state = import('./state.lua'),
     Plan = import('./planner/Plan.lua'),
     Plane = import('./modeling/Plane.lua'),
+    Region = import('./modeling/Region.lua'),
 }
