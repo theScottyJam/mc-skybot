@@ -69,6 +69,6 @@ Unit of work: A measurement of how much work it takes to accomplish a task. Used
 
 # Coding Practices
 
-Whenever a function uses the work "register" in its name, it means the function should only be called while the project is being started up, before we've attempted to deserialize the saved state of the turtle. This is because many of these register functions either directly or indirectly register tables and functions with the deserializer, to allow the deserializer to use those registered values as it works.
+Whenever a function uses the word "register" in its name, it means the function should only be called while the project is being started up, before we've attempted to deserialize the saved state of the turtle. This is because many of these register functions either directly or indirectly register tables and functions with the deserializer, to allow the deserializer to use those registered values as it works.
 
 A function in act/ that starts with `__` is intended to be treated as "package-private", i.e. any file within act/ is welcome to use the `__` method, but anything outside should not.

@@ -1,43 +1,20 @@
---<-- This still needs to be here?
--- The coordinates used internally within this module are
--- often not the standard { forward=..., right=..., up=... } coordinates.
--- Instead they're { x=..., y=..., z=... } coordinates that are often relative to the
--- tables they index (which could mean different
--- things depending on which table they're intended to index).
--- The origin point is { x=1, y=1, z=1 } (not zeros), as that is the first index in the tables.
---
--- Also, the coordinates used assume that `z` is up and down, which is different from Minecraft.
-
---<-- Remove any imports?
 local util = import('util.lua')
 local space = import('../space.lua')
 local navigate = import('../navigate.lua')
 local highLevelCommands = import('../highLevelCommands.lua')
-local Plane = import('./Plane.lua')
 local Region = import('./Region.lua')
 
 local module = {}
 
---<-- We don't actually need a normalizedMap anymore, but we still depend on the other return values of this function.
---<-- We ought to rename this function. It's already been simplified some, but maybe there's more that can be done?
 -- See the end of this function for documentation on what it returns
-local normalizeMap = function(region, opts) --<-- Do I still need to pass in the same opts with the region?
-    local blockKey = opts.key --<-- Rename variable to `mapKey`
+local examineMap = function(region, opts)
+    local mapKey = opts.mapKey
     local labeledPositions = opts.labeledPositions
-    local layers = opts.layers
 
-    local bounds = region.bounds
-
-    --<-- In module.create(), I flip the key table around. I could probably pass in that flipped table and use that
-    --<-- as a partial replacement for some of this stuff
-    -- Maps characters found in the layers into what they represent (either blocks or labels).
-    local key = {}
-    for id, char in pairs(blockKey) do
-        key[char] = { type = 'block', id = id }
-    end
+    -- Converts labeledPositions into a lookup table.
+    local labelKey = {}
     for name, info in pairs(labeledPositions) do
-        key[info.char] = {
-            type = 'label',
+        labelKey[info.char] = {
             name = name,
             behavior = info.behavior,
             targetOffset = info.targetOffset, -- might be nil
@@ -49,26 +26,18 @@ local normalizeMap = function(region, opts) --<-- Do I still need to pass in the
     local buildStartCoord = nil
 
     region:forEachFilledCell(function (cell, coord)
-        if cell == '.' or cell == ',' then
-            return
-        end
-
-        util.assert(
-            key[cell] ~= nil,
-            'Found the character "'..cell..'" in a blueprint, which did not have a corresponding ID in the key.'
-        )
-        if key[cell].type == 'label' then
-            util.assert(key[cell].behavior == 'buildStartCoord', 'For now, a label must have a behavior set to "buildStartCoord"')
+        if labelKey[cell] ~= nil then
+            util.assert(labelKey[cell].behavior == 'buildStartCoord', 'For now, a label must have a behavior set to "buildStartCoord"')
             util.assert(buildStartCoord == nil, 'Two buildStartCoord labels were found.')
-            local delta = key[cell].targetOffset or {}
+            local delta = labelKey[cell].targetOffset or {}
             buildStartCoord = {
                 forward = coord.forward + (delta.forward or 0),
                 right = coord.right + (delta.right or 0),
                 up = coord.up + (delta.up or 0),
             }
             return
-        elseif key[cell].type == 'block' then
-            local id = key[cell].id
+        elseif mapKey[cell] ~= nil then
+            local id = mapKey[cell]
             if requiredResources[id] == nil then
                 requiredResources[id] = 0
             end
@@ -76,7 +45,7 @@ local normalizeMap = function(region, opts) --<-- Do I still need to pass in the
 
             return
         else
-            error('Invalid type')
+            error('Found the character "'..cell..'" in a blueprint, which did not have a corresponding ID in the key.')
         end
     end)
 
@@ -146,77 +115,72 @@ local nextCoordToVisit = function (region, mapKey, previousCoord)
     return nil
 end
 
--- Behavior of special characters
---   The "," is a "primary reference point". It can be thought of as the origin point for each layer.
---     Because the sizes of the layers provided may differ from layer to layer, it's important to have
---     an origin point in each layer so we know what everything is relative to.
---   The "." is a "secondary reference point". You can place these anywhere you want on a particular layer,
---     but wherever you place them, you'll be required to place a "." in the exact same location on every other
---     layer (unless this particular layer definition is smaller than others, and the "." would fall outside of the definition area).
---     Its purpose is to just provide further reference points to help you eyeball things and make sure
---     everything is where it belongs.
+-- Note that "." and "," have special behaviors to make sure things line up as you construct the blueprint.
+-- See Region.lua for more information.
 --
 -- You are required to place a buildStartCoord label somewhere in the area. This label marks where the turtle will start
 -- when it works on the project. The label should be placed at an edge, and there should be a column of empty space above it.
 function module.create(opts) -- opts should contain { key=..., labeledPositions=..., layers=... }
     local mapKey = util.flipMapTable(opts.key) -- Flips the key so it maps characters to ids, which is more useful internally.
-    local region = Region.new({
+    local relRegion = Region.new({
         layeredAsciiMap = opts.layers
     })
-    local bounds = region.bounds
-    local normalizeMapResult = normalizeMap(region, opts)
-    local requiredResources = normalizeMapResult.requiredResources
-    local buildStartRelCoord = normalizeMapResult.buildStartCoord
+    local examineMapResult = examineMap(relRegion, {
+        labeledPositions = opts.labeledPositions,
+        mapKey = mapKey,
+    })
+    local requiredResources = examineMapResult.requiredResources
+    local buildStartRelCoord = examineMapResult.buildStartCoord -- Relative to the 1,1,1 coordinate of the blueprint.
 
-    return {
-        requiredResources = util.mapMapTable(requiredResources, function(quantity)
-            return { quantity=quantity, at='INVENTORY' }
-        end),
-        createTaskState = function(buildStartCmps)
-            local absOriginPos = buildStartCmps.compassAt({
-                forward = -buildStartRelCoord.forward,
-                right = -buildStartRelCoord.right,
-                up = -buildStartRelCoord.up,
-            }).pos
+    return function(buildStartCmps)
+        local region = relRegion:anchorBackwardBottomLeft(buildStartCmps.compassAt({
+            forward = -buildStartRelCoord.forward,
+            right = -buildStartRelCoord.right,
+            up = -buildStartRelCoord.up,
+        }).coord)
 
-            local nextCoord = nextCoordToVisit(region, mapKey)
-            util.assert(nextCoord ~= nil, 'Attempted to use an empty blueprint')
-            return {
-                -- `origin` is the absolute position of the 1,1,1 position of the blueprint.
-                absOriginPos = absOriginPos,
-                buildStartPos = buildStartCmps.pos,
-                nextCoord = nextCoord,
-            }
-        end,
-        enter = function(taskState)
-            navigate.assertAtPos(taskState.buildStartPos)
-        end,
-        exit = function(taskState, info)
-            navigate.moveToPos(taskState.buildStartPos, {'forward', 'right', 'up'})
-        end,
-        nextSprint = function(taskState)
-            local nextTaskState = util.copyTable(taskState)
-            local originCmps = space.createCompass(taskState.absOriginPos)
-            local targetCoord = taskState.nextCoord
+        return {
+            requiredResources = util.mapMapTable(requiredResources, function(quantity)
+                return { quantity=quantity, at='INVENTORY' }
+            end),
+            createTaskState = function()
+                local nextCoord = nextCoordToVisit(region, mapKey)
+                util.assert(nextCoord ~= nil, 'Attempted to use an empty blueprint')
+                return {
+                    buildStartPos = buildStartCmps.pos,
+                    nextCoord = nextCoord,
+                }
+            end,
+            enter = function(taskState)
+                navigate.assertAtPos(taskState.buildStartPos)
+            end,
+            exit = function(taskState, info)
+                navigate.moveToPos(taskState.buildStartPos, {'forward', 'right', 'up'})
+            end,
+            nextSprint = function(taskState)
+                local nextTaskState = util.copyTable(taskState)
+                local targetCoord = taskState.nextCoord
 
-            local targetCmps = originCmps.compassAt({
-                forward = targetCoord.forward,
-                right = targetCoord.right,
-                up = targetCoord.up,
-            })
+                local targetChar = region:getCharAt(targetCoord)
+                util.assert(mapKey[targetChar])
 
-            local targetChar = region:getCharAt(targetCoord)
-            util.assert(mapKey[targetChar])
+                navigate.moveToCoord(
+                    {
+                        forward = targetCoord.forward,
+                        right = targetCoord.right,
+                        up = targetCoord.up + 1,
+                        face = 'forward',
+                    },
+                    {'up', 'right', 'forward'}
+                )
+                highLevelCommands.placeItemDown(mapKey[targetChar])
 
-            navigate.moveToCoord(targetCmps.coordAt({ up = 1 }), {'up', 'right', 'forward'})
-            highLevelCommands.placeItemDown(mapKey[targetChar])
-
-            --<-- Consider passing in an anchored region, instead of doing math on the returned coord
-            nextTaskState.nextCoord = nextCoordToVisit(region, mapKey, taskState.nextCoord)
-            util.mergeTablesInPlace(taskState, nextTaskState)
-            return nextTaskState.nextCoord == nil
-        end,
-    }
+                nextTaskState.nextCoord = nextCoordToVisit(region, mapKey, taskState.nextCoord)
+                util.mergeTablesInPlace(taskState, nextTaskState)
+                return nextTaskState.nextCoord == nil
+            end,
+        }
+    end
 end
 
 return module

@@ -117,7 +117,7 @@ end
 -- indicis are available for that layer, even if the region itself is much wider.
 -- May return nil if it is out of range
 function prototype:regionIndexFromCoord(coord)
-    local deltaCoord = self._backwardLeftBottomCmps.distanceTo(coord)
+    local deltaCoord = self._backwardBottomLeftCmps.distanceTo(coord)
     -- This is what the region index would be if all layers were the same size
     local regionIndex_ = {
         x = deltaCoord.right + 1,
@@ -166,7 +166,7 @@ function prototype:coordFromRegionIndex(regionIndex)
         z = regionIndex.z,
     }
 
-    return self._backwardLeftBottomCmps.coordAt({
+    return self._backwardBottomLeftCmps.coordAt({
         forward = self.bounds.depth - regionIndex_.y,
         right = regionIndex_.x - 1,
         up = self.bounds.height - regionIndex_.z,
@@ -199,18 +199,32 @@ function prototype:getCharAt(coord)
     return char, regionIndex, wasUndefined
 end
 
---<-- Iterates over every cell in the region (ignoring empty space)
 --<-- Plane.lua could benefit from something like this as well - I believe there's code that's manually looping over its bounds.
+-- Iterates over every cell in the region (ignoring empty space, ",", and ".")
 function prototype:forEachFilledCell(fn)
     for zIndex, layer in ipairs(self._layeredAsciiMap) do
         for yIndex, row in ipairs(layer) do
             for xIndex, cell in util.stringPairs(row) do
-                if cell ~= ' ' then
+                if cell ~= ' ' and cell ~= ',' and cell ~= '.' then
                     fn(cell, self:coordFromRegionIndex({ x = xIndex, y = yIndex, z = zIndex }))
                 end
             end
         end
     end
+end
+
+function prototype:anchorBackwardBottomLeft(coord)
+    return util.attachPrototype(prototype, util.mergeTables(
+        self,
+        {
+            _backwardBottomLeftCmps = space.createCompass({
+                forward = coord.forward,
+                right = coord.right,
+                up = coord.up,
+                face = 'forward',
+            }),
+        }
+    )):_init()
 end
 
 --[[
@@ -223,12 +237,12 @@ Inputs:
 function static.new(opts)
     --<-- Document: "." and "," are reserved markers
     local layeredAsciiMap = opts.layeredAsciiMap
-    -- local markers = opts.markers --<-- Not yet implemented
+    -- local markers = opts.markers --<-- --<-- Not yet implemented
 
     local metadata = getBearings(layeredAsciiMap)
 
-    -- The backward-left-bottom corner is, by default, set to (0,0,0). To change it, call an anchor function. --<-- TODO: No such anchor functions exist yet
-    local backwardLeftBottomCmps = space.createCompass({
+    -- The backward-bottom-left corner is, by default, set to (0,0,0). To change it, call an anchor function.
+    local backwardBottomLeftCmps = space.createCompass({
         forward = 0,
         right = 0,
         up = 0,
@@ -238,7 +252,7 @@ function static.new(opts)
     return util.attachPrototype(prototype, {
         _metadata = metadata, --<-- Needed?
         _layeredAsciiMap = layeredAsciiMap, --<-- Needed?
-        _backwardLeftBottomCmps = backwardLeftBottomCmps,
+        _backwardBottomLeftCmps = backwardBottomLeftCmps,
     }):_init()
 end
 
@@ -251,12 +265,12 @@ function prototype:_init()
         depth = depth,
         height = height,
         -- All inclusive
-        left = self._backwardLeftBottomCmps.coord.right,
-        backward = self._backwardLeftBottomCmps.coord.forward,
-        down = self._backwardLeftBottomCmps.coord.up,
-        right = self._backwardLeftBottomCmps.coord.right + width - 1,
-        forward = self._backwardLeftBottomCmps.coord.forward + depth - 1,
-        up = self._backwardLeftBottomCmps.coord.up + height - 1,
+        left = self._backwardBottomLeftCmps.coord.right,
+        backward = self._backwardBottomLeftCmps.coord.forward,
+        down = self._backwardBottomLeftCmps.coord.up,
+        right = self._backwardBottomLeftCmps.coord.right + width - 1,
+        forward = self._backwardBottomLeftCmps.coord.forward + depth - 1,
+        up = self._backwardBottomLeftCmps.coord.up + height - 1,
     }
     return self
 end

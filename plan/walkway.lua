@@ -4,7 +4,7 @@ local navigate = act.navigate
 
 local module = {}
 
-local leftRightWalkway = act.blueprint.create({
+local leftRightWalkwayBlueprint = act.blueprint.create({
     key = {
         ['minecraft:smoothStone'] = 's',
         ['minecraft:stoneBricks'] = 's',
@@ -40,7 +40,7 @@ local leftRightWalkway = act.blueprint.create({
     }
 })
 
-local leftDownWalkway = act.blueprint.create({
+local leftDownWalkwayBlueprint = act.blueprint.create({
     key = {
         ['minecraft:smoothStone'] = 's',
         ['minecraft:stoneBricks'] = 's',
@@ -76,7 +76,7 @@ local leftDownWalkway = act.blueprint.create({
     }
 })
 
-local leftDownRightWalkway = act.blueprint.create({
+local leftDownRightWalkwayBlueprint = act.blueprint.create({
     key = {
         ['minecraft:smoothStone'] = 's',
         ['minecraft:stoneBricks'] = 's',

@@ -64,30 +64,32 @@ function registerFunctionalScaffoldingProject(opts)
     local treeFarmEntranceLoc = opts.treeFarmEntranceLoc
     local treeFarm = opts.treeFarm
 
+    local functionalScaffolding = functionalScaffoldingBlueprint(treeFarmEntranceLoc.cmps)
+
     return act.Project.register({
         id = 'basicTreeFarm:createFunctionalScaffolding',
         init = function(self)
             -- mutable state
-            self.taskState = functionalScaffoldingBlueprint.createTaskState(treeFarmEntranceLoc.cmps)
+            self.taskState = functionalScaffolding.createTaskState()
         end,
         before = function(self)
             Location.addPath(homeLoc, treeFarmEntranceLoc)
         end,
         enter = function(self)
             treeFarmEntranceLoc:travelHere()
-            functionalScaffoldingBlueprint.enter(self.taskState)
+            functionalScaffolding.enter(self.taskState)
         end,
         exit = function(self)
-            functionalScaffoldingBlueprint.exit(self.taskState)
+            functionalScaffolding.exit(self.taskState)
             navigate.assertAtPos(treeFarmEntranceLoc.cmps.pos)
         end,
         after = function(self)
             treeFarm:activate()
         end,
         nextSprint = function(self)
-            return functionalScaffoldingBlueprint.nextSprint(self.taskState)
+            return functionalScaffolding.nextSprint(self.taskState)
         end,
-        requiredResources = functionalScaffoldingBlueprint.requiredResources,
+        requiredResources = functionalScaffolding.requiredResources,
     })
 end
 
