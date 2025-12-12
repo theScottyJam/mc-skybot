@@ -6,57 +6,20 @@ local Region = import('./Region.lua')
 
 local module = {}
 
--- See the end of this function for documentation on what it returns
-local examineMap = function(region, opts)
-    local mapKey = opts.mapKey
-    local labeledPositions = opts.labeledPositions
-
-    -- Converts labeledPositions into a lookup table.
-    local labelKey = {}
-    for name, info in pairs(labeledPositions) do
-        labelKey[info.char] = {
-            name = name,
-            behavior = info.behavior,
-            targetOffset = info.targetOffset, -- might be nil
-        }
-    end
-
-    -- These variables get mutated by normalizeCell()
+local calcRequiredResources = function(region, mapKey)
     local requiredResources = {} -- maps block ids to quantity required for the build
-    local buildStartCoord = nil
-
     region:forEachFilledCell(function (cell, coord)
-        if labelKey[cell] ~= nil then
-            util.assert(labelKey[cell].behavior == 'buildStartCoord', 'For now, a label must have a behavior set to "buildStartCoord"')
-            util.assert(buildStartCoord == nil, 'Two buildStartCoord labels were found.')
-            local delta = labelKey[cell].targetOffset or {}
-            buildStartCoord = {
-                forward = coord.forward + (delta.forward or 0),
-                right = coord.right + (delta.right or 0),
-                up = coord.up + (delta.up or 0),
-            }
-            return
-        elseif mapKey[cell] ~= nil then
-            local id = mapKey[cell]
-            if requiredResources[id] == nil then
-                requiredResources[id] = 0
-            end
-            requiredResources[id] = requiredResources[id] + 1
+        util.assert(mapKey[cell] ~= nil, 'Found the character "'..cell..'" in a blueprint, which did not have a corresponding ID in the key.')
 
-            return
-        else
-            error('Found the character "'..cell..'" in a blueprint, which did not have a corresponding ID in the key.')
+        local id = mapKey[cell]
+        if requiredResources[id] == nil then
+            requiredResources[id] = 0
         end
+        requiredResources[id] = requiredResources[id] + 1
     end)
 
-    util.assert(buildStartCoord ~= nil, 'A buildStartCoord coord must be placed somewhere in the blueprint.')
-    -- (As promised by the comments above this function definition, this is some documentation on each property)
-    return {
-        -- Maps block IDs to the quantity of them found in the blueprint.
-        requiredResources = requiredResources,
-        -- A coordinate relative from 1,1,1 to the build start coordinate.
-        buildStartCoord = buildStartCoord,
-    }
+    -- Maps block IDs to the quantity of them found in the blueprint.
+    return requiredResources
 end
 
 -- The return coordinate is relative to the 1,1,1 of the entire blueprint
@@ -121,23 +84,29 @@ end
 -- You are required to place a buildStartCoord label somewhere in the area. This label marks where the turtle will start
 -- when it works on the project. The label should be placed at an edge, and there should be a column of empty space above it.
 function module.create(opts) -- opts should contain { key=..., labeledPositions=..., layers=... }
-    local mapKey = util.flipMapTable(opts.key) -- Flips the key so it maps characters to ids, which is more useful internally.
+    local key = opts.key
+    local layers = opts.layers
+    local labeledPositions = opts.labeledPositions
+
+    util.assert(util.tableSize(labeledPositions) == 1, 'Regions only support one buildStartCoord behavior for now, nothing else.')
+    labelName, labelOpts = util.getAnEntry(labeledPositions)
+    util.assert(labelOpts.behavior == 'buildStartCoord', 'For now, a label must have a behavior set to "buildStartCoord"')
+
+    local mapKey = util.flipMapTable(key) -- Flips the key so it maps characters to ids, which is more useful internally.
     local relRegion = Region.new({
-        layeredAsciiMap = opts.layers
+        layeredAsciiMap = layers,
+        markers = {
+            [labelName] = {
+                char = labelOpts.char,
+                targetOffset = labelOpts.targetOffset,
+            }
+        }
     })
-    local examineMapResult = examineMap(relRegion, {
-        labeledPositions = opts.labeledPositions,
-        mapKey = mapKey,
-    })
-    local requiredResources = examineMapResult.requiredResources
-    local buildStartRelCoord = examineMapResult.buildStartCoord -- Relative to the 1,1,1 coordinate of the blueprint.
+
+    local requiredResources = calcRequiredResources(relRegion, mapKey)
 
     return function(buildStartCmps)
-        local region = relRegion:anchorBackwardBottomLeft(buildStartCmps.compassAt({
-            forward = -buildStartRelCoord.forward,
-            right = -buildStartRelCoord.right,
-            up = -buildStartRelCoord.up,
-        }).coord)
+        local region = relRegion:anchorMarker(labelName, buildStartCmps.coord)
 
         return {
             requiredResources = util.mapMapTable(requiredResources, function(quantity)

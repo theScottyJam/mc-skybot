@@ -196,14 +196,26 @@ function module.splitString(inputstr, sep)
     return newTable
 end
 
--- Like pairs(), but it will sort the keys to provide a deterministic iteration
--- order. This has O(n).
+-- Like pairs(), but it will sort the keys to provide a deterministic iteration order.
 function module.sortedMapTablePairs(mapTable)
+    local entries = module.sortedMapTablePairList(mapTable)
+    return module.iterEntryList(entries)
+end
+
+-- The first half of the sortedMapTablePairs() operation - can be used to pre-cache
+-- the response so you don't have to keep re-sorting it. Can also be used if you
+-- simply want a list instead of an iterator.
+function module.sortedMapTablePairList(mapTable)
     local entries = {}
     for key, value in pairs(mapTable) do
         table.insert(entries, {key, value})
     end
     table.sort(entries, function (a, b) return a[1] < b[1] end)
+    return entries
+end
+
+-- The second half of the sortedMapTablePairs() operation.
+function module.iterEntryList(entries)
     local i = 0
     return function()
         i = i + 1

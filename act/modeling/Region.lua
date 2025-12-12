@@ -20,17 +20,18 @@ local static = {}
 local prototype = {}
 
 -- Returns metadata about the layers.
--- Overall, it includes information about where the reference points
+-- Overall, it includes information about where the reference points and markers
 -- are, and how large of a region this blueprint will take up.
 -- Specific details about the return value are documented inside.
-local getBearings = function(layeredAsciiMap)
+local getBearings = function(layeredAsciiMap, markers)
     -- What gets eventually returned.
     local metadata = {
         -- Contains a list of { plane = <plane> } tables
         layers = {},
         -- `left = 2` means, starting from the primary reference point, you
         -- can take two steps left and still be in bounds.
-        primaryRefBorderDistances = { left = 0, forward = 0, right = 0, backward = 0 }
+        primaryRefBorderDistances = { left = 0, forward = 0, right = 0, backward = 0 },
+        markerIdToCmps = {}
     }
 
     -- Used like secondaryReferencePointMap[forward][right] = { count = ..., firstLayerFoundOn = ... }
@@ -38,12 +39,19 @@ local getBearings = function(layeredAsciiMap)
     -- Some of this information is used for the returned metadata object, and some is simply used for assertions.
     local secondaryReferencePointsMap = {}
 
+    local markerEntries = util.sortedMapTablePairList(markers)
+
     for zIndex, layer in pairs(layeredAsciiMap) do
         local plane = Plane.new({
             asciiMap = layer,
-            markers = {
-                primaryReferencePoint = { char = ',' },
-            },
+            markers = util.mergeTables(
+                util.mapMapTable(markers, function (value)
+                    return util.mergeTables(value, { optional = true })
+                end),
+                {
+                    primaryReferencePoint = { char = ',' },
+                }
+            ),
             markerSets = {
                 secondaryReferencePoints = { char = '.' },
             },
@@ -72,6 +80,24 @@ local getBearings = function(layeredAsciiMap)
             end
             refMap[point.forward][point.right].count = refMap[point.forward][point.right].count + 1
         end
+    end
+
+    for i, layer in pairs(metadata.layers) do
+        for markerId, markerConf in util.iterEntryList(markerEntries) do
+            if layer.plane:hasMarker(markerId) then
+                util.assert(metadata.markerIdToCmps[markerId] == nil, 'Marker "'..markerConf.char..'" was found multiple times')
+                local cmpsRelToPrimaryRefPoint = layer.plane:getCmpsAtMarker(markerId)
+                metadata.markerIdToCmps[markerId] = cmpsRelToPrimaryRefPoint.compassAt({
+                    forward = metadata.primaryRefBorderDistances.backward,
+                    right = metadata.primaryRefBorderDistances.left,
+                    up = i - 1,
+                })
+            end
+        end
+    end
+
+    for markerId, markerConf in util.iterEntryList(markerEntries) do
+        util.assert(metadata.markerIdToCmps[markerId] ~= nil, 'Marker "'..markerConf.char..'" was not found')
     end
 
     -- List of forward/right points relative to the primary reference point
@@ -110,6 +136,18 @@ local getBearings = function(layeredAsciiMap)
     end
 
     return metadata
+end
+
+--<-- unused
+function prototype:getCmpsAtMarker(markerId)
+    local cmps = self._metadata.markerIdToCmps[markerId]
+    util.assert(cmps ~= nil, 'The marker '..markerId..' does not exist.')
+    -- Recalculate the cmps against whatever is currently set as the backward-left
+    return self._backwardBottomLeftCmps.compassAt({
+        forward = cmps.coord.forward,
+        right = cmps.coord.right,
+        up = cmps.coord.up,
+    })
 end
 
 --<-- This function doesn't make much sense for regions - each layer can be a different size, but this function will allow any coord-to-index conversion as long as it is in bounds.
@@ -200,12 +238,12 @@ function prototype:getCharAt(coord)
 end
 
 --<-- Plane.lua could benefit from something like this as well - I believe there's code that's manually looping over its bounds.
--- Iterates over every cell in the region (ignoring empty space, ",", and ".")
+-- Iterates over every cell in the region (ignoring empty space and markers)
 function prototype:forEachFilledCell(fn)
     for zIndex, layer in ipairs(self._layeredAsciiMap) do
         for yIndex, row in ipairs(layer) do
             for xIndex, cell in util.stringPairs(row) do
-                if cell ~= ' ' and cell ~= ',' and cell ~= '.' then
+                if cell ~= ' ' and cell ~= ',' and cell ~= '.' and not util.tableContains(self._markerChars, cell) then
                     fn(cell, self:coordFromRegionIndex({ x = xIndex, y = yIndex, z = zIndex }))
                 end
             end
@@ -213,6 +251,21 @@ function prototype:forEachFilledCell(fn)
     end
 end
 
+function prototype:anchorMarker(markerId, coord)
+    return util.attachPrototype(prototype, util.mergeTables(
+        self,
+        {
+            _backwardBottomLeftCmps = space.createCompass({
+                forward = coord.forward - self._metadata.markerIdToCmps[markerId].coord.forward,
+                right = coord.right - self._metadata.markerIdToCmps[markerId].coord.right,
+                up = coord.up - self._metadata.markerIdToCmps[markerId].coord.up,
+                face = 'forward',
+            }),
+        }
+    )):_init()
+end
+
+--<-- Unused
 function prototype:anchorBackwardBottomLeft(coord)
     return util.attachPrototype(prototype, util.mergeTables(
         self,
@@ -232,14 +285,14 @@ Inputs:
     layeredAsciiMap: A list of lists of strings representing a 3d map of tiles and markers.
     markers?: This is used to mark interesting areas in the ascii map.
         A mapping is expected which maps marker names to info tables with the shape of:
-            { char = <char>, targetOffset ?= <x/y coord> }
+            { char = <char>, targetOffset ?= <rel coord> }
 ]]
 function static.new(opts)
-    --<-- Document: "." and "," are reserved markers
+    --<-- Document: "." and "," are reserved markers. Assert it as well.
     local layeredAsciiMap = opts.layeredAsciiMap
-    -- local markers = opts.markers --<-- --<-- Not yet implemented
+    local markers = opts.markers or {}
 
-    local metadata = getBearings(layeredAsciiMap)
+    local metadata = getBearings(layeredAsciiMap, markers)
 
     -- The backward-bottom-left corner is, by default, set to (0,0,0). To change it, call an anchor function.
     local backwardBottomLeftCmps = space.createCompass({
@@ -252,6 +305,12 @@ function static.new(opts)
     return util.attachPrototype(prototype, {
         _metadata = metadata, --<-- Needed?
         _layeredAsciiMap = layeredAsciiMap, --<-- Needed?
+        _markerChars = util.mapArrayTable(
+            util.sortedMapTablePairList(markers),
+            function (entry)
+                return entry[2].char
+            end
+        ),
         _backwardBottomLeftCmps = backwardBottomLeftCmps,
     }):_init()
 end

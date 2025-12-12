@@ -19,9 +19,13 @@ function prototype:getForwardRightCmps()
     })
 end
 
+function prototype:hasMarker(markerId)
+    return self._markerIdToCmps[markerId] ~= nil
+end
+
 function prototype:getCmpsAtMarker(markerId)
     local cmps = self._markerIdToCmps[markerId]
-    util.assert(cmps ~= nil)
+    util.assert(cmps ~= nil, 'The marker '..markerId..' does not exist.')
     -- Recalculate the cmps against whatever is currently set as the backward-left
     return self._backwardLeftCmps.compassAt({
         forward = cmps.coord.forward,
@@ -47,7 +51,9 @@ end
 -- you have to move to reach (and not cross) a boundary.
 -- For example, A 1x1 grid containing the marker would have all values set to 0.
 function prototype:borderDistancesAtMarker(markerId)
-    local coord = self._markerIdToCmps[markerId].coord
+    local cmps = self._markerIdToCmps[markerId]
+    util.assert(cmps ~= nil, 'The marker '..markerId..' does not exist.')
+    local coord = cmps.coord
 
     return {
         forward = self.bounds.depth - coord.forward - 1,
@@ -134,7 +140,7 @@ Inputs:
     asciiMap: A list of strings containing a 2d map of tiles and markers.
     markers?: This is used to mark interesting areas in the ascii map.
         A mapping is expected which maps marker names to info tables with the shape of:
-            { char = <char>, targetOffset ?= <x/y coord> }
+            { char = <char>, targetOffset ?= <rel coord>, optional ?= true }
 
     markerSets?: Similar to markers, but lets you mark zero or more spots with the same character.
         A mapping is expected which maps marker names to info tables with the shape of:
@@ -180,8 +186,9 @@ function static.new(opts)
 
                 local targetOffset = markerConf.targetOffset or {}
                 markerIdToCmps[markerId] = backwardLeftCmps.compassAt({
-                    forward = depth - yIndex + (targetOffset.y or 0),
-                    right = xIndex - 1 + (targetOffset.x or 0),
+                    forward = depth - yIndex + (targetOffset.forward or 0),
+                    right = xIndex - 1 + (targetOffset.right or 0),
+                    up = targetOffset.up or 0,
                 })
             elseif intermediateMarkerData ~= nil and intermediateMarkerData.type == 'markerSet' then
                 local markerId = intermediateMarkerData.id
@@ -196,7 +203,9 @@ function static.new(opts)
     end
 
     for markerId, markerConf in util.sortedMapTablePairs(markerConfs) do
-        util.assert(markerIdToCmps[markerId] ~= nil, 'Marker "'..markerConf.char..'" was not found')
+        if not markerConf.optional then
+            util.assert(markerIdToCmps[markerId] ~= nil, 'Marker "'..markerConf.char..'" was not found')
+        end
     end
 
     return util.attachPrototype(prototype, {
