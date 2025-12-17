@@ -10,9 +10,9 @@ local Location = act.Location
 local navigate = act.navigate
 local highLevelCommands = act.highLevelCommands
 local curves = act.curves
+local Sketch = act.Sketch
 local space = act.space
 local state = act.state
-local Region = act.Region
 
 -- This should be the first project that runs
 local registerInitializationProject = function(opts)
@@ -764,7 +764,7 @@ local registerHarvestExcessDirtProject = function(opts)
 
             navigate.moveToCoord(digStartCmps.coord, { 'forward', 'up' })
 
-            local dirtToDig = Region.new({
+            local dirtToDig = Sketch.new({
                 layeredAsciiMap = {{
                     -- "d" marks the dirt to dig
                     -- "D" marks dirt we don't want to dig

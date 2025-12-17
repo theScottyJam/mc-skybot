@@ -5,7 +5,7 @@ Behavior of special characters in the ASCII map:
     The "," is a "primary reference point". It can be thought of as the origin point for each layer.
         Because the sizes of the layers provided may differ from layer to layer, it's important to have
         an origin point in each layer so we know what everything is relative to.
-        The exception is when there's only one layer in a region, in which case you're not required to supply a primary reference point.
+        The exception is when there's only one layer in a sketch, in which case you're not required to supply a primary reference point.
     The "." is a "secondary reference point". You can place these anywhere you want on a particular layer,
         but wherever you place them, you'll be required to place a "." in the exact same location on every other
         layer (unless this particular layer definition is smaller than others, and the "." would fall outside of the definition area).
@@ -22,15 +22,20 @@ local prototype = {}
 --<-- This function is getting large, can I break it up?
 -- Returns metadata about the layers.
 -- Overall, it includes information about where the reference points and markers
--- are, and how large of a region this blueprint will take up.
+-- are, and how large of a sketch this is.
 -- Specific details about the return value are documented inside.
 local getBearings = function(layeredAsciiMap, markers)
     -- What gets eventually returned.
     local metadata = {
-        -- Contains a list of { plane = <plane> } tables
+        -- Contains a list of layers. Each layer table contains the following:
+        -- * width
+        -- * depth
+        -- * primaryRefPointIndices: { backward = ..., right = ... }
+        -- * primaryRefBorderDistances: The distances to the borders of this layer.
         layers = {},
         -- `left = 2` means, starting from the primary reference point, you
-        -- can take two steps left and still be in bounds.
+        -- can take two steps left and still be in at least one layer's forward/right bounds (the layers' vertical
+        -- position is ignored for this)
         primaryRefBorderDistances = { left = 0, forward = 0, right = 0, backward = 0 },
         markerIdToCmps = {},
     }
@@ -105,6 +110,7 @@ local getBearings = function(layeredAsciiMap, markers)
             left = primaryRefPointIndices.right - 1,
         }
 
+        -- The contents of a layer is documented near the top of this function.
         table.insert(metadata.layers, {
             width = width,
             depth = depth,
@@ -207,26 +213,26 @@ function prototype:getCmpsAtMarker(markerId)
     })
 end
 
---<-- This function doesn't make much sense for regions - each layer can be a different size, but this function will allow any coord-to-index conversion as long as it is in bounds.
--- The forward/right indices are relative to an individual layer, so if the layer is only 2X2 in size, only 4 possible region
--- indices are available for that layer, even if the region itself is much wider.
+--<-- This function doesn't make much sense for sketches - each layer can be a different size, but this function will allow any coord-to-index conversion as long as it is in bounds.
+-- The forward/right indices are relative to an individual layer, so if the layer is only 2X2 in size, only 4 possible sketch
+-- indices are available for that layer, even if the sketch itself is much wider.
 -- May return nil if it is out of range
-function prototype:regionIndexFromCoord(coord)
+function prototype:_sketchIndexFromCoord(coord)
     local deltaCoord = self._backwardBottomLeftCmps.distanceTo(coord)
-    -- This is what the region index would be if all layers were the same size
-    local regionIndex_ = {
+    -- This is what the sketch index would be if all layers were the same size
+    local sketchIndex_ = {
         x = deltaCoord.right + 1,
         y = self.bounds.depth - deltaCoord.forward,
         z = self.bounds.height - deltaCoord.up,
     }
 
     local inBounds = (
-        regionIndex_.x >= 1 and
-        regionIndex_.x <= self.bounds.width and
-        regionIndex_.y >= 1 and
-        regionIndex_.y <= self.bounds.depth and
-        regionIndex_.z >= 1 and
-        regionIndex_.z <= self.bounds.height
+        sketchIndex_.x >= 1 and
+        sketchIndex_.x <= self.bounds.width and
+        sketchIndex_.y >= 1 and
+        sketchIndex_.y <= self.bounds.depth and
+        sketchIndex_.z >= 1 and
+        sketchIndex_.z <= self.bounds.height
     )
 
     if not inBounds then
@@ -235,68 +241,70 @@ function prototype:regionIndexFromCoord(coord)
 
     -- Adjusting the x and y index to account for the fact that this layer might be smaller.
     --<-- This same pad math is done elsewhere
-    local layerPrimaryRefBorderDistances = self._metadata.layers[regionIndex_.z].primaryRefBorderDistances
+    local layerPrimaryRefBorderDistances = self._metadata.layers[sketchIndex_.z].primaryRefBorderDistances
     local padBackward = self._metadata.primaryRefBorderDistances.backward - layerPrimaryRefBorderDistances.backward
-    local padForward = self.bounds.depth - self._metadata.layers[regionIndex_.z].depth - padBackward
+    local padForward = self.bounds.depth - self._metadata.layers[sketchIndex_.z].depth - padBackward
     local padLeft = self._metadata.primaryRefBorderDistances.left - layerPrimaryRefBorderDistances.left
+    --<-- Return an indices table instead (containing backward/right/down)?
     return {
-        x = regionIndex_.x - padLeft,
-        y = regionIndex_.y - padForward,
-        z = regionIndex_.z,
+        x = sketchIndex_.x - padLeft,
+        y = sketchIndex_.y - padForward,
+        z = sketchIndex_.z,
     }
 end
 
 --<-- Not sure if this needs to be public
-function prototype:coordFromRegionIndex(regionIndex)
+--<-- Here I use "index" to refer to the x/y/z index, but elsewhere (where I already use backward/right/down) I use plural indices. I should probably pick one.
+function prototype:_coordFromSketchIndex(sketchIndex) --<-- Accept backward/right/down instead of x/y/z?
     --<-- This same pad math is done elsewhere
-    local layerPrimaryRefBorderDistances = self._metadata.layers[regionIndex.z].primaryRefBorderDistances
+    local layerPrimaryRefBorderDistances = self._metadata.layers[sketchIndex.z].primaryRefBorderDistances
     local padBackward = self._metadata.primaryRefBorderDistances.backward - layerPrimaryRefBorderDistances.backward
-    local padForward = self.bounds.depth - self._metadata.layers[regionIndex.z].depth - padBackward
+    local padForward = self.bounds.depth - self._metadata.layers[sketchIndex.z].depth - padBackward
     local padLeft = self._metadata.primaryRefBorderDistances.left - layerPrimaryRefBorderDistances.left
 
-    -- This is what the region index would be if all layers were the same size
-    local regionIndex_ = {
-        x = padLeft + regionIndex.x,
-        y = padForward + regionIndex.y,
-        z = regionIndex.z,
+    -- This is what the sketch index would be if all layers were the same size
+    local sketchIndex_ = {
+        x = padLeft + sketchIndex.x,
+        y = padForward + sketchIndex.y,
+        z = sketchIndex.z,
     }
 
     return self._backwardBottomLeftCmps.coordAt({
-        forward = self.bounds.depth - regionIndex_.y,
-        right = regionIndex_.x - 1,
-        up = self.bounds.height - regionIndex_.z,
+        forward = self.bounds.depth - sketchIndex_.y,
+        right = sketchIndex_.x - 1,
+        up = self.bounds.height - sketchIndex_.z,
     })
 end
 
 -- Attempts to get the character at the coordinate, or returns nil if it is out of bounds.
 -- The second return value is the plane-index used for the lookup. Mostly useful for building error messages.
 function prototype:tryGetCharAt(coord)
-    local regionIndex = self:regionIndexFromCoord(coord)
-    if regionIndex == nil then
+    local sketchIndex = self:_sketchIndexFromCoord(coord)
+    if sketchIndex == nil then
         return nil
     end
 
-    local row = self._layeredAsciiMap[regionIndex.z][regionIndex.y]
+    local row = self._layeredAsciiMap[sketchIndex.z][sketchIndex.y]
     if row == nil then return ' ' end -- Pretending the smaller plane is filled with ' '.
-    local char = util.charAt(row, regionIndex.x)
+    local char = util.charAt(row, sketchIndex.x)
     if char == nil then return ' ' end -- Pretending the smaller plane is filled with ' '.
     return char
 end
 
 function prototype:getCharAt(coord)
     local char = self:tryGetCharAt(coord)
-    assert(char ~= nil, 'Attempted to get an out-of-bounds character in the region')
+    assert(char ~= nil, 'Attempted to get an out-of-bounds character in the sketch')
     return char
 end
 
 --<-- Plane.lua could benefit from something like this as well - I believe there's code that's manually looping over its bounds.
--- Iterates over every cell in the region (ignoring empty space and markers)
+-- Iterates over every cell in the sketch (ignoring empty space and markers)
 function prototype:forEachFilledCell(fn)
     for downIndex, layer in ipairs(self._layeredAsciiMap) do
         for backwardIndex, row in ipairs(layer) do
             for rightIndex, cell in util.stringPairs(row) do
                 if cell ~= ' ' and cell ~= ',' and cell ~= '.' and not util.tableContains(self._markerChars, cell) then
-                    fn(cell, self:coordFromRegionIndex({ x = rightIndex, y = backwardIndex, z = downIndex }))
+                    fn(cell, self:_coordFromSketchIndex({ x = rightIndex, y = backwardIndex, z = downIndex }))
                 end
             end
         end

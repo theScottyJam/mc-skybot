@@ -8,8 +8,8 @@ return {
     Mill = import('./planner/Mill.lua'),
     navigate = import('./navigate.lua'),
     Project = import('./planner/Project.lua'),
+    Sketch = import('./modeling/Sketch.lua'),
     space = import('./space.lua'),
     state = import('./state.lua'),
     Plan = import('./planner/Plan.lua'),
-    Region = import('./modeling/Region.lua'),
 }
