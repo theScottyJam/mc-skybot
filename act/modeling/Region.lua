@@ -5,6 +5,7 @@ Behavior of special characters in the ASCII map:
     The "," is a "primary reference point". It can be thought of as the origin point for each layer.
         Because the sizes of the layers provided may differ from layer to layer, it's important to have
         an origin point in each layer so we know what everything is relative to.
+        The exception is when there's only one layer in a region, in which case you're not required to supply a primary reference point.
     The "." is a "secondary reference point". You can place these anywhere you want on a particular layer,
         but wherever you place them, you'll be required to place a "." in the exact same location on every other
         layer (unless this particular layer definition is smaller than others, and the "." would fall outside of the definition area).
@@ -12,13 +13,13 @@ Behavior of special characters in the ASCII map:
         everything is where it belongs.
 ]]
 
-local Plane = import('./Plane.lua')
 local space = import('../space.lua')
 local util = import('util.lua')
 
 local static = {}
 local prototype = {}
 
+--<-- This function is getting large, can I break it up?
 -- Returns metadata about the layers.
 -- Overall, it includes information about where the reference points and markers
 -- are, and how large of a region this blueprint will take up.
@@ -31,114 +32,162 @@ local getBearings = function(layeredAsciiMap, markers)
         -- `left = 2` means, starting from the primary reference point, you
         -- can take two steps left and still be in bounds.
         primaryRefBorderDistances = { left = 0, forward = 0, right = 0, backward = 0 },
-        markerIdToCmps = {}
+        markerIdToCmps = {},
     }
 
-    -- Used like secondaryReferencePointMap[forward][right] = { count = ..., firstLayerFoundOn = ... }
-    -- where forward/right are relative to the primary reference point.
+    -- Used like secondaryReferencePointMap[backward][right] = { count = ..., firstLayerFoundOn = ... }
+    -- where backward/right are relative to the primary reference point.
     -- Some of this information is used for the returned metadata object, and some is simply used for assertions.
+    -- Using the "backward" direction instead of "forward" as it works more naturally when doing math with indices.
     local secondaryReferencePointsMap = {}
 
-    local markerEntries = util.sortedMapTablePairList(markers)
+    local charToMarkerId = {}
+    for markerId, markerConf in util.sortedMapTablePairs(markers or {}) do
+        charToMarkerId[markerConf.char] = markerId
+    end
 
-    for zIndex, layer in pairs(layeredAsciiMap) do
-        local plane = Plane.new({
-            asciiMap = layer,
-            markers = util.mergeTables(
-                util.mapMapTable(markers, function (value)
-                    return util.mergeTables(value, { optional = true })
-                end),
-                {
-                    primaryReferencePoint = { char = ',' },
-                }
-            ),
-            markerSets = {
-                secondaryReferencePoints = { char = '.' },
-            },
-        }):anchorMarker('primaryReferencePoint', { forward = 0, right = 0, up = 0 })
+    ---- Examine each character ----
 
-        local primaryRefBorderDistances = plane:borderDistancesAtMarker('primaryReferencePoint')
-        local secondaryRefs = util.mapArrayTable(
-            plane:cmpsListFromMarkerSet('secondaryReferencePoints'),
-            function (cmps) return cmps.coord end
-        )
+    local markerIdToIndices = {}
+    for downIndex, asciiMap in pairs(layeredAsciiMap) do
+        local width = #asciiMap[1]
+        local depth = #asciiMap
+        util.assert(width > 0)
+        util.assert(depth > 0)
 
-        table.insert(metadata.layers, { plane = plane })
+        local primaryRefPointIndices = nil
+        local secondaryRefIndicesList = {}
+        for backwardIndex, row in ipairs(asciiMap) do
+            util.assert(#row == width, 'All rows must be of the same length')
+            for rightIndex, cell in util.stringPairs(row) do
+                if cell == ',' then
+                    util.assert(primaryRefPointIndices == nil, 'The primary reference point marker (,) was found multiple times on a layer')
+                    primaryRefPointIndices = {
+                        backward = backwardIndex,
+                        right = rightIndex,
+                    }
+                elseif cell == '.' then
+                    table.insert(secondaryRefIndicesList, {
+                        backward = backwardIndex,
+                        right = rightIndex
+                    })
+                elseif charToMarkerId[cell] ~= nil then
+                    local markerId = charToMarkerId[cell]
+                    local markerConf = markers[markerId]
+                    util.assert(markerIdToIndices[markerId] == nil, 'Marker "'..markerConf.char..'" was found multiple times') --<-- Test
 
+                    markerIdToIndices[markerId] = {
+                        backward = backwardIndex,
+                        right = rightIndex,
+                        down = downIndex,
+                    }
+                end
+            end
+        end
+
+        if primaryRefPointIndices == nil then
+            util.assert(#layeredAsciiMap == 1, 'Missing a primary reference point (,) on a layer')
+            --<-- - Or do I want this to be 1,1?
+            primaryRefPointIndices = {
+                backward = depth,
+                right = 1,
+            }
+        end
+
+        -- A table containing left/forward/right/backward fields, saying how many steps
+        -- you have to move to reach (and not cross) a boundary.
+        -- For example, A 1x1 grid containing just the primary reference point would have all values set to 0.
+        local primaryRefBorderDistances
+        primaryRefBorderDistances = {
+            forward = primaryRefPointIndices.backward - 1,
+            right = width - primaryRefPointIndices.right,
+            backward = depth - primaryRefPointIndices.backward,
+            left = primaryRefPointIndices.right - 1,
+        }
+
+        table.insert(metadata.layers, {
+            width = width,
+            depth = depth,
+            primaryRefPointIndices = primaryRefPointIndices,
+            primaryRefBorderDistances = primaryRefBorderDistances,
+        })
+
+        --<-- - Are all of these used?
         metadata.primaryRefBorderDistances.left = util.maxNumber(metadata.primaryRefBorderDistances.left, primaryRefBorderDistances.left)
         metadata.primaryRefBorderDistances.forward = util.maxNumber(metadata.primaryRefBorderDistances.forward, primaryRefBorderDistances.forward)
         metadata.primaryRefBorderDistances.right = util.maxNumber(metadata.primaryRefBorderDistances.right, primaryRefBorderDistances.right)
         metadata.primaryRefBorderDistances.backward = util.maxNumber(metadata.primaryRefBorderDistances.backward, primaryRefBorderDistances.backward)
 
-        for i, point in pairs(secondaryRefs) do
+        for i, secondaryRefIndices in pairs(secondaryRefIndicesList) do
             local refMap = secondaryReferencePointsMap
-            if refMap[point.forward] == nil then
-                refMap[point.forward] = {}
+            local backward = secondaryRefIndices.backward - primaryRefPointIndices.backward
+            local right = secondaryRefIndices.right - primaryRefPointIndices.right
+            if refMap[backward] == nil then
+                refMap[backward] = {}
             end
-            if refMap[point.forward][point.right] == nil then
-                refMap[point.forward][point.right] = { count = 0, firstLayerFoundOn = zIndex }
+            if refMap[backward][right] == nil then
+                refMap[backward][right] = { count = 0, firstLayerFoundOn = downIndex }
             end
-            refMap[point.forward][point.right].count = refMap[point.forward][point.right].count + 1
+            refMap[backward][right].count = refMap[backward][right].count + 1
         end
     end
 
-    for i, layer in pairs(metadata.layers) do
-        for markerId, markerConf in util.iterEntryList(markerEntries) do
-            if layer.plane:hasMarker(markerId) then
-                util.assert(metadata.markerIdToCmps[markerId] == nil, 'Marker "'..markerConf.char..'" was found multiple times')
-                local cmpsRelToPrimaryRefPoint = layer.plane:getCmpsAtMarker(markerId)
-                metadata.markerIdToCmps[markerId] = cmpsRelToPrimaryRefPoint.compassAt({
-                    forward = metadata.primaryRefBorderDistances.backward,
-                    right = metadata.primaryRefBorderDistances.left,
-                    up = i - 1,
-                })
-            end
-        end
+    ---- Tidy up gathered data and run assertions ----
+
+    for markerId, indices in util.sortedMapTablePairs(markerIdToIndices) do
+        local targetOffset = markers[markerId].targetOffset or {}
+
+        local layer = metadata.layers[indices.down]
+        metadata.markerIdToCmps[markerId] = space.createCompass({
+            forward = layer.primaryRefPointIndices.backward - indices.backward + metadata.primaryRefBorderDistances.backward + (targetOffset.forward or 0),
+            right = -layer.primaryRefPointIndices.right + indices.right + metadata.primaryRefBorderDistances.left + (targetOffset.right or 0),
+            up = (targetOffset.up or 0) + indices.down - 1,
+            face = 'forward',
+        })
     end
 
-    for markerId, markerConf in util.iterEntryList(markerEntries) do
+    for markerId, markerConf in util.sortedMapTablePairs(markers) do
         util.assert(metadata.markerIdToCmps[markerId] ~= nil, 'Marker "'..markerConf.char..'" was not found')
     end
 
-    -- List of forward/right points relative to the primary reference point
+    -- List of backward/right points relative to the primary reference point
     local secondaryReferencePoints = {}
-    for forward, row in pairs(secondaryReferencePointsMap) do
+    for backward, row in pairs(secondaryReferencePointsMap) do
         for right, info in pairs(row) do
             util.assert(
                 info.count > 1,
                 'Found a secondary reference point (.) on layer ' .. info.firstLayerFoundOn
                 .. ' that does not line up with any reference points on any other layer.'
             )
-            table.insert(secondaryReferencePoints, { forward = forward, right = right })
+            table.insert(secondaryReferencePoints, { backward = backward, right = right })
         end
     end
 
-    local verifySecondaryReferencePoints = function(zIndex)
-        local plane = metadata.layers[zIndex].plane
+    -- Verify secondary reference points are on each layer
+    -- Alternatively, they can be omitted from a layer if they would be out of its bounds.
+    for downIndex, asciiMap in ipairs(layeredAsciiMap) do
+        local layer = metadata.layers[downIndex]
         for i, refPoint in ipairs(secondaryReferencePoints) do
-            local char, planeIndex = plane:tryGetCharAt({ forward = refPoint.forward, right = refPoint.right, up = plane.bounds.up })
-            -- If a secondary reference point would be out-of-bounds, then it does not have to be supplied.
-            -- An out-of-bounds reference point will cause both `char` and `planeIndex` to be nil.
-            -- This `if` must be here (instead of, say, adding `planeIndex == nil` to the assertion), because when
-            -- the assertion line runs, the error message will always be evaluated, even if there isn't an error,
-            -- and it will try to concatenate values from planeIndex, but that might be nil.
-            if planeIndex ~= nil then
-                util.assert(
-                    char == '.',
-                    'Expected layer '..zIndex..' to have a secondary reference point at xIndex='..planeIndex.x..' yIndex='..planeIndex.y..'.'
-                )
-            end
-        end
-    end
+            local backward = layer.primaryRefPointIndices.backward + refPoint.backward
+            local right = layer.primaryRefPointIndices.right + refPoint.right
 
-    for zIndex, asciiMap in ipairs(layeredAsciiMap) do
-        verifySecondaryReferencePoints(zIndex)
+            -- If a secondary reference point would be out-of-bounds, then it does not have to be supplied.
+            util.assert(
+                asciiMap[backward] == nil or
+                util.charAt(asciiMap[backward], right) == nil or
+                util.charAt(asciiMap[backward], right) == '.',
+                'Expected layer '..downIndex..' to have a secondary reference point at backwardIndex='..backward..' rightIndex='..right..'.'
+            )
+        end
     end
 
     return metadata
 end
 
---<-- unused
+function prototype:getBackwardBottomLeftCmps()
+    return self._backwardBottomLeftCmps
+end
+
 function prototype:getCmpsAtMarker(markerId)
     local cmps = self._metadata.markerIdToCmps[markerId]
     util.assert(cmps ~= nil, 'The marker '..markerId..' does not exist.')
@@ -151,8 +200,8 @@ function prototype:getCmpsAtMarker(markerId)
 end
 
 --<-- This function doesn't make much sense for regions - each layer can be a different size, but this function will allow any coord-to-index conversion as long as it is in bounds.
--- The forward/right indicis are relative to an individual layer, so if the layer is only 2X2 in size, only 4 possible region
--- indicis are available for that layer, even if the region itself is much wider.
+-- The forward/right indices are relative to an individual layer, so if the layer is only 2X2 in size, only 4 possible region
+-- indices are available for that layer, even if the region itself is much wider.
 -- May return nil if it is out of range
 function prototype:regionIndexFromCoord(coord)
     local deltaCoord = self._backwardBottomLeftCmps.distanceTo(coord)
@@ -178,9 +227,9 @@ function prototype:regionIndexFromCoord(coord)
 
     -- Adjusting the x and y index to account for the fact that this layer might be smaller.
     --<-- This same pad math is done elsewhere
-    local layerPrimaryRefBorderDistances = self._metadata.layers[regionIndex_.z].plane:borderDistancesAtMarker('primaryReferencePoint')
+    local layerPrimaryRefBorderDistances = self._metadata.layers[regionIndex_.z].primaryRefBorderDistances
     local padBackward = self._metadata.primaryRefBorderDistances.backward - layerPrimaryRefBorderDistances.backward
-    local padForward = self.bounds.depth - self._metadata.layers[regionIndex_.z].plane.depth - padBackward
+    local padForward = self.bounds.depth - self._metadata.layers[regionIndex_.z].depth - padBackward
     local padLeft = self._metadata.primaryRefBorderDistances.left - layerPrimaryRefBorderDistances.left
     return {
         x = regionIndex_.x - padLeft,
@@ -192,9 +241,9 @@ end
 --<-- Not sure if this needs to be public
 function prototype:coordFromRegionIndex(regionIndex)
     --<-- This same pad math is done elsewhere
-    local layerPrimaryRefBorderDistances = self._metadata.layers[regionIndex.z].plane:borderDistancesAtMarker('primaryReferencePoint')
+    local layerPrimaryRefBorderDistances = self._metadata.layers[regionIndex.z].primaryRefBorderDistances
     local padBackward = self._metadata.primaryRefBorderDistances.backward - layerPrimaryRefBorderDistances.backward
-    local padForward = self.bounds.depth - self._metadata.layers[regionIndex.z].plane.depth - padBackward
+    local padForward = self.bounds.depth - self._metadata.layers[regionIndex.z].depth - padBackward
     local padLeft = self._metadata.primaryRefBorderDistances.left - layerPrimaryRefBorderDistances.left
 
     -- This is what the region index would be if all layers were the same size
@@ -211,40 +260,35 @@ function prototype:coordFromRegionIndex(regionIndex)
     })
 end
 
---<-- Not sure how much I like these returning two values, I might try stopping that. Callers can use [region/plane]IndexFromCoord() instead.
---<-- The regionIndex return value makes more sense on getCharAt() instead of tryGetCharAt(), because this it won't be nil
---<-- Play with secondary-reference-point errors to see how the second return value gets used.
---<-- Third return value informs us if it was technically part of an undefined territory (i.e. the space that gets padded after a plane ends). Keep?
 -- Attempts to get the character at the coordinate, or returns nil if it is out of bounds.
 -- The second return value is the plane-index used for the lookup. Mostly useful for building error messages.
 function prototype:tryGetCharAt(coord)
     local regionIndex = self:regionIndexFromCoord(coord)
     if regionIndex == nil then
-        return nil, regionIndex, nil
+        return nil
     end
 
     local row = self._layeredAsciiMap[regionIndex.z][regionIndex.y]
-    if row == nil then return ' ', regionIndex, true end -- Pretending the smaller plan is filled with ' '.
+    if row == nil then return ' ' end -- Pretending the smaller plane is filled with ' '.
     local char = util.charAt(row, regionIndex.x)
-    if char == nil then return ' ', regionIndex, true end -- Pretending the smaller plan is filled with ' '.
-    return char, planeIndex, false
+    if char == nil then return ' ' end -- Pretending the smaller plane is filled with ' '.
+    return char
 end
 
---<-- The third return value is now unused I believe. I'm not sure I even want it returning two things.
 function prototype:getCharAt(coord)
-    local char, regionIndex, wasUndefined = self:tryGetCharAt(coord)
+    local char = self:tryGetCharAt(coord)
     assert(char ~= nil, 'Attempted to get an out-of-bounds character in the region')
-    return char, regionIndex, wasUndefined
+    return char
 end
 
 --<-- Plane.lua could benefit from something like this as well - I believe there's code that's manually looping over its bounds.
 -- Iterates over every cell in the region (ignoring empty space and markers)
 function prototype:forEachFilledCell(fn)
-    for zIndex, layer in ipairs(self._layeredAsciiMap) do
-        for yIndex, row in ipairs(layer) do
-            for xIndex, cell in util.stringPairs(row) do
+    for downIndex, layer in ipairs(self._layeredAsciiMap) do
+        for backwardIndex, row in ipairs(layer) do
+            for rightIndex, cell in util.stringPairs(row) do
                 if cell ~= ' ' and cell ~= ',' and cell ~= '.' and not util.tableContains(self._markerChars, cell) then
-                    fn(cell, self:coordFromRegionIndex({ x = xIndex, y = yIndex, z = zIndex }))
+                    fn(cell, self:coordFromRegionIndex({ x = rightIndex, y = backwardIndex, z = downIndex }))
                 end
             end
         end
@@ -265,7 +309,6 @@ function prototype:anchorMarker(markerId, coord)
     )):_init()
 end
 
---<-- Unused
 function prototype:anchorBackwardBottomLeft(coord)
     return util.attachPrototype(prototype, util.mergeTables(
         self,
@@ -288,7 +331,6 @@ Inputs:
             { char = <char>, targetOffset ?= <rel coord> }
 ]]
 function static.new(opts)
-    --<-- Document: "." and "," are reserved markers. Assert it as well.
     local layeredAsciiMap = opts.layeredAsciiMap
     local markers = opts.markers or {}
 
