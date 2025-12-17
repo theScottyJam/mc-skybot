@@ -12,7 +12,7 @@ local highLevelCommands = act.highLevelCommands
 local curves = act.curves
 local space = act.space
 local state = act.state
-local Plane = act.Plane
+local Region = act.Region
 
 -- This should be the first project that runs
 local registerInitializationProject = function(opts)
@@ -764,8 +764,8 @@ local registerHarvestExcessDirtProject = function(opts)
 
             navigate.moveToCoord(digStartCmps.coord, { 'forward', 'up' })
 
-            local dirtToDig = Plane.new({
-                asciiMap = {
+            local dirtToDig = Region.new({
+                layeredAsciiMap = {{
                     -- "d" marks the dirt to dig
                     -- "D" marks dirt we don't want to dig
                     -- "B" marks bedrock
@@ -776,14 +776,14 @@ local registerHarvestExcessDirtProject = function(opts)
                     'ddd   ',
                     'ddd   ',
                     'ddd   ',
-                },
+                }},
                 markers = {
                     digStart = { char = '!' }
                 },
             }):anchorMarker('digStart', digStartCmps.coord)
 
             highLevelCommands.snake({
-                boundingBoxCoords = { dirtToDig:getBackwardLeftCmps().coord, dirtToDig:getForwardRightCmps().coord },
+                boundingBoxCoords = { dirtToDig:getBackwardBottomLeftCmps().coord, dirtToDig:getForwardBottomRightCmps().coord },
                 shouldVisit = function(coord)
                     return dirtToDig:getCharAt(coord) == 'd'
                 end,

@@ -188,6 +188,13 @@ function prototype:getBackwardBottomLeftCmps()
     return self._backwardBottomLeftCmps
 end
 
+function prototype:getForwardBottomRightCmps()
+    return self._backwardBottomLeftCmps.compassAt({
+        forward = self.bounds.depth - 1,
+        right = self.bounds.width - 1,
+    })
+end
+
 function prototype:getCmpsAtMarker(markerId)
     local cmps = self._metadata.markerIdToCmps[markerId]
     util.assert(cmps ~= nil, 'The marker '..markerId..' does not exist.')
