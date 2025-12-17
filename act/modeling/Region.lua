@@ -174,6 +174,7 @@ local getBearings = function(layeredAsciiMap, markers)
             -- If a secondary reference point would be out-of-bounds, then it does not have to be supplied.
             util.assert(
                 asciiMap[backward] == nil or
+                right < 0 or -- This explicit check is important, because .charAt() treats negative numbers as indexing from the end of the string.
                 util.charAt(asciiMap[backward], right) == nil or
                 util.charAt(asciiMap[backward], right) == '.',
                 'Expected layer '..downIndex..' to have a secondary reference point at backwardIndex='..backward..' rightIndex='..right..'.'
