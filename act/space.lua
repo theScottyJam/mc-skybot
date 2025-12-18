@@ -6,6 +6,7 @@
     * position: A coordinate and facing combined - it has the fields from both.
     * location: A specific, known point in space that you often travel to. These are managed in Location.lua.
     * compass: A tool to generate coords/positions/facings from the compass's location. Often abbreviated "cmps"
+    * bounding box: Contains various fields describing the shape of a box.
 ]]
 
 local util = import('util.lua')
@@ -129,6 +130,33 @@ local distanceBetween = function(startPos, endCoord)
         right = rotatedEndCoord.right - rotatedStartCoord.right,
         up = rotatedEndCoord.up - rotatedStartCoord.up,
     }
+end
+
+function module.__boundingBoxFromCoords(coord1, coord2)
+    local boundingBox = {
+        -- All inclusive
+        mostForward = util.maxNumber(coord1.forward, coord2.forward),
+        leastForward = util.minNumber(coord1.forward, coord2.forward),
+        mostRight = util.maxNumber(coord1.right, coord2.right),
+        leastRight = util.minNumber(coord1.right, coord2.right),
+        mostUp = util.maxNumber(coord1.up, coord2.up),
+        leastUp = util.minNumber(coord1.up, coord2.up),
+    }
+    boundingBox.width = boundingBox.mostRight - boundingBox.leastRight + 1
+    boundingBox.depth = boundingBox.mostForward - boundingBox.leastForward + 1
+    boundingBox.height = boundingBox.mostUp - boundingBox.leastUp + 1
+    return boundingBox
+end
+
+function module.__isCoordInBoundingBox(coord, boundingBox)
+    return (
+        coord.forward >= boundingBox.leastForward and
+        coord.forward <= boundingBox.mostForward and
+        coord.right >= boundingBox.leastRight and
+        coord.right <= boundingBox.mostRight and
+        coord.up >= boundingBox.leastUp and
+        coord.up <= boundingBox.mostUp
+    )
 end
 
 -- Meant to provide quick access to some of the above functions

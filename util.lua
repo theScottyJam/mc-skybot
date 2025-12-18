@@ -230,7 +230,7 @@ function module.stringPairs(str)
     return function()
         i = i + 1
         if i > #str then return nil end
-        return i, module.charAt(str, i)
+        return i, module.strictCharAt(str, i)
     end
 end
 
@@ -240,6 +240,15 @@ function module.charAt(str, index)
         return nil
     end
     return char
+end
+
+-- same as charAt() but doesn't support indexing from the end via negative indices.
+function module.strictCharAt(str, index)
+    if index < 0 then
+        return nil
+    end
+
+    return module.charAt(str, index)
 end
 
 function module.joinArrayTable(curTable, sep)

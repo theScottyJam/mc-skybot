@@ -19,7 +19,6 @@ local util = import('util.lua')
 local static = {}
 local prototype = {}
 
---<-- This function is getting large, can I break it up?
 -- Returns metadata about the layers.
 -- Overall, it includes information about where the reference points and markers
 -- are, and how large of a sketch this is.
@@ -79,7 +78,7 @@ local getBearings = function(layeredAsciiMap, markers)
                 elseif charToMarkerId[cell] ~= nil then
                     local markerId = charToMarkerId[cell]
                     local markerConf = markers[markerId]
-                    util.assert(markerIdToIndices[markerId] == nil, 'Marker "'..markerConf.char..'" was found multiple times') --<-- Test
+                    util.assert(markerIdToIndices[markerId] == nil, 'Marker "'..markerConf.char..'" was found multiple times')
 
                     markerIdToIndices[markerId] = {
                         backward = backwardIndex,
@@ -92,7 +91,6 @@ local getBearings = function(layeredAsciiMap, markers)
 
         if primaryRefPointIndices == nil then
             util.assert(#layeredAsciiMap == 1, 'Missing a primary reference point (,) on a layer')
-            --<-- - Or do I want this to be 1,1?
             primaryRefPointIndices = {
                 backward = depth,
                 right = 1,
@@ -118,7 +116,6 @@ local getBearings = function(layeredAsciiMap, markers)
             primaryRefBorderDistances = primaryRefBorderDistances,
         })
 
-        --<-- - Are all of these used?
         metadata.primaryRefBorderDistances.left = util.maxNumber(metadata.primaryRefBorderDistances.left, primaryRefBorderDistances.left)
         metadata.primaryRefBorderDistances.forward = util.maxNumber(metadata.primaryRefBorderDistances.forward, primaryRefBorderDistances.forward)
         metadata.primaryRefBorderDistances.right = util.maxNumber(metadata.primaryRefBorderDistances.right, primaryRefBorderDistances.right)
@@ -180,9 +177,8 @@ local getBearings = function(layeredAsciiMap, markers)
             -- If a secondary reference point would be out-of-bounds, then it does not have to be supplied.
             util.assert(
                 asciiMap[backward] == nil or
-                right < 0 or -- This explicit check is important, because .charAt() treats negative numbers as indexing from the end of the string.
-                util.charAt(asciiMap[backward], right) == nil or
-                util.charAt(asciiMap[backward], right) == '.',
+                util.strictCharAt(asciiMap[backward], right) == nil or
+                util.strictCharAt(asciiMap[backward], right) == '.',
                 'Expected layer '..downIndex..' to have a secondary reference point at backwardIndex='..backward..' rightIndex='..right..'.'
             )
         end
@@ -191,19 +187,8 @@ local getBearings = function(layeredAsciiMap, markers)
     return metadata
 end
 
-function prototype:getBackwardBottomLeftCmps()
-    return self._backwardBottomLeftCmps
-end
-
-function prototype:getForwardBottomRightCmps()
-    return self._backwardBottomLeftCmps.compassAt({
-        forward = self.bounds.depth - 1,
-        right = self.bounds.width - 1,
-    })
-end
-
 function prototype:getCmpsAtMarker(markerId)
-    local cmps = self._metadata.markerIdToCmps[markerId]
+    local cmps = self._markerIdToCmps[markerId]
     util.assert(cmps ~= nil, 'The marker '..markerId..' does not exist.')
     -- Recalculate the cmps against whatever is currently set as the backward-left
     return self._backwardBottomLeftCmps.compassAt({
@@ -213,66 +198,66 @@ function prototype:getCmpsAtMarker(markerId)
     })
 end
 
---<-- This function doesn't make much sense for sketches - each layer can be a different size, but this function will allow any coord-to-index conversion as long as it is in bounds.
--- The forward/right indices are relative to an individual layer, so if the layer is only 2X2 in size, only 4 possible sketch
--- indices are available for that layer, even if the sketch itself is much wider.
--- May return nil if it is out of range
-function prototype:_sketchIndexFromCoord(coord)
-    local deltaCoord = self._backwardBottomLeftCmps.distanceTo(coord)
-    -- This is what the sketch index would be if all layers were the same size
-    local sketchIndex_ = {
-        x = deltaCoord.right + 1,
-        y = self.bounds.depth - deltaCoord.forward,
-        z = self.bounds.height - deltaCoord.up,
-    }
-
-    local inBounds = (
-        sketchIndex_.x >= 1 and
-        sketchIndex_.x <= self.bounds.width and
-        sketchIndex_.y >= 1 and
-        sketchIndex_.y <= self.bounds.depth and
-        sketchIndex_.z >= 1 and
-        sketchIndex_.z <= self.bounds.height
-    )
-
-    if not inBounds then
-        return nil
-    end
-
-    -- Adjusting the x and y index to account for the fact that this layer might be smaller.
-    --<-- This same pad math is done elsewhere
-    local layerPrimaryRefBorderDistances = self._metadata.layers[sketchIndex_.z].primaryRefBorderDistances
-    local padBackward = self._metadata.primaryRefBorderDistances.backward - layerPrimaryRefBorderDistances.backward
-    local padForward = self.bounds.depth - self._metadata.layers[sketchIndex_.z].depth - padBackward
-    local padLeft = self._metadata.primaryRefBorderDistances.left - layerPrimaryRefBorderDistances.left
-    --<-- Return an indices table instead (containing backward/right/down)?
+function prototype:_paddingRequiredToMakeLayerFillSketchBounds(layer)
+    local padBackward = self._primaryRefBorderDistances.backward - layer.primaryRefBorderDistances.backward
+    -- Only returning "left" and "forward" because that's all callers need.
     return {
-        x = sketchIndex_.x - padLeft,
-        y = sketchIndex_.y - padForward,
-        z = sketchIndex_.z,
+        padLeft = self._primaryRefBorderDistances.left - layer.primaryRefBorderDistances.left,
+        padForward = self.bounds.depth - layer.depth - padBackward,
     }
 end
 
---<-- Not sure if this needs to be public
---<-- Here I use "index" to refer to the x/y/z index, but elsewhere (where I already use backward/right/down) I use plural indices. I should probably pick one.
-function prototype:_coordFromSketchIndex(sketchIndex) --<-- Accept backward/right/down instead of x/y/z?
-    --<-- This same pad math is done elsewhere
-    local layerPrimaryRefBorderDistances = self._metadata.layers[sketchIndex.z].primaryRefBorderDistances
-    local padBackward = self._metadata.primaryRefBorderDistances.backward - layerPrimaryRefBorderDistances.backward
-    local padForward = self.bounds.depth - self._metadata.layers[sketchIndex.z].depth - padBackward
-    local padLeft = self._metadata.primaryRefBorderDistances.left - layerPrimaryRefBorderDistances.left
+-- The returned sketchIndex is of the shape { backward = ..., right = ..., down = ... }
+-- If inside the sketch bounds, but outside an individual layer, 'outside-layer-bounds' is returned.
+-- This should be treated the same as the layer being larger but filled with whitespace.
+-- If outside the bounds of the entire sketch, 'outside-sketch-bounds' is returned.
+function prototype:_sketchIndexFromCoord(coord)
+    if not space.__isCoordInBoundingBox(coord, self.bounds) then
+        return 'outside-sketch-bounds'
+    end
+
+    local deltaCoord = self._backwardBottomLeftCmps.distanceTo(coord)
+    local downIndex = self.bounds.height - deltaCoord.up
+
+    -- Adjusting the backward and right index to account for the fact that this layer might be smaller.
+    local layer = self._layers[downIndex]
+    local pad = self:_paddingRequiredToMakeLayerFillSketchBounds(layer)
+    local sketchIndex = {
+        right = deltaCoord.right + 1 - pad.padLeft,
+        backward = self.bounds.depth - deltaCoord.forward - pad.padForward,
+        down = downIndex,
+    }
+
+    local inLayerBounds = (
+        sketchIndex.right >= 1 and
+        sketchIndex.right <= layer.width and
+        sketchIndex.backward >= 1 and
+        sketchIndex.backward <= layer.depth
+    )
+
+    if not inLayerBounds then
+        return 'outside-layer-bounds'
+    end
+
+    return sketchIndex
+end
+
+-- sketchIndex is of the shape { backward = ..., right = ..., down = ... }
+function prototype:_coordFromSketchIndex(sketchIndex)
+    local layer = self._layers[sketchIndex.down]
+    local pad = self:_paddingRequiredToMakeLayerFillSketchBounds(layer)
 
     -- This is what the sketch index would be if all layers were the same size
     local sketchIndex_ = {
-        x = padLeft + sketchIndex.x,
-        y = padForward + sketchIndex.y,
-        z = sketchIndex.z,
+        right = pad.padLeft + sketchIndex.right,
+        backward = pad.padForward + sketchIndex.backward,
+        down = sketchIndex.down,
     }
 
     return self._backwardBottomLeftCmps.coordAt({
-        forward = self.bounds.depth - sketchIndex_.y,
-        right = sketchIndex_.x - 1,
-        up = self.bounds.height - sketchIndex_.z,
+        forward = self.bounds.depth - sketchIndex_.backward,
+        right = sketchIndex_.right - 1,
+        up = self.bounds.height - sketchIndex_.down,
     })
 end
 
@@ -280,14 +265,18 @@ end
 -- The second return value is the plane-index used for the lookup. Mostly useful for building error messages.
 function prototype:tryGetCharAt(coord)
     local sketchIndex = self:_sketchIndexFromCoord(coord)
-    if sketchIndex == nil then
+    if sketchIndex == 'outside-sketch-bounds' then
         return nil
     end
+    if sketchIndex == 'outside-layer-bounds' then
+        -- Acting as if the layer was larger (the size of the sketch), with the extra space filled with ' '.
+        return ' '
+    end
 
-    local row = self._layeredAsciiMap[sketchIndex.z][sketchIndex.y]
-    if row == nil then return ' ' end -- Pretending the smaller plane is filled with ' '.
-    local char = util.charAt(row, sketchIndex.x)
-    if char == nil then return ' ' end -- Pretending the smaller plane is filled with ' '.
+    local row = self._layeredAsciiMap[sketchIndex.down][sketchIndex.backward]
+    util.assert(row ~= nil)
+    local char = util.strictCharAt(row, sketchIndex.right)
+    util.assert(char ~= nil)
     return char
 end
 
@@ -297,14 +286,14 @@ function prototype:getCharAt(coord)
     return char
 end
 
---<-- Plane.lua could benefit from something like this as well - I believe there's code that's manually looping over its bounds.
 -- Iterates over every cell in the sketch (ignoring empty space and markers)
 function prototype:forEachFilledCell(fn)
     for downIndex, layer in ipairs(self._layeredAsciiMap) do
         for backwardIndex, row in ipairs(layer) do
             for rightIndex, cell in util.stringPairs(row) do
                 if cell ~= ' ' and cell ~= ',' and cell ~= '.' and not util.tableContains(self._markerChars, cell) then
-                    fn(cell, self:_coordFromSketchIndex({ x = rightIndex, y = backwardIndex, z = downIndex }))
+                    local sketchIndex = { right = rightIndex, backward = backwardIndex, down = downIndex }
+                    fn(cell, self:_coordFromSketchIndex(sketchIndex))
                 end
             end
         end
@@ -316,9 +305,9 @@ function prototype:anchorMarker(markerId, coord)
         self,
         {
             _backwardBottomLeftCmps = space.createCompass({
-                forward = coord.forward - self._metadata.markerIdToCmps[markerId].coord.forward,
-                right = coord.right - self._metadata.markerIdToCmps[markerId].coord.right,
-                up = coord.up - self._metadata.markerIdToCmps[markerId].coord.up,
+                forward = coord.forward - self._markerIdToCmps[markerId].coord.forward,
+                right = coord.right - self._markerIdToCmps[markerId].coord.right,
+                up = coord.up - self._markerIdToCmps[markerId].coord.up,
                 face = 'forward',
             }),
         }
@@ -361,8 +350,10 @@ function static.new(opts)
     })
 
     return util.attachPrototype(prototype, {
-        _metadata = metadata, --<-- Needed?
-        _layeredAsciiMap = layeredAsciiMap, --<-- Needed?
+        _layers = metadata.layers,
+        _primaryRefBorderDistances = metadata.primaryRefBorderDistances,
+        _markerIdToCmps = metadata.markerIdToCmps,
+        _layeredAsciiMap = layeredAsciiMap,
         _markerChars = util.mapArrayTable(
             util.sortedMapTablePairList(markers),
             function (entry)
@@ -374,21 +365,18 @@ function static.new(opts)
 end
 
 function prototype:_init()
-    local width = self._metadata.primaryRefBorderDistances.left + 1 + self._metadata.primaryRefBorderDistances.right
-    local depth = self._metadata.primaryRefBorderDistances.forward + 1 + self._metadata.primaryRefBorderDistances.backward
+    local depth = self._primaryRefBorderDistances.forward + 1 + self._primaryRefBorderDistances.backward
+    local width = self._primaryRefBorderDistances.left + 1 + self._primaryRefBorderDistances.right
     local height = #self._layeredAsciiMap
-    self.bounds = {
-        width = width,
-        depth = depth,
-        height = height,
-        -- All inclusive
-        left = self._backwardBottomLeftCmps.coord.right,
-        backward = self._backwardBottomLeftCmps.coord.forward,
-        down = self._backwardBottomLeftCmps.coord.up,
-        right = self._backwardBottomLeftCmps.coord.right + width - 1,
-        forward = self._backwardBottomLeftCmps.coord.forward + depth - 1,
-        up = self._backwardBottomLeftCmps.coord.up + height - 1,
-    }
+
+    self.bounds = space.__boundingBoxFromCoords(
+        self._backwardBottomLeftCmps.coord,
+        self._backwardBottomLeftCmps.compassAt({
+            forward = depth - 1,
+            right = width - 1,
+            up = height - 1,
+        }).coord
+    )
     return self
 end
 

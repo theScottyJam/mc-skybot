@@ -429,41 +429,25 @@ thus visiting every spot in the region (that you ask it to visit) in a relativel
 The turtle may end anywhere in the region.
 
 inputs:
-    boundingBoxCoords = {<coord 1>, <coord 2>} -- Your turtle must be inside of this bounding box,
+    boundingBox = Your turtle must be inside of this bounding box,
         and this bounding box must only be 1 block high.
     shouldVisit (optional) = a function that takes a coordinate as a parameter,
         and returns true if the turtle should travel there.
     onVisit = a function that is called each time the turtle visits a designated spot.
 ]]
 function module.snake(opts)
-    local boundingBoxCoords = opts.boundingBoxCoords
+    local boundingBox = opts.boundingBox
     local shouldVisit = opts.shouldVisit or function(x, y) return true end
     local onVisit = opts.onVisit
 
-    util.assert(boundingBoxCoords[1].up == boundingBoxCoords[2].up)
-
-    local boundingBox = {
-        mostForward = util.maxNumber(boundingBoxCoords[1].forward, boundingBoxCoords[2].forward),
-        leastForward = util.minNumber(boundingBoxCoords[1].forward, boundingBoxCoords[2].forward),
-        mostRight = util.maxNumber(boundingBoxCoords[1].right, boundingBoxCoords[2].right),
-        leastRight = util.minNumber(boundingBoxCoords[1].right, boundingBoxCoords[2].right),
-        up = boundingBoxCoords[1].up,
-    }
-
     local inBounds = function (coord)
-        return (
-            coord.forward >= boundingBox.leastForward and coord.forward <= boundingBox.mostForward and
-            coord.right >= boundingBox.leastRight and coord.right <= boundingBox.mostRight and
-            coord.up == boundingBox.up
-        )
+        return space.__isCoordInBoundingBox(coord, boundingBox)
     end
 
-    util.assert(
-        inBounds(state.getTurtlePos()),
-        'The turtle is not inside of the provided bounding box.'
-    )
+    util.assert(boundingBox.leastUp == boundingBox.mostUp)
+    util.assert(inBounds(state.getTurtlePos()), 'The turtle is not inside of the provided bounding box.')
 
-    local firstCoord = { up = boundingBox.up }
+    local firstCoord = { up = boundingBox.mostUp }
     local verDelta
     local hozDelta
     -- if you're more forwards than backwards within the box

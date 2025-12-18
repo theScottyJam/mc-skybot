@@ -36,27 +36,27 @@ local nextCoordToVisit = function (sketch, mapKey, previousCoord)
 
     if previousCoord == nil then
         previousCoord = {
-            right = bounds.left,
-            forward = bounds.backward,
-            up = bounds.down,
+            right = bounds.leastRight,
+            forward = bounds.leastForward,
+            up = bounds.leastUp,
         }
         -- When looking for the first block to place,
         -- there is no previous block we want to skip.
         skipFirstFind = false
     end
 
-    for up = previousCoord.up, bounds.up do
-        local forwardRange = { bounds.backward, bounds.forward, 1 }
-        if not isEven(up - bounds.down) then
-            forwardRange = { bounds.forward, bounds.backward, -1 }
+    for up = previousCoord.up, bounds.mostUp do
+        local forwardRange = { bounds.leastForward, bounds.mostForward, 1 }
+        if not isEven(up - bounds.leastUp) then
+            forwardRange = { bounds.mostForward, bounds.leastForward, -1 }
         end
         if up == previousCoord.up then
             forwardRange[1] = previousCoord.forward
         end
         for forward = forwardRange[1], forwardRange[2], forwardRange[3] do
-            local rightRange = { bounds.left, bounds.right, 1 }
-            if not isEven(forward - bounds.backward) then
-                rightRange = { bounds.right, bounds.left, -1 }
+            local rightRange = { bounds.leastRight, bounds.mostRight, 1 }
+            if not isEven(forward - bounds.leastForward) then
+                rightRange = { bounds.mostRight, bounds.leastRight, -1 }
             end
             if up == previousCoord.up and forward == previousCoord.forward then
                 rightRange[1] = previousCoord.right
