@@ -66,6 +66,9 @@ do
         local dotSlash = string.sub(path, 1, 2) == './'
         local dotDotSlash = string.sub(path, 1, 3) == '../'
         if not dotSlash and not dotDotSlash then
+            if string.sub(path, 1, 1) == '/' then
+                error('The path "' .. path .. '" must not start with a "/"')
+            end
             -- it's already absolute
             return path
         end
@@ -79,7 +82,12 @@ do
             path = string.sub(path, 4)
             basePath = containingDir(basePath)
         end
-        return basePath..'/'..path
+
+        if basePath == '' then
+            return path
+        else
+            return basePath..'/'..path
+        end
     end
 
     -- Can be used to help with circular dependencies.
@@ -202,7 +210,7 @@ if inspect.registerGlobals ~= nil then
 end
 
 if inputs.runTests then
-    import('turtlescript/test.lua')
+    import('test/loader.lua')
     return
 end
 

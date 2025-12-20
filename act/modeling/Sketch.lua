@@ -19,112 +19,114 @@ local util = import('util.lua')
 local static = {}
 local prototype = {}
 
--- Returns metadata about the layers.
--- Overall, it includes information about where the reference points and markers
--- are, and how large of a sketch this is.
--- Specific details about the return value are documented inside.
-local getBearings = function(layeredAsciiMap, markers)
-    -- What gets eventually returned.
-    local metadata = {
-        -- Contains a list of layers. Each layer table contains the following:
-        -- * width
-        -- * depth
-        -- * primaryRefPointIndices: { backward = ..., right = ... }
-        -- * primaryRefBorderDistances: The distances to the borders of this layer.
-        layers = {},
-        -- `left = 2` means, starting from the primary reference point, you
-        -- can take two steps left and still be in at least one layer's forward/right bounds (the layers' vertical
-        -- position is ignored for this)
-        primaryRefBorderDistances = { left = 0, forward = 0, right = 0, backward = 0 },
-        markerIdToCmps = {},
-    }
+--------------------------------------------------------------------------------
+-- Get Bearings Logic
+--------------------------------------------------------------------------------
 
-    -- Used like secondaryReferencePointMap[backward][right] = { count = ..., firstLayerFoundOn = ... }
-    -- where backward/right are relative to the primary reference point.
-    -- Some of this information is used for the returned metadata object, and some is simply used for assertions.
-    -- Using the "backward" direction instead of "forward" as it works more naturally when doing math with indices.
-    local secondaryReferencePointsMap = {}
+-- Lists all primary and secondary reference points, and all markers found in the provided ASCII map.
+-- Returns:
+-- {
+--   primaryReferencePoints = <layerIndex>
+--   secondaryReferencePoints = <layerIndex>
+--   markers = { layerIndex = <layerIndex>, markerId = <markerId> }[]
+-- }[]
+local listInterestingSpots = function(layeredAsciiMap, markers)
+    util.assert(#layeredAsciiMap > 0, 'At least one layer must be provided.')
 
     local charToMarkerId = {}
     for markerId, markerConf in util.sortedMapTablePairs(markers or {}) do
         charToMarkerId[markerConf.char] = markerId
     end
 
-    ---- Examine each character ----
-
-    local markerIdToIndices = {}
+    local interestingSpotsPerLayer = {}
     for downIndex, asciiMap in pairs(layeredAsciiMap) do
-        local width = #asciiMap[1]
-        local depth = #asciiMap
-        util.assert(width > 0)
-        util.assert(depth > 0)
+        util.assert(#asciiMap > 0, 'At least one row must be provided in a layer.')
+        local firstRowLength = #asciiMap[1]
+        util.assert(firstRowLength > 0, 'At least one cell must be provided in a row.')
 
-        local primaryRefPointIndices = nil
-        local secondaryRefIndicesList = {}
+        local interestingSpotsInLayer = {
+            primaryReferencePoints = {},
+            secondaryReferencePoints = {},
+            markers = {},
+        }
+
         for backwardIndex, row in ipairs(asciiMap) do
-            util.assert(#row == width, 'All rows must be of the same length')
+            util.assert(#row == firstRowLength, 'All rows must be of the same length.')
             for rightIndex, cell in util.stringPairs(row) do
-                if cell == ',' then
-                    util.assert(primaryRefPointIndices == nil, 'The primary reference point marker (,) was found multiple times on a layer')
-                    primaryRefPointIndices = {
-                        backward = backwardIndex,
-                        right = rightIndex,
-                    }
-                elseif cell == '.' then
-                    table.insert(secondaryRefIndicesList, {
-                        backward = backwardIndex,
-                        right = rightIndex
-                    })
-                elseif charToMarkerId[cell] ~= nil then
-                    local markerId = charToMarkerId[cell]
-                    local markerConf = markers[markerId]
-                    util.assert(markerIdToIndices[markerId] == nil, 'Marker "'..markerConf.char..'" was found multiple times')
+                local layerIndex = {
+                    backward = backwardIndex,
+                    right = rightIndex,
+                }
 
-                    markerIdToIndices[markerId] = {
-                        backward = backwardIndex,
-                        right = rightIndex,
-                        down = downIndex,
-                    }
+                if cell == ',' then
+                    table.insert(interestingSpotsInLayer.primaryReferencePoints, layerIndex)
+                elseif cell == '.' then
+                    table.insert(interestingSpotsInLayer.secondaryReferencePoints, layerIndex)
+                elseif charToMarkerId[cell] ~= nil then
+                    table.insert(interestingSpotsInLayer.markers, { layerIndex = layerIndex, markerId = charToMarkerId[cell] })
                 end
             end
         end
+        table.insert(interestingSpotsPerLayer, interestingSpotsInLayer)
+    end
 
-        if primaryRefPointIndices == nil then
+    return interestingSpotsPerLayer
+end
+
+-- Validates each primary reference point and lines them up.
+-- Documentation for return type found at §AK7uH
+local validatePrimaryReferencePoints = function(layeredAsciiMap, interestingSpotsPerLayer)
+    local dimensionsOfLayers = {}
+
+    for downIndex, interestingSpotsInLayer in ipairs(interestingSpotsPerLayer) do
+        local width = #layeredAsciiMap[downIndex][1]
+        local depth = #layeredAsciiMap[downIndex]
+
+        local primaryRefPointLayerIndex = nil
+        for _, layerIndex in ipairs(interestingSpotsInLayer.primaryReferencePoints) do
+            util.assert(primaryRefPointLayerIndex == nil, 'The primary reference point marker (,) was found multiple times on a layer')
+            primaryRefPointLayerIndex = layerIndex
+        end
+
+        if primaryRefPointLayerIndex == nil then
+            -- You're allowed to omit the primary reference point if only one layer is provided.
             util.assert(#layeredAsciiMap == 1, 'Missing a primary reference point (,) on a layer')
-            primaryRefPointIndices = {
+            primaryRefPointLayerIndex = {
                 backward = depth,
                 right = 1,
             }
         end
 
-        -- A table containing left/forward/right/backward fields, saying how many steps
-        -- you have to move to reach (and not cross) a boundary.
-        -- For example, A 1x1 grid containing just the primary reference point would have all values set to 0.
-        local primaryRefBorderDistances
-        primaryRefBorderDistances = {
-            forward = primaryRefPointIndices.backward - 1,
-            right = width - primaryRefPointIndices.right,
-            backward = depth - primaryRefPointIndices.backward,
-            left = primaryRefPointIndices.right - 1,
-        }
-
         -- The contents of a layer is documented near the top of this function.
-        table.insert(metadata.layers, {
+        table.insert(dimensionsOfLayers, {
             width = width,
             depth = depth,
-            primaryRefPointIndices = primaryRefPointIndices,
-            primaryRefBorderDistances = primaryRefBorderDistances,
+            primaryRefPointLayerIndex = primaryRefPointLayerIndex,
+            -- A table containing left/forward/right/backward fields, saying how many steps
+            -- you have to move to reach (and not cross) a boundary.
+            -- For example, A 1x1 grid containing just the primary reference point would have all values set to 0.
+            primaryRefBorderDistances = {
+                forward = primaryRefPointLayerIndex.backward - 1,
+                right = width - primaryRefPointLayerIndex.right,
+                backward = depth - primaryRefPointLayerIndex.backward,
+                left = primaryRefPointLayerIndex.right - 1,
+            },
         })
+    end
 
-        metadata.primaryRefBorderDistances.left = util.maxNumber(metadata.primaryRefBorderDistances.left, primaryRefBorderDistances.left)
-        metadata.primaryRefBorderDistances.forward = util.maxNumber(metadata.primaryRefBorderDistances.forward, primaryRefBorderDistances.forward)
-        metadata.primaryRefBorderDistances.right = util.maxNumber(metadata.primaryRefBorderDistances.right, primaryRefBorderDistances.right)
-        metadata.primaryRefBorderDistances.backward = util.maxNumber(metadata.primaryRefBorderDistances.backward, primaryRefBorderDistances.backward)
+    return dimensionsOfLayers
+end
 
-        for i, secondaryRefIndices in pairs(secondaryRefIndicesList) do
-            local refMap = secondaryReferencePointsMap
-            local backward = secondaryRefIndices.backward - primaryRefPointIndices.backward
-            local right = secondaryRefIndices.right - primaryRefPointIndices.right
+local validateSecondaryReferencePoints = function(layeredAsciiMap, dimensionsOfLayers, interestingSpotsPerLayer)
+    -- Used like secondaryReferencePointMap[backward][right] = { count = ..., firstLayerFoundOn = ... }
+    -- where backward/right are relative to the primary reference point.
+    local refMap = {}
+
+    for downIndex, interestingSpotsInLayer in ipairs(interestingSpotsPerLayer) do
+        local layer = dimensionsOfLayers[downIndex]
+        for i, secondaryRefSketchIndex in pairs(interestingSpotsInLayer.secondaryReferencePoints) do
+            local backward = secondaryRefSketchIndex.backward - layer.primaryRefPointLayerIndex.backward
+            local right = secondaryRefSketchIndex.right - layer.primaryRefPointLayerIndex.right
             if refMap[backward] == nil then
                 refMap[backward] = {}
             end
@@ -135,28 +137,11 @@ local getBearings = function(layeredAsciiMap, markers)
         end
     end
 
-    ---- Tidy up gathered data and run assertions ----
-
-    for markerId, indices in util.sortedMapTablePairs(markerIdToIndices) do
-        local targetOffset = markers[markerId].targetOffset or {}
-
-        local layer = metadata.layers[indices.down]
-        metadata.markerIdToCmps[markerId] = space.createCompass({
-            forward = layer.primaryRefPointIndices.backward - indices.backward + metadata.primaryRefBorderDistances.backward + (targetOffset.forward or 0),
-            right = -layer.primaryRefPointIndices.right + indices.right + metadata.primaryRefBorderDistances.left + (targetOffset.right or 0),
-            up = (targetOffset.up or 0) + indices.down - 1,
-            face = 'forward',
-        })
-    end
-
-    for markerId, markerConf in util.sortedMapTablePairs(markers) do
-        util.assert(metadata.markerIdToCmps[markerId] ~= nil, 'Marker "'..markerConf.char..'" was not found')
-    end
-
     -- List of backward/right points relative to the primary reference point
     local secondaryReferencePoints = {}
-    for backward, row in pairs(secondaryReferencePointsMap) do
-        for right, info in pairs(row) do
+
+    for backward, row in util.sortedMapTablePairs(refMap) do
+        for right, info in util.sortedMapTablePairs(row) do
             util.assert(
                 info.count > 1,
                 'Found a secondary reference point (.) on layer ' .. info.firstLayerFoundOn
@@ -167,12 +152,11 @@ local getBearings = function(layeredAsciiMap, markers)
     end
 
     -- Verify secondary reference points are on each layer
-    -- Alternatively, they can be omitted from a layer if they would be out of its bounds.
     for downIndex, asciiMap in ipairs(layeredAsciiMap) do
-        local layer = metadata.layers[downIndex]
+        local layer = dimensionsOfLayers[downIndex]
         for i, refPoint in ipairs(secondaryReferencePoints) do
-            local backward = layer.primaryRefPointIndices.backward + refPoint.backward
-            local right = layer.primaryRefPointIndices.right + refPoint.right
+            local backward = layer.primaryRefPointLayerIndex.backward + refPoint.backward
+            local right = layer.primaryRefPointLayerIndex.right + refPoint.right
 
             -- If a secondary reference point would be out-of-bounds, then it does not have to be supplied.
             util.assert(
@@ -183,9 +167,74 @@ local getBearings = function(layeredAsciiMap, markers)
             )
         end
     end
-
-    return metadata
 end
+
+local findAndValidateMarkers = function(dimensionsOfLayers, interestingSpotsPerLayer, primaryRefBorderDistances, markers)
+    local markerIdToCmps = {}
+    for downIndex, interestingSpotsInLayer in ipairs(interestingSpotsPerLayer) do
+        local layer = dimensionsOfLayers[downIndex]
+
+        for _, markerInfo in ipairs(interestingSpotsInLayer.markers) do
+            local markerId = markerInfo.markerId
+            local layerIndex = markerInfo.layerIndex
+            local markerConf = markers[markerId]
+            util.assert(markerIdToCmps[markerId] == nil, 'The marker "'..markerConf.char..'" was found multiple times.')
+
+            local targetOffset = markers[markerId].targetOffset or {}
+            markerIdToCmps[markerId] = space.createCompass({
+                forward = layer.primaryRefPointLayerIndex.backward - layerIndex.backward + primaryRefBorderDistances.backward + (targetOffset.forward or 0),
+                right = -layer.primaryRefPointLayerIndex.right + layerIndex.right + primaryRefBorderDistances.left + (targetOffset.right or 0),
+                up = (targetOffset.up or 0) + downIndex - 1,
+                face = 'forward',
+            })
+        end
+    end
+
+    for markerId, markerConf in util.sortedMapTablePairs(markers) do
+        util.assert(markerIdToCmps[markerId] ~= nil, 'The marker "'..markerConf.char..'" was not found.')
+    end
+
+    return markerIdToCmps
+end
+
+local calcPrimaryRefBorderDistances = function(dimensionsOfLayers)
+    local primaryRefBorderDistances = { left = 0, forward = 0, right = 0, backward = 0 }
+    for downIndex, layer in ipairs(dimensionsOfLayers) do
+        primaryRefBorderDistances.left = util.maxNumber(primaryRefBorderDistances.left, layer.primaryRefBorderDistances.left)
+        primaryRefBorderDistances.forward = util.maxNumber(primaryRefBorderDistances.forward, layer.primaryRefBorderDistances.forward)
+        primaryRefBorderDistances.right = util.maxNumber(primaryRefBorderDistances.right, layer.primaryRefBorderDistances.right)
+        primaryRefBorderDistances.backward = util.maxNumber(primaryRefBorderDistances.backward, layer.primaryRefBorderDistances.backward)
+    end
+
+    return primaryRefBorderDistances
+end
+
+-- Asserts the reference points lines up and returns metadata about the layers.
+local getBearings = function(layeredAsciiMap, markers)
+    local interestingSpotsPerLayer = listInterestingSpots(layeredAsciiMap, markers)
+    local dimensionsOfLayers = validatePrimaryReferencePoints(layeredAsciiMap, interestingSpotsPerLayer)
+    local primaryRefBorderDistances = calcPrimaryRefBorderDistances(dimensionsOfLayers)
+    validateSecondaryReferencePoints(layeredAsciiMap, dimensionsOfLayers, interestingSpotsPerLayer)
+
+    return {
+        -- A list of layer dimensions. Each "dimensions" table in the list contains:
+        -- * width
+        -- * depth
+        -- * primaryRefPointLayerIndex: { backward = ..., right = ... }
+        -- * primaryRefBorderDistances: The distances to the borders of this layer.
+        -- (Logic that calculated this information found at §AK7uH)
+        layers = dimensionsOfLayers,
+        -- `left = 2` means, starting from the primary reference point, you
+        -- can take two steps left and still be in at least one layer's forward/right bounds (the layers' vertical
+        -- position is ignored for this)
+        primaryRefBorderDistances = primaryRefBorderDistances,
+        markerIdToCmps = findAndValidateMarkers(dimensionsOfLayers, interestingSpotsPerLayer, primaryRefBorderDistances, markers),
+    }
+end
+
+--------------------------------------------------------------------------------
+-- Methods
+--------------------------------------------------------------------------------
 
 function prototype:getCmpsAtMarker(markerId)
     local cmps = self._markerIdToCmps[markerId]

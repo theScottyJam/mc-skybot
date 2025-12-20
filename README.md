@@ -10,13 +10,13 @@ lua ./run --base "$(pwd)/" --mock
 
 To run this in a turtle, follow the "prepare the world" instructions below, then run `run`
 
-Automated tests can be run with
+Automated tests can be ran with
 
 ```sh
 lua ./run --base "$(pwd)/" --test
 ```
 
-Tests are currently only available for the turtlescript portion of the project - an experimental tool that isn't currently integrated with the rest of the project.
+There's not a lot of automated testing. Perhaps it would be better to have a little more. At the moment, most behavior gets verified by simply running the program in mock mode and eyeballing the output.
 
 # Helpful information
 
