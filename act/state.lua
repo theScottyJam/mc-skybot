@@ -11,7 +11,7 @@ local module = {}
 local stateInitializers = {}
 local currentState = nil
 
--- You can call this directly if you plan on using act/ without the planner/ component.
+-- You can call this directly if you plan on using act/ without the plan/ component.
 -- Otherwise, prepare a plan, and the plan will call this for you.
 function module.init(opts)
     local startingPos = opts.startingPos

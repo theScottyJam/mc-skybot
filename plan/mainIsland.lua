@@ -765,7 +765,7 @@ local registerHarvestExcessDirtProject = function(opts)
             navigate.moveToCoord(digStartCmps.coord, { 'forward', 'up' })
 
             local dirtToDig = Sketch.new({
-                layeredAsciiMap = {{
+                layers = {{
                     -- "d" marks the dirt to dig
                     -- "D" marks dirt we don't want to dig
                     -- "B" marks bedrock

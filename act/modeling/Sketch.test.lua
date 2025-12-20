@@ -8,14 +8,14 @@ testFramework.testGroup('Sketch')
 
 test('does not allow empty maps', function()
     local error = getErrorMessage(Sketch.new, {
-        layeredAsciiMap = {}
+        layers = {}
     })
     assert.equal(error, 'At least one layer must be provided.')
 end)
 
 test('does not allow empty layers', function()
     local error = getErrorMessage(Sketch.new, {
-        layeredAsciiMap = {
+        layers = {
             {}
         }
     })
@@ -24,7 +24,7 @@ end)
 
 test('does not allow empty rows', function()
     local error = getErrorMessage(Sketch.new, {
-        layeredAsciiMap = {{
+        layers = {{
             '',
         }}
     })
@@ -33,7 +33,7 @@ end)
 
 test('it verifies that all rows in a layer to be the same length', function()
     local error = getErrorMessage(Sketch.new, {
-        layeredAsciiMap = {{
+        layers = {{
             ',X',
             'X'
         }}
@@ -43,7 +43,7 @@ end)
 
 test('the primary reference point cannot be found multiple times on a given layer', function()
     local error = getErrorMessage(Sketch.new, {
-        layeredAsciiMap = {{
+        layers = {{
             ',X',
             'X,'
         }}
@@ -53,7 +53,7 @@ end)
 
 test('the primary reference point is required on each layer', function()
     local error = getErrorMessage(Sketch.new, {
-        layeredAsciiMap = {
+        layers = {
             {
                 ',X',
                 'X '
@@ -70,7 +70,7 @@ end)
 test('you can omit the primary reference point when there is only one layer', function()
     -- No error is thrown
     Sketch.new({
-        layeredAsciiMap = {
+        layers = {
             {
                 ' X',
                 'X '
@@ -81,7 +81,7 @@ end)
 
 test('secondary reference points must line up', function()
     local error = getErrorMessage(Sketch.new, {
-        layeredAsciiMap = {
+        layers = {
             {
                 ', ',
                 'X.'
@@ -101,7 +101,7 @@ end)
 
 test('layers cannot skip secondary reference points', function()
     local error = getErrorMessage(Sketch.new, {
-        layeredAsciiMap = {
+        layers = {
             {
                 ', ',
                 'X.'
@@ -122,7 +122,7 @@ end)
 test('layers can skip a secondary reference point if it falls outside of its bounds', function()
     -- No error is thrown
     Sketch.new({
-        layeredAsciiMap = {
+        layers = {
             {
                 ', ',
                 'X.'
@@ -141,7 +141,7 @@ end)
 
 test('all markers must be found in the ASCII map', function()
     local error = getErrorMessage(Sketch.new, {
-        layeredAsciiMap = {{
+        layers = {{
             ', ',
             'X '
         }},
@@ -154,7 +154,7 @@ end)
 
 test('markers cannot be found multiple times in the ASCII map', function()
     local error = getErrorMessage(Sketch.new, {
-        layeredAsciiMap = {{
+        layers = {{
             ',!',
             'X!'
         }},

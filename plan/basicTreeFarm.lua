@@ -23,7 +23,7 @@ local functionalScaffoldingBlueprint = act.blueprint.create({
         },
     },
     buildStartMarker = 'entrance',
-    layeredAsciiMap = {
+    layers = {
         {
             '  .    ,    .  ',
             '       *       ',

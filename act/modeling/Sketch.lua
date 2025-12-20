@@ -379,13 +379,13 @@ end
 
 --[[
 Inputs:
-    layeredAsciiMap: A list of lists of strings representing a 3d map of tiles and markers.
+    layers: A list of lists of strings representing a 3d map of tiles and markers.
     markers?: This is used to mark interesting areas in the ascii map.
         A mapping is expected which maps marker names to info tables with the shape of:
             { char = <char>, targetOffset ?= <rel coord> }
 ]]
 function static.new(opts)
-    local layeredAsciiMap = opts.layeredAsciiMap
+    local layeredAsciiMap = opts.layers
     local markers = opts.markers or {}
 
     local metadata = getBearings(layeredAsciiMap, markers)

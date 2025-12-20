@@ -17,7 +17,7 @@ local leftRightWalkwayBlueprint = act.blueprint.create({
         },
     },
     buildStartMarker = 'entrance',
-    layeredAsciiMap = {
+    layers = {
         {
             ',     .',
             'WWWWWWW',
@@ -54,7 +54,7 @@ local leftDownWalkwayBlueprint = act.blueprint.create({
         },
     },
     buildStartMarker = 'entrance',
-    layeredAsciiMap = {
+    layers = {
         {
             ',     .',
             'WWWWWWW',
@@ -91,7 +91,7 @@ local leftDownRightWalkwayBlueprint = act.blueprint.create({
         },
     },
     buildStartMarker = 'entrance',
-    layeredAsciiMap = {
+    layers = {
         {
             ',     .',
             'WWWWWWW',
