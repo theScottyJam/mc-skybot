@@ -10,13 +10,14 @@ local leftRightWalkwayBlueprint = act.blueprint.create({
         ['minecraft:stoneBricks'] = 's',
         ['minecraft:torch'] = '*',
     },
-    labeledPositions = {
+    markers = {
         entrance = {
             behavior = 'buildStartCoord',
             char = '!',
         },
     },
-    layers = {
+    buildStartMarker = 'entrance',
+    layeredAsciiMap = {
         {
             ',     .',
             'WWWWWWW',
@@ -46,13 +47,14 @@ local leftDownWalkwayBlueprint = act.blueprint.create({
         ['minecraft:stoneBricks'] = 's',
         ['minecraft:torch'] = '*',
     },
-    labeledPositions = {
+    markers = {
         entrance = {
             behavior = 'buildStartCoord',
             char = '!',
         },
     },
-    layers = {
+    buildStartMarker = 'entrance',
+    layeredAsciiMap = {
         {
             ',     .',
             'WWWWWWW',
@@ -82,13 +84,14 @@ local leftDownRightWalkwayBlueprint = act.blueprint.create({
         ['minecraft:stoneBricks'] = 's',
         ['minecraft:torch'] = '*',
     },
-    labeledPositions = {
+    markers = {
         entrance = {
             behavior = 'buildStartCoord',
             char = '!',
         },
     },
-    layers = {
+    buildStartMarker = 'entrance',
+    layeredAsciiMap = {
         {
             ',     .',
             'WWWWWWW',

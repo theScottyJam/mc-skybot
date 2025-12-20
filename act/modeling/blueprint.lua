@@ -78,35 +78,26 @@ local nextCoordToVisit = function (sketch, mapKey, previousCoord)
     return nil
 end
 
--- Note that "." and "," have special behaviors to make sure things line up as you construct the blueprint.
--- See Sketch.lua for more information.
---
--- You are required to place a buildStartCoord label somewhere in the area. This label marks where the turtle will start
--- when it works on the project. The label should be placed at an edge, and there should be a column of empty space above it.
-function module.create(opts) -- opts should contain { key=..., labeledPositions=..., layers=... }
-    local key = opts.key
-    local layers = opts.layers
-    local labeledPositions = opts.labeledPositions
+--[[
+inputs:
+    ...Everything Sketch.new() expects
+    key = Maps resource names to characters
+    buildStartMarker = The name of a marker that marks where the turtle will be at when it starts building.
 
-    util.assert(util.tableSize(labeledPositions) == 1, 'sketches only support one buildStartCoord behavior for now, nothing else.')
-    labelName, labelOpts = util.getAnEntry(labeledPositions)
-    util.assert(labelOpts.behavior == 'buildStartCoord', 'For now, a label must have a behavior set to "buildStartCoord"')
+You are required to provide a "build start marker" somewhere in the area. This marks where the turtle will start
+when it works on the project. The marker should be placed at an edge, and there should be a column of empty space above it.
+]]
+function module.create(opts)
+    local key = opts.key
+    local buildStartMarker = opts.buildStartMarker
 
     local mapKey = util.flipMapTable(key) -- Flips the key so it maps characters to ids, which is more useful internally.
-    local relSketch = Sketch.new({
-        layeredAsciiMap = layers,
-        markers = {
-            [labelName] = {
-                char = labelOpts.char,
-                targetOffset = labelOpts.targetOffset,
-            }
-        }
-    })
+    local relSketch = Sketch.new(opts)
 
     local requiredResources = calcRequiredResources(relSketch, mapKey)
 
     return function(buildStartCmps)
-        local sketch = relSketch:anchorMarker(labelName, buildStartCmps.coord)
+        local sketch = relSketch:anchorMarker(buildStartMarker, buildStartCmps.coord)
 
         return {
             requiredResources = util.mapMapTable(requiredResources, function(quantity)

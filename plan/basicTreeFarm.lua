@@ -16,14 +16,14 @@ local functionalScaffoldingBlueprint = act.blueprint.create({
         ['minecraft:sapling'] = 's',
         ['minecraft:torch'] = '*',
     },
-    labeledPositions = {
+    markers = {
         entrance = {
-            behavior = 'buildStartCoord',
             char = '!',
             targetOffset = { forward = 1, up = 1 },
         },
     },
-    layers = {
+    buildStartMarker = 'entrance',
+    layeredAsciiMap = {
         {
             '  .    ,    .  ',
             '       *       ',
