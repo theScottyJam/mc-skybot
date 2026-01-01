@@ -1,7 +1,7 @@
 local util = import('util.lua')
 local navigate = import('./navigate.lua')
+local Coord = import('./space/Coord.lua')
 local commands = import('./commands.lua')
-local space = import('./space.lua')
 local state = import('./state.lua')
 
 local module = {}
@@ -140,7 +140,7 @@ end
 -- produce multiple paper with a single craft)
 -- pre-condition: There must be an empty space above the turtle
 function module.craft(recipe, maxQuantity)
-    maxQuantity = maxQuantity or 99999
+    maxQuantity = maxQuantity -- may be nil
     if util.tableSize(recipe.from) == 0 then error('Empty recipe') end
 
     local numOfItemsInChest = 0
@@ -266,7 +266,12 @@ function module.craft(recipe, maxQuantity)
     commands.turtle.select(1)
 
     commands.turtle.select(4)
-    local quantityUsing = util.minNumber(minStackSize, math.ceil(maxQuantity / recipe.yields))
+    local quantityUsing
+    if maxQuantity == nil then
+        quantityUsing = minStackSize
+    else
+        quantityUsing = util.minNumber(minStackSize, math.ceil(maxQuantity / recipe.yields))
+    end
     while quantityUsing > 0 do
         commands.turtle.craft(util.minNumber(64, quantityUsing * recipe.yields))
         quantityUsing = quantityUsing - commands.turtle.getItemCount() / recipe.yields
@@ -310,7 +315,7 @@ function module.organizeInventory()
         end
         
         -- If you were able to get it moved, then note the empty cell
-        -- otherwise, note down this ptoentially partial stack left behind.
+        -- otherwise, note down this potentially partial stack left behind.
         if itemDetails == nil then
             table.insert(emptySpaces, i)
         else
@@ -366,7 +371,7 @@ function module.waitUntilDetectBlock(opts)
     local endFacing = opts.endFacing
 
     if endFacing == 'CURRENT' or endFacing == nil then
-        endFacing = state.getTurtleCmps().facing
+        endFacing = navigate.getTurtlePos().facing
     end
 
     local inspectFn
@@ -440,47 +445,46 @@ function module.snake(opts)
     local shouldVisit = opts.shouldVisit or function(x, y) return true end
     local onVisit = opts.onVisit
 
-    local inBounds = function (coord)
-        return space.__isCoordInBoundingBox(coord, boundingBox)
-    end
+    boundingBox.origin:assertAbsolute()
+    navigate.getTurtlePos().coord:assertAbsolute()
 
     util.assert(boundingBox.leastUp == boundingBox.mostUp)
-    util.assert(inBounds(state.getTurtlePos()), 'The turtle is not inside of the provided bounding box.')
+    util.assert(boundingBox:contains(navigate.getTurtlePos().coord), 'The turtle is not inside of the provided bounding box.')
 
-    local firstCoord = { up = boundingBox.mostUp }
+    local firstCoordData = { up = boundingBox.mostUp }
     local verDelta
     local hozDelta
     -- if you're more forwards than backwards within the box
-    if boundingBox.mostForward - state.getTurtlePos().forward < state.getTurtlePos().forward - boundingBox.leastForward then
-        firstCoord.forward = boundingBox.mostForward
+    if boundingBox.mostForward - navigate.getTurtlePos().forward < navigate.getTurtlePos().forward - boundingBox.leastForward then
+        firstCoordData.forward = boundingBox.mostForward
         verDelta = { forward = -1 }
     else
-        firstCoord.forward = boundingBox.leastForward
+        firstCoordData.forward = boundingBox.leastForward
         verDelta = { forward = 1 }
     end
     -- if you're more right than left within the box
-    if boundingBox.mostRight - state.getTurtlePos().right < state.getTurtlePos().right - boundingBox.leastRight then
-        firstCoord.right = boundingBox.mostRight
+    if boundingBox.mostRight - navigate.getTurtlePos().right < navigate.getTurtlePos().right - boundingBox.leastRight then
+        firstCoordData.right = boundingBox.mostRight
         hozDelta = { right = -1 }
     else
-        firstCoord.right = boundingBox.leastRight
+        firstCoordData.right = boundingBox.leastRight
         hozDelta = { right = 1 }
     end
 
-    local curCmps = space.createCompass(util.mergeTables(firstCoord, { face = 'forward' }))
-    while inBounds(curCmps.coord) do
-        if shouldVisit(curCmps.coord) then
-            navigate.moveToCoord(curCmps.coord)
+    local curCoord = Coord.absolute(firstCoordData)
+    while boundingBox:contains(curCoord) do
+        if shouldVisit(curCoord) then
+            navigate.moveToCoord(curCoord)
             onVisit()
         end
         
-        local nextCmps = curCmps.compassAt(hozDelta)
-        if not inBounds(nextCmps.coord) then
-            nextCmps = curCmps.compassAt(verDelta)
+        local nextCoord = curCoord:at(hozDelta)
+        if not boundingBox:contains(nextCoord) then
+            nextCoord = curCoord:at(verDelta)
             hozDelta.right = -hozDelta.right
         end
 
-        curCmps = nextCmps
+        curCoord = nextCoord
     end
 end
 

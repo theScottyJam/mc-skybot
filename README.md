@@ -18,6 +18,8 @@ lua ./run --base "$(pwd)/" --test
 
 There's not a lot of automated testing. Perhaps it would be better to have a little more. At the moment, most behavior gets verified by simply running the program in mock mode and eyeballing the output.
 
+In inspect.lua there's a `pauseUnpauseAfterEachSprint` property that can be set to `true` to deeply test serialization at each step. Try to do this occasionally.
+
 # Helpful information
 
 turtle api: https://computercraft.info/wiki/Turtle_(API)
@@ -54,10 +56,10 @@ You can make the disk persist across restarts by doing `label right/front/etc ma
 
 # Terms
 
-Coordinate: A forward,right,up coordinate.
-Position: A coordinate with a face.
+Coordinate: A forward,right,up coordinate. Within mockComputerCraftApi/, coordinates are instead absolute x/y/z coordinates. Note that these don't convert 1-to-1 - increasing the value of "z" would move you backwards while increasing the value of a "forward" field in a forward/right/up coordinate will, well, move you forwards, not backwards. The reason forward/right/up is used instead of x/y/z in most of the program is mostly due to old decisions that aren't important anymore, but it's been kept that way because it's a little easier to reason with the coordinates when the directions are explicitly spelled out in the field names.
+
+Position: A coordinate with a facing (forward/right/backward/left).
 Location: A specific point in space that you often travel to. There's logic in place to find the quickest route from one location to another.
-(At the time of writing, act/space.lua has more information about coordinate terminology in its module comment)
 
 sprint: A series of immediate steps that needs to be taken (like turn left, go forward, etc) until you get to a place where an interruption or pause can happen. An interruption could be, for example, refueling, or tending a farm. Interruptions can't be further interrupted, so, e.g., tending a farm (which is always an interruption) will never be further interrupted, but the turtle can still be paused while tending the farm, to allow the game to be shut down.
 plan: Everything that will happen, starting from from harvesting the first tree to the last projects.

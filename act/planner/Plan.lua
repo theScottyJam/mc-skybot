@@ -3,7 +3,9 @@
 ]]
 
 local util = import('util.lua')
+local commands = import('../commands.lua')
 local state = import('../state.lua')
+local navigate = import('../navigate.lua')
 local Project = import('./Project.lua')
 local Farm = import('./Farm.lua')
 local serializer = import('../_serializer.lua')
@@ -32,7 +34,8 @@ end
 
 -- Any functions with "register" in the name should be called before this function is called.
 function prototype:startFromBeginning()
-    state.init({ startingPos = self._initialTurtlePos })
+    state.init()
+    navigate.init({ initialTurtlePos = self._initialTurtlePos })
     sprintCoordinator.useProjectList(self._projectList)
 
     if inspect.onPlanStart then

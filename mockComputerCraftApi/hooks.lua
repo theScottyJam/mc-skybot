@@ -3,12 +3,8 @@ local worldTools = import('./worldTools.lua')
 
 local module = {}
 
-function module.registerCobblestoneRegenerationBlock(deltaCoord)
-    local coord = {
-        x = deltaCoord.right,
-        y = deltaCoord.up,
-        z = -deltaCoord.forward
-    }
+-- `coord` is an x/y/z coordinate.
+function module.registerCobblestoneRegenerationBlock(coord)
     local regenerateCobblestone
     regenerateCobblestone = function()
         time.addTickListener(4, regenerateCobblestone)

@@ -12,12 +12,17 @@ local state = act.state
 
 -- Above a tree is typically a floating block, then an optional torch.
 -- This function expects you to to be right above where the torch would be.
+--
+-- You can start facing any direction you wish.
+--
+-- endFacing is required and must be set to 'ANY' to remind you that the turtle
+-- could end facing any direction.
 function module.harvestTreeFromAbove(opts)
-    local bottomLogPos = opts.bottomLogPos
-    local bottomLogCmps = space.createCompass(bottomLogPos)
+    local bottomLogCoord = opts.bottomLogCoord
+    util.assert(opts.endFacing == 'ANY')
 
-    navigate.assertAtCoord(bottomLogCmps.coordAt({ up=10 }))
-    navigate.face(bottomLogCmps.facingAt({ face='forward' }))
+    navigate.assertAtCoord(bottomLogCoord:at({ up=10 }))
+    navigate.face('forward')
     commands.turtle.forward()
 
     -- Move down until you hit leaves
@@ -30,8 +35,8 @@ function module.harvestTreeFromAbove(opts)
     end
 
     -- Harvest top-half of leaves
-    local topLeafCmps = state.getTurtleCmps().compassAt({ forward=-1, up=-1 })
-    local cornerPos = topLeafCmps.posAt({ forward = 1, right = 1, face='backward' })
+    local topLeafCoord = navigate.getTurtlePos().coord:at({ forward=-1, up=-1 })
+    local cornerPos = topLeafCoord:at({ forward = 1, right = 1 }):face('backward')
     navigate.moveToPos(cornerPos, { 'right', 'forward', 'up' })
     highLevelCommands.spiralInwards({
         sideLength = 3,
@@ -42,7 +47,7 @@ function module.harvestTreeFromAbove(opts)
     })
 
     -- Harvest bottom-half of leaves
-    local aboveCornerPos = topLeafCmps.posAt({ forward = 2, right = 2, up = -1, face='backward' })
+    local aboveCornerPos = topLeafCoord:at({ forward = 2, right = 2, up = -1 }):face('backward')
     navigate.moveToPos(aboveCornerPos, { 'right', 'forward', 'up' })
     commands.turtle.digDown()
     commands.turtle.down()
@@ -53,7 +58,7 @@ function module.harvestTreeFromAbove(opts)
             commands.turtle.digDown()
         end
     })
-    navigate.face(topLeafCmps.facingAt({ face='forward' }))
+    navigate.face('forward')
 
     -- Harvest trunk
     while true do
@@ -65,21 +70,21 @@ function module.harvestTreeFromAbove(opts)
         end
     end
 
-    navigate.assertAtPos(bottomLogCmps.pos)
+    navigate.assertAtCoord(bottomLogCoord)
 end
 
--- You must be standing at the inFrontOfTreeCmps position before calling this.
+-- You must be standing at the inFrontOfTreePos position (facing the tree) before calling this.
 -- This will check if the tree has grown, and if so, harvest it.
-function module.tryHarvestTree(inFrontOfTreeCmps)
+function module.tryHarvestTree(inFrontOfTreePos)
     local success, blockInfo = commands.turtle.inspect()
 
     local blockIsLog = success and blockInfo.name == 'minecraft:log'
     if blockIsLog then
-        local bottomLogCmps = inFrontOfTreeCmps.compassAt({ forward=1 })
-        navigate.moveToCoord(inFrontOfTreeCmps.coordAt({ forward=-2 }))
-        navigate.moveToPos(bottomLogCmps.posAt({ up=10 }), { 'up', 'forward', 'right' })
-        module.harvestTreeFromAbove({ bottomLogPos = bottomLogCmps.pos })
-        navigate.moveToPos(inFrontOfTreeCmps.pos)
+        local bottomLogCoord = inFrontOfTreePos.coord:at({ forward=1 })
+        navigate.moveToCoord(inFrontOfTreePos.coord:at({ forward=-2 }))
+        navigate.moveToCoord(bottomLogCoord:at({ up=10 }), { 'up', 'forward', 'right' })
+        module.harvestTreeFromAbove({ bottomLogCoord = bottomLogCoord, endFacing = 'ANY' })
+        navigate.moveToPos(inFrontOfTreePos)
         highLevelCommands.placeItem('minecraft:sapling', { allowMissing = true })
     end
 end

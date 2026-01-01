@@ -16,14 +16,14 @@ function module.register()
     local basicTreeFarm = basicTreeFarm.register({ homeLoc = mainIsland.homeLoc })
 
     return act.Plan.register({
-        initialTurtlePos = mainIsland.initialLoc.cmps.pos,
+        initialTurtlePos = mainIsland.initialLoc.pos,
         projectList = {
             -- To run a custom project for debugging purposes, use the following anywhere it's needed:
             --   debugProject(mainIsland.homeLoc),
             mainIsland.initialization,
             mainIsland.startBuildingCobblestoneGenerator,
             mainIsland.harvestInitialTreeAndPrepareTreeFarm,
-            mainIsland.waitForIceToMeltAndfinishCobblestoneGenerator,
+            mainIsland.waitForIceToMeltAndFinishCobblestoneGenerator,
             mainIsland.buildFurnaces,
             mainIsland.smeltInitialCharcoal,
             mainIsland.torchUpIsland,

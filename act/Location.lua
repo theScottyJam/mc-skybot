@@ -1,13 +1,11 @@
 --[[
     A location represents a specific, marked point in space that you might frequently travel to.
-    Some helpers related to locations are also found in space.lua.
 
     A location should always have a spot above it that's empty. This allows the turtle
     to place a chest there, to craft at any location.
 ]]
 
 local util = import('util.lua')
-local space = import('./space.lua')
 local navigate = import('./navigate.lua')
 local state = import('./state.lua')
 
@@ -25,7 +23,8 @@ end)
 
 -- Turns a position into a key that uniquely identifies that position.
 local posToKey = function(pos)
-    return pos.forward..','..pos.right..','..pos.up..':'..pos.face
+    pos.coord:assertAbsolute()
+    return pos.forward..','..pos.right..','..pos.up..':'..pos.facing
 end
 
 local lookupLoc = function(key)
@@ -37,12 +36,14 @@ end
 local calcPathCost = function(coords)
     local length = 0
     for i=1, #coords-1 do
+        coords[i]:assertAbsolute()
         length = length + (
             math.abs(coords[i+1].forward - coords[i].forward) +
             math.abs(coords[i+1].right - coords[i].right) +
             math.abs(coords[i+1].up - coords[i].up)
         )
     end
+    coords[#coords]:assertAbsolute()
     return length
 end
 
@@ -90,7 +91,8 @@ end
 
 function static.register(pos)
     local loc = util.attachPrototype(prototype, {
-        cmps = space.createCompass(pos),
+        pos = pos,
+        coord = pos.coord, -- For easy access
         -- Unique key used for looking up this location inside of maps
         _key = posToKey(pos)
     })
@@ -106,8 +108,8 @@ function static.addPath(loc1, loc2, midPoints)
     midPoints = midPoints or {}
 
     local allCoordsInPath = util.copyTable(midPoints)
-    table.insert(allCoordsInPath, 1, loc1.cmps.coord)
-    table.insert(allCoordsInPath, loc2.cmps.coord)
+    table.insert(allCoordsInPath, 1, loc1.pos.coord)
+    table.insert(allCoordsInPath, loc2.pos.coord)
     local cost = calcPathCost(allCoordsInPath)
 
     local availablePaths = availablePathsStateManager:getAndModify()
@@ -133,8 +135,8 @@ end
 
 -- Finds the shortest route to a location among the registered paths and travels there.
 function prototype:travelHere()
-    if state.getTurtleCmps().compareCmps(self.cmps) then return end
-    local turtleLoc = lookupLoc(posToKey(state.getTurtlePos()))
+    if navigate.getAbsoluteTurtlePos():equals(self.pos) then return end
+    local turtleLoc = lookupLoc(posToKey(navigate.getAbsoluteTurtlePos()))
     local route = findBestRoute(turtleLoc, self).route
     util.assert(route ~= nil, 'Failed to navigate to a particular location - there was no route to this location.')
 
@@ -142,9 +144,9 @@ function prototype:travelHere()
         for i, coord in ipairs(path.midPoints) do
             navigate.moveToCoord(coord)
         end
-        navigate.moveToCoord(lookupLoc(path.to).cmps.coord)
+        navigate.moveToCoord(lookupLoc(path.to).pos.coord)
     end
-    navigate.face(self.cmps.facing)
+    navigate.face(self.pos.facing)
 end
 
 return static

@@ -119,17 +119,17 @@ function module.debugProject(homeLoc)
 
     return act().Project.register({
         id = 'inspect:debugProject',
-        enter = function(taskState)
+        enter = function(self)
             -- homeLoc:travelHere()
         end,
-        nextSprint = function(taskState)
-            -- local startPos = act().state.getTurtlePos()
+        nextSprint = function(self)
+            -- local startPos = navigate.getTurtlePos()
             -- local currentWorld = _G.mockComputerCraftApi.world
             -- worldTools().addToInventory('minecraft:charcoal', 64)
             debugGlobal.showStepByStep = true
 
             -- navigate.moveToPos(startPos)
-            return taskState, true
+            return true
         end,
     })
 end

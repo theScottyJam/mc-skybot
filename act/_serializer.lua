@@ -37,6 +37,11 @@ countReferences = function(data, refCount)
         return
     end
 
+    util.assert(
+        data.__forbidSerialization == nil,
+        'This table has explicitly requested not to be serialized (it contains a "__forbidSerialization" field).'
+    )
+
     if refCount[data] == nil then
         refCount[data] = 0
     end

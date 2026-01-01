@@ -1,5 +1,6 @@
 local util = import('util.lua')
-local space = import('../space.lua')
+local Coord = import('../space/Coord.lua')
+local Position = import('../space/Position.lua')
 local navigate = import('../navigate.lua')
 local highLevelCommands = import('../highLevelCommands.lua')
 local Sketch = import('./Sketch.lua')
@@ -26,6 +27,11 @@ end
 -- previousCoord can be nil
 -- Returns `nil` when there's no more coordinates to visit.
 local nextCoordToVisit = function (sketch, mapKey, previousCoord)
+    sketch.origin:assertAbsolute()
+    if previousCoord ~= nil then
+        previousCoord:assertAbsolute()
+    end
+
     local isEven = function(n) return n % 2 == 0 end
     local bounds = sketch.bounds
 
@@ -35,11 +41,11 @@ local nextCoordToVisit = function (sketch, mapKey, previousCoord)
     local skipFirstFind = true
 
     if previousCoord == nil then
-        previousCoord = {
+        previousCoord = Coord.absolute({
             right = bounds.leastRight,
             forward = bounds.leastForward,
             up = bounds.leastUp,
-        }
+        })
         -- When looking for the first block to place,
         -- there is no previous block we want to skip.
         skipFirstFind = false
@@ -62,7 +68,7 @@ local nextCoordToVisit = function (sketch, mapKey, previousCoord)
                 rightRange[1] = previousCoord.right
             end
             for right = rightRange[1], rightRange[2], rightRange[3] do
-                local targetCoord = { forward = forward, right = right, up = up }
+                local targetCoord = Coord.absolute({ forward = forward, right = right, up = up })
                 local char = sketch:getCharAt(targetCoord)
                 if mapKey[char] ~= nil then -- If it's a block (not a marker)
                     if skipFirstFind then
@@ -96,8 +102,9 @@ function module.create(opts)
 
     local requiredResources = calcRequiredResources(relSketch, mapKey)
 
-    return function(buildStartCmps)
-        local sketch = relSketch:anchorMarker(buildStartMarker, buildStartCmps.coord)
+    -- blueprintFacing is optional
+    return function(buildStartPos, blueprintFacing)
+        local sketch = relSketch:anchorMarker(buildStartMarker, buildStartPos.coord, blueprintFacing)
 
         return {
             requiredResources = util.mapMapTable(requiredResources, function(quantity)
@@ -107,7 +114,7 @@ function module.create(opts)
                 local nextCoord = nextCoordToVisit(sketch, mapKey)
                 util.assert(nextCoord ~= nil, 'Attempted to use an empty blueprint')
                 return {
-                    buildStartPos = buildStartCmps.pos,
+                    buildStartPos = buildStartPos,
                     nextCoord = nextCoord,
                 }
             end,
@@ -125,17 +132,12 @@ function module.create(opts)
                 util.assert(mapKey[targetChar])
 
                 navigate.moveToCoord(
-                    {
-                        forward = targetCoord.forward,
-                        right = targetCoord.right,
-                        up = targetCoord.up + 1,
-                        face = 'forward',
-                    },
+                    targetCoord:at({ up = 1 }),
                     {'up', 'right', 'forward'}
                 )
                 highLevelCommands.placeItemDown(mapKey[targetChar])
 
-                nextTaskState.nextCoord = nextCoordToVisit(sketch, mapKey, taskState.nextCoord)
+                nextTaskState.nextCoord = nextCoordToVisit(sketch, mapKey, targetCoord)
                 util.mergeTablesInPlace(taskState, nextTaskState)
                 return nextTaskState.nextCoord == nil
             end,

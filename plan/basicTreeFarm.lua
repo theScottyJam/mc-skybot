@@ -64,7 +64,7 @@ function registerFunctionalScaffoldingProject(opts)
     local treeFarmEntranceLoc = opts.treeFarmEntranceLoc
     local treeFarm = opts.treeFarm
 
-    local functionalScaffolding = functionalScaffoldingBlueprint(treeFarmEntranceLoc.cmps)
+    local functionalScaffolding = functionalScaffoldingBlueprint(treeFarmEntranceLoc.pos)
 
     return act.Project.register({
         id = 'basicTreeFarm:createFunctionalScaffolding',
@@ -81,7 +81,7 @@ function registerFunctionalScaffoldingProject(opts)
         end,
         exit = function(self)
             functionalScaffolding.exit(self.taskState)
-            navigate.assertAtPos(treeFarmEntranceLoc.cmps.pos)
+            navigate.assertAtPos(treeFarmEntranceLoc.pos)
         end,
         after = function(self)
             treeFarm:activate()
@@ -102,21 +102,21 @@ local registerTreeFarm = function(opts)
             treeFarmEntranceLoc:travelHere()
         end,
         exit = function(self)
-            navigate.assertAtPos(treeFarmEntranceLoc.cmps.pos)
+            navigate.assertAtPos(treeFarmEntranceLoc.pos)
         end,
         nextSprint = function(self)
             commands.turtle.select(1)
-            local startPos = state.getTurtlePos()
+            local startPos = navigate.getTurtlePos()
 
-            local inFrontOfEachTreeCmps = {
-                treeFarmEntranceLoc.cmps.compassAt({ forward=2, right=-5 }),
-                treeFarmEntranceLoc.cmps.compassAt({ forward=2 }),
-                treeFarmEntranceLoc.cmps.compassAt({ forward=2, right=5 }),
+            local inFrontOfEachTreePos = {
+                treeFarmEntranceLoc.pos:at({ forward=2, right=-5 }),
+                treeFarmEntranceLoc.pos:at({ forward=2 }),
+                treeFarmEntranceLoc.pos:at({ forward=2, right=5 }),
             }
 
-            for i, inFrontOfTreeCmps in ipairs(inFrontOfEachTreeCmps) do
-                navigate.moveToPos(inFrontOfTreeCmps.pos, { 'forward', 'right' })
-                treeFarmBehavior.tryHarvestTree(inFrontOfTreeCmps)
+            for i, inFrontOfTreePos in ipairs(inFrontOfEachTreePos) do
+                navigate.moveToPos(inFrontOfTreePos, { 'forward', 'right' })
+                treeFarmBehavior.tryHarvestTree(inFrontOfTreePos)
             end
 
             navigate.moveToPos(startPos, { 'up', 'right', 'forward' })
@@ -130,7 +130,7 @@ end
 
 function module.register(opts)
     local homeLoc = opts.homeLoc
-    local treeFarmEntranceLoc = Location.register(homeLoc.cmps.posAt({ forward=2 }))
+    local treeFarmEntranceLoc = Location.register(homeLoc.pos:at({ forward=2 }))
 
     local treeFarm = registerTreeFarm({ treeFarmEntranceLoc = treeFarmEntranceLoc })
 

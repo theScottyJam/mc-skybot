@@ -5,13 +5,15 @@ local treeFarmBehavior = import('./_treeFarmBehavior.lua')
 
 local module = {}
 
+local Bridge = act.Bridge
 local commands = act.commands
+local Coord = act.Coord
+local curves = act.curves
+local highLevelCommands = act.highLevelCommands
 local Location = act.Location
 local navigate = act.navigate
-local highLevelCommands = act.highLevelCommands
-local curves = act.curves
+local Position = act.Position
 local Sketch = act.Sketch
-local space = act.space
 local state = act.state
 
 -- This should be the first project that runs
@@ -34,50 +36,49 @@ end
 
 -- Pre-condition: Must have two dirt in inventory
 local registerHarvestInitialTreeAndPrepareTreeFarmProject = function(opts)
-    local bedrockPos = opts.bedrockPos
+    local bedrockCoord = opts.bedrockCoord
     local homeLoc = opts.homeLoc
     local startingIslandTreeFarm = opts.startingIslandTreeFarm
 
-    local bedrockCmps = space.createCompass(bedrockPos)
     return act.Project.register({
         id = 'mainIsland:harvestInitialTreeAndPrepareTreeFarm',
         enter = function(self)
             homeLoc:travelHere()
         end,
         exit = function(self)
-            navigate.assertAtPos(homeLoc.cmps.pos)
+            navigate.assertAtPos(homeLoc.pos)
         end,
         after = function(self)
             startingIslandTreeFarm:activate()
         end,
         nextSprint = function(self)
-            local startPos = state.getTurtlePos()
+            local startPos = navigate.getTurtlePos()
 
-            local bottomTreeLogCmps = bedrockCmps.compassAt({ forward=-4, right=-1, up=3 })
-            -- aboveTreeCmps is right above the floating dirt
-            local aboveTreeCmps = bottomTreeLogCmps.compassAt({ up=9 })
-            local aboveFutureTree1Cmps = aboveTreeCmps.compassAt({ right=-2 })
-            local aboveFutureTree2Cmps = aboveTreeCmps.compassAt({ right=4 })
+            local bottomTreeLogCoord = bedrockCoord:at({ forward=-4, right=-1, up=3 })
+            -- aboveTreeCoord is right above the floating dirt
+            local aboveTreeCoord = bottomTreeLogCoord:at({ up=9 })
+            local aboveFutureTree1Coord = aboveTreeCoord:at({ right=-2 })
+            local aboveFutureTree2Coord = aboveTreeCoord:at({ right=4 })
 
             -- Place dirt up top
             highLevelCommands.findAndSelectSlotWithItem('minecraft:dirt')
-            navigate.moveToCoord(aboveFutureTree2Cmps.coord, { 'up', 'forward', 'right' })
+            navigate.moveToCoord(aboveFutureTree2Coord, { 'up', 'forward', 'right' })
             commands.turtle.placeDownAndAssert()
             highLevelCommands.findAndSelectSlotWithItem('minecraft:dirt')
-            navigate.moveToCoord(aboveFutureTree1Cmps.coord, { 'up', 'forward', 'right' })
+            navigate.moveToCoord(aboveFutureTree1Coord, { 'up', 'forward', 'right' })
             commands.turtle.placeDownAndAssert()
             commands.turtle.select(1)
 
             -- Harvest tree
-            navigate.moveToCoord(aboveTreeCmps.coord, { 'up', 'forward', 'right' })
+            navigate.moveToCoord(aboveTreeCoord, { 'up', 'forward', 'right' })
             -- Move up one more, since harvestTreeFromAbove() expects you to have a space between the floating
             -- dirt and you, so a torch could be there if needed.
             commands.turtle.up()
-            treeFarmBehavior.harvestTreeFromAbove({ bottomLogPos = bottomTreeLogCmps.pos })
+            treeFarmBehavior.harvestTreeFromAbove({ bottomLogCoord = bottomTreeLogCoord, endFacing = 'ANY' })
 
             -- Prepare sapling planting area
             local prepareSaplingDirtArm = function(direction)
-                navigate.face(bottomTreeLogCmps.facingAt({ face=direction }))
+                navigate.face(direction)
                 for i = 1, 2 do
                     commands.turtle.forward()
                     highLevelCommands.placeItemDown('minecraft:dirt', { allowMissing = true })
@@ -86,9 +87,9 @@ local registerHarvestInitialTreeAndPrepareTreeFarmProject = function(opts)
                 highLevelCommands.placeItemDown('minecraft:sapling', { allowMissing = true })
             end
 
-            navigate.assertAtPos(bottomTreeLogCmps.pos)
+            navigate.assertAtCoord(bottomTreeLogCoord)
             prepareSaplingDirtArm('left')
-            navigate.moveToCoord(bottomTreeLogCmps.coordAt({ right=2 }), { 'forward', 'right', 'up' })
+            navigate.moveToCoord(bottomTreeLogCoord:at({ right=2 }), { 'forward', 'right', 'up' })
             prepareSaplingDirtArm('right')
 
             navigate.moveToPos(startPos, { 'forward', 'right', 'up' })
@@ -112,7 +113,7 @@ local registerStartBuildingCobblestoneGeneratorProject = function(opts)
             homeLoc:travelHere()
         end,
         exit = function(self)
-            navigate.assertAtPos(homeLoc.cmps.pos)
+            navigate.assertAtPos(homeLoc.pos)
         end,
         after = function(self)
             -- Crafting mills are activated here, because the way crafting was
@@ -123,10 +124,10 @@ local registerStartBuildingCobblestoneGeneratorProject = function(opts)
             end
         end,
         nextSprint = function(self)
-            local startPos = state.getTurtlePos()
+            local startPos = navigate.getTurtlePos()
 
             -- Dig out east branch
-            navigate.face(homeLoc.cmps.facingAt({ face='right' }))
+            navigate.face('right')
             for i = 1, 2 do
                 commands.turtle.forward()
                 commands.turtle.digDown()
@@ -141,11 +142,11 @@ local registerStartBuildingCobblestoneGeneratorProject = function(opts)
             commands.turtle.dig()
 
             -- Place lava down
-            navigate.moveToCoord(homeLoc.cmps.coordAt({ right=2 }))
+            navigate.moveToCoord(homeLoc.coord:at({ right=2 }))
             highLevelCommands.placeItemDown('minecraft:lava_bucket')
 
             -- Dig out west branch
-            navigate.moveToPos(homeLoc.cmps.posAt({ face='backward' }))
+            navigate.moveToPos(homeLoc.pos:face('backward'))
             commands.turtle.forward()
             commands.turtle.digDown()
             commands.turtle.down()
@@ -159,7 +160,7 @@ local registerStartBuildingCobblestoneGeneratorProject = function(opts)
             highLevelCommands.placeItemDown('minecraft:ice')
 
             -- Dig out place for player to stand
-            navigate.moveToCoord(homeLoc.cmps.coordAt({ right=-1 }))
+            navigate.moveToCoord(homeLoc.coord:at({ right=-1 }))
             commands.turtle.digDown()
 
             navigate.moveToPos(startPos)
@@ -172,33 +173,33 @@ local registerStartBuildingCobblestoneGeneratorProject = function(opts)
     })
 end
 
-local registerWaitForIceToMeltAndfinishCobblestoneGeneratorProject = function(opts)
+local registerWaitForIceToMeltAndFinishCobblestoneGeneratorProject = function(opts)
     local homeLoc = opts.homeLoc
     local cobblestoneGeneratorMill = opts.cobblestoneGeneratorMill
 
     return act.Project.register({
-        id = 'mainIsland:waitForIceToMeltAndfinishCobblestoneGenerator',
+        id = 'mainIsland:waitForIceToMeltAndFinishCobblestoneGenerator',
         enter = function(self)
             homeLoc:travelHere()
         end,
         exit = function(self)
-            navigate.assertAtPos(homeLoc.cmps.pos)
+            navigate.assertAtPos(homeLoc.pos)
         end,
         after = function(self)
             if _G.mockComputerCraftApi ~= nil then
-                _G.mockComputerCraftApi.hooks.registerCobblestoneRegenerationBlock(homeLoc.cmps.coordAt({ up=-1 }))
+                _G.mockComputerCraftApi.hooks.registerCobblestoneRegenerationBlock(homeLoc.coord:at({ up=-1 }):toXYZCoord())
             end
             cobblestoneGeneratorMill:activate()
         end,
         nextSprint = function(self)
-            local startPos = state.getTurtlePos()
+            local startPos = navigate.getTurtlePos()
 
             -- Wait for ice to melt
-            navigate.moveToCoord(homeLoc.cmps.coordAt({ forward=-1 }))
+            navigate.moveToCoord(homeLoc.coord:at({ forward=-1 }))
             highLevelCommands.waitUntilDetectBlock({
                 expectedBlockId = 'minecraft:water',
                 direction = 'down',
-                endFacing = homeLoc.cmps.facingAt({ face='backward' }),
+                endFacing = 'backward',
             })
             
             -- Move water
@@ -224,33 +225,40 @@ local registerBuildFurnacesProject = function(opts)
     local inFrontOfChestLoc = opts.inFrontOfChestLoc
     local inFrontOfFirstFurnaceLoc = opts.inFrontOfFirstFurnaceLoc
 
+    local inFrontOfFirstFurnaceCoord = Coord.newCoordSystem('inFrontOfFirstFurnace').origin
+    local bridge = Bridge.new(inFrontOfFirstFurnaceLoc.coord, inFrontOfFirstFurnaceCoord, inFrontOfFirstFurnaceLoc.pos.facing)
+
     return act.Project.register({
         id = 'mainIsland:buildFurnaces',
         enter = function(self)
             inFrontOfChestLoc:travelHere()
         end,
         exit = function(self)
-            navigate.assertAtPos(inFrontOfChestLoc.cmps.pos)
+            navigate.assertAtPos(inFrontOfChestLoc.pos)
         end,
         after = function(self)
             Location.addPath(inFrontOfChestLoc, inFrontOfFirstFurnaceLoc, {
-                inFrontOfChestLoc.cmps.coordAt({ right=1 }),
-                inFrontOfChestLoc.cmps.coordAt({ right=1, up=1 }),
+                inFrontOfChestLoc.coord:at({ right=1 }),
+                inFrontOfChestLoc.coord:at({ right=1, up=1 }),
             })
         end,
-        nextSprint = function(self)
-            local startPos = state.getTurtlePos()
+        nextSprint = navigate.withBridge(bridge, function(self)
+            local startPos = navigate.getTurtlePos()
 
-            local aboveFirstFurnaceCmps = inFrontOfFirstFurnaceLoc.cmps.compassAt({ forward=1, up=1, face='forward' })
+            local aboveFirstFurnaceCoord = inFrontOfFirstFurnaceCoord:at({ forward=1, up=1 })
             for i = 0, 2 do
-                navigate.moveToPos(aboveFirstFurnaceCmps.posAt({ right = i }), { 'up', 'forward', 'right'})
+                navigate.moveToCoord(
+                    aboveFirstFurnaceCoord:at({ right = i }),
+                    { 'up', 'forward', 'right'}
+                )
+                navigate.face('right')
                 highLevelCommands.placeItemDown('minecraft:furnace')
             end
 
             navigate.moveToPos(startPos, { 'right', 'forward', 'up' })
 
             return true
-        end,
+        end),
         requiredResources = {
             ['minecraft:furnace'] = { quantity=3, at='INVENTORY' }
         },
@@ -262,20 +270,23 @@ local registerSmeltInitialCharcoalProject = function(opts)
     local furnaceMill = opts.furnaceMill
     local simpleCharcoalSmeltingMill = opts.simpleCharcoalSmeltingMill
 
+    local inFrontOfFirstFurnaceCoord = Coord.newCoordSystem('inFrontOfFirstFurnace').origin
+    local bridge = Bridge.new(inFrontOfFirstFurnaceLoc.coord, inFrontOfFirstFurnaceCoord, inFrontOfFirstFurnaceLoc.pos.facing)
+
     return act.Project.register({
         id = 'mainIsland:smeltInitialCharcoal',
         enter = function(self)
             inFrontOfFirstFurnaceLoc:travelHere()
         end,
         exit = function(self)
-            navigate.assertAtPos(inFrontOfFirstFurnaceLoc.cmps.pos)
+            navigate.assertAtPos(inFrontOfFirstFurnaceLoc.pos)
         end,
         after = function(self)
             furnaceMill:activate()
             simpleCharcoalSmeltingMill:activate()
         end,
-        nextSprint = function(self)
-            local startPos = state.getTurtlePos()
+        nextSprint = navigate.withBridge(bridge, function(self)
+            local startPos = navigate.getTurtlePos()
 
             -- Same values that were put in "requiredResources"
             local logCount = 3
@@ -284,15 +295,15 @@ local registerSmeltInitialCharcoalProject = function(opts)
             local reserveCount = 1
 
             -- Fill raw materials from the top
-            local aboveFirstFurnaceCmps = inFrontOfFirstFurnaceLoc.cmps.compassAt({ forward=1, up=1 })
-            navigate.moveToPos(aboveFirstFurnaceCmps.posAt({ face='right' }), { 'up', 'right' })
+            local aboveFirstFurnaceCoord = inFrontOfFirstFurnaceCoord:at({ forward=1, up=1 })
+            navigate.moveToCoord(aboveFirstFurnaceCoord, { 'up', 'right' })
             highLevelCommands.dropItemDown('minecraft:log', logCount)
 
-            navigate.moveToPos(inFrontOfFirstFurnaceLoc.cmps.pos, { 'right', 'up' })
+            navigate.moveToCoord(inFrontOfFirstFurnaceCoord, { 'right', 'up' })
 
             -- Fill fuel from the bottom
-            local belowFirstFurnaceCmps = inFrontOfFirstFurnaceLoc.cmps.compassAt({ forward=1, up=-1 })
-            navigate.moveToPos(belowFirstFurnaceCmps.posAt({ face='right' }), { 'up', 'right' })
+            local belowFirstFurnaceCoord = inFrontOfFirstFurnaceCoord:at({ forward=1, up=-1 })
+            navigate.moveToCoord(belowFirstFurnaceCoord, { 'up', 'right' })
             highLevelCommands.dropItemUp('minecraft:planks', plankCount)
 
             -- Wait and collect results from a furnace
@@ -309,59 +320,15 @@ local registerSmeltInitialCharcoalProject = function(opts)
             -- Reserve some charcoal in the furnace for future use
             highLevelCommands.dropItemUp('minecraft:charcoal', reserveCount)
 
-            navigate.moveToPos(inFrontOfFirstFurnaceLoc.cmps.pos, { 'right', 'up' })
+            navigate.moveToPos(inFrontOfFirstFurnaceCoord:face('forward'), { 'right', 'up' })
 
             return true
-        end,
+        end),
         requiredResources = {
             -- Uses a total of four logs. One as planks for fuel to smelt 3 charcoal.
             -- Some of that charcoal will be used as future fuel, other will be used for torches.
             ['minecraft:log'] = { quantity=3, at='INVENTORY' },
             ['minecraft:planks'] = { quantity=2, at='INVENTORY' },
-        },
-    })
-end
-
-local registerTorchUpIslandProject = function(opts)
-    local inFrontOfChestLoc = opts.inFrontOfChestLoc
-
-    return act.Project.register({
-        id = 'mainIsland:torchUpIsland',
-        enter = function(self)
-            inFrontOfChestLoc:travelHere()
-        end,
-        exit = function(self)
-            navigate.assertAtPos(inFrontOfChestLoc.cmps.pos)
-        end,
-        nextSprint = function(self)
-            -- torch 1 is directly left of the disk drive
-            local torch1Cmps = inFrontOfChestLoc.cmps.compassAt({ forward=1, right=-1, up=1 })
-            navigate.moveToPos(torch1Cmps.pos, {'right', 'forward', 'up'})
-            highLevelCommands.placeItemDown('minecraft:torch')
-
-            -- torch 2 is on the left side of the island
-            local torch2Cmps = inFrontOfChestLoc.cmps.compassAt({ forward=-1, right=-4, up=1 })
-            navigate.moveToPos(torch2Cmps.pos, {'right', 'forward', 'up'})
-            highLevelCommands.placeItemDown('minecraft:torch')
-
-            -- torch 3 is between the trees
-            local torch3Cmps = inFrontOfChestLoc.cmps.compassAt({ forward=-3, right=-2, up=1 })
-            navigate.moveToPos(torch3Cmps.pos, {'right', 'forward', 'up'})
-            highLevelCommands.placeItemDown('minecraft:torch')
-
-            -- torch 4 is on dirt above where the trees grow
-            local betweenTreesCmps = inFrontOfChestLoc.cmps.compassAt({ forward=-4, right=-3, up=1 })
-            navigate.moveToPos(betweenTreesCmps.pos, {'right', 'forward', 'up'})
-            local torch4Cmps = inFrontOfChestLoc.cmps.compassAt({ forward=-4, up=10 })
-            navigate.moveToPos(torch4Cmps.pos, {'up', 'forward', 'right'})
-            highLevelCommands.placeItemDown('minecraft:torch')
-
-            navigate.moveToPos(inFrontOfChestLoc.cmps.pos, {'forward', 'right', 'up'})
-
-            return true
-        end,
-        requiredResources = {
-            ['minecraft:torch'] = { quantity=4, at='INVENTORY' },
         },
     })
 end
@@ -374,12 +341,15 @@ local registerFurnaceMill = function(opts)
         whatIsSmeltedFromWhat[recipe.to] = recipe.from
     end
 
+    local inFrontOfFirstFurnaceCoord = Coord.newCoordSystem('inFrontOfFirstFurnace').origin
+    local bridge = Bridge.new(inFrontOfFirstFurnaceLoc.coord, inFrontOfFirstFurnaceCoord, inFrontOfFirstFurnaceLoc.pos.facing)
+
     return act.Mill.register({
         id = 'mainIsland:furnace',
         init = function(self, resourceRequests)
             -- mutable state
             self.taskState = {
-                currentlyInFurnaces = { 0, 0, 0 },
+                currentlyInFurnaces = {0, 0, 0},
                 collected = 0,
             }
 
@@ -402,11 +372,11 @@ local registerFurnaceMill = function(opts)
             inFrontOfFirstFurnaceLoc:travelHere()
         end,
         exit = function(self)
-            navigate.moveToPos(inFrontOfFirstFurnaceLoc.cmps.pos, { 'right', 'forward', 'up' })
+            navigate.moveToPos(inFrontOfFirstFurnaceLoc.pos, { 'right', 'forward', 'up' })
         end,
-        nextSprint = function(self)
+        nextSprint = navigate.withBridge(bridge, function(self)
             local newTaskState = util.copyTable(self.taskState)
-
+            
             -- Index of first furnace that has 32 or more items being smelted, or nil if there is no such furnace.
             -- Alternatively, if there isn't a need to restock, this is the index of the furnace with the most content.
             local furnaceIndexToWaitOn = nil
@@ -442,41 +412,46 @@ local registerFurnaceMill = function(opts)
                 end
 
                 -- Fill fuel from the bottom
-                local belowFirstFurnaceCmps = inFrontOfFirstFurnaceLoc.cmps.compassAt({ forward=1, up=-1 })
+                local belowFirstFurnaceCoord = inFrontOfFirstFurnaceCoord:at({ forward=1, up=-1 })
                 -- This movement will correctly move the turtle from any of its possible starting positions.
-                navigate.moveToPos(belowFirstFurnaceCmps.posAt({ face='right' }), { 'up', 'forward', 'right' })
-                for i = 1, 2 do
+                for i = 1, 3 do
+                    navigate.moveToCoord(
+                        belowFirstFurnaceCoord:at({ right = i - 1 }),
+                        { 'up', 'forward', 'right' }
+                    )
+                    navigate.face('right')
                     highLevelCommands.dropItemUp('minecraft:charcoal', math.ceil(willBeAdded[i] / 8))
-                    commands.turtle.forward()
                 end
-                highLevelCommands.dropItemUp('minecraft:charcoal', math.ceil(willBeAdded[3] / 8))
 
-                navigate.moveToCoord(belowFirstFurnaceCmps.coord)
-                navigate.moveToCoord(inFrontOfFirstFurnaceLoc.cmps.pos, { 'forward', 'right', 'up' })
+                navigate.moveToCoord(belowFirstFurnaceCoord)
+                navigate.moveToCoord(inFrontOfFirstFurnaceCoord, { 'forward', 'right', 'up' })
 
                 -- Fill raw materials from the top
-                local aboveFirstFurnaceCmps = inFrontOfFirstFurnaceLoc.cmps.compassAt({ forward=1, up=1 })
-                navigate.moveToPos(aboveFirstFurnaceCmps.posAt({ face='right' }), { 'up', 'right' })
-                for i = 1, 2 do
+                local aboveFirstFurnaceCoord = inFrontOfFirstFurnaceCoord:at({ forward=1, up=1 })
+                for i = 1, 3 do
+                    navigate.moveToCoord(
+                        aboveFirstFurnaceCoord:at({ right = i - 1 }),
+                        { 'up', 'forward', 'right' }
+                    )
+                    navigate.face('right')
                     highLevelCommands.dropItemDown(self.sourceResource, willBeAdded[i])
-                    commands.turtle.forward()
                 end
-                highLevelCommands.dropItemDown(self.sourceResource, willBeAdded[3])
 
-                navigate.moveToCoord(aboveFirstFurnaceCmps.coord)
-                navigate.moveToPos(inFrontOfFirstFurnaceLoc.cmps.pos, { 'forward', 'right', 'up' })
+                navigate.moveToCoord(aboveFirstFurnaceCoord)
+                navigate.moveToCoord(inFrontOfFirstFurnaceCoord, { 'forward', 'right', 'up' })
 
                 newTaskState.currentlyInFurnaces = willBeInFurnaces
 
             -- Wait and collect results from a furnace
             else
                 -- Move into position if needed
-                local belowFirstFurnaceCmps = inFrontOfFirstFurnaceLoc.cmps.compassAt({ forward=1, up=-1 })
-                local targetFurnaceCmps = belowFirstFurnaceCmps.compassAt({ right = furnaceIndexToWaitOn - 1 })
-                if inFrontOfFirstFurnaceLoc.cmps.compareCmps(state.getTurtleCmps()) then
-                    navigate.moveToPos(belowFirstFurnaceCmps.posAt({ face='right' }), { 'up', 'forward' })
+                local belowFirstFurnaceCoord = inFrontOfFirstFurnaceCoord:at({ forward=1, up=-1 })
+                local targetFurnaceCoord = belowFirstFurnaceCoord:at({ right = furnaceIndexToWaitOn - 1 })
+                if inFrontOfFirstFurnaceCoord:equals(navigate.getTurtlePos().coord) then
+                    navigate.moveToCoord(belowFirstFurnaceCoord, { 'up', 'forward' })
+                    navigate.face('right')
                 end
-                navigate.moveToCoord(targetFurnaceCmps.coord)
+                navigate.moveToCoord(targetFurnaceCoord)
 
                 highLevelCommands.findAndSelectEmptySlot()
                 local collectionSuccess = commands.turtle.suckUp(64)
@@ -500,7 +475,7 @@ local registerFurnaceMill = function(opts)
 
             self.taskState = newTaskState
             return newTaskState.collected == self.requestedQuantity
-        end,
+        end),
         getRequiredResources = function(resourceRequest)
             if whatIsSmeltedFromWhat[resourceRequest.resourceName] == nil then
                 error('Unreachable: Requested an invalid resource')
@@ -527,6 +502,9 @@ end
 
 local registerSimpleCharcoalSmeltingMill = function(opts)
     local inFrontOfFirstFurnaceLoc = opts.inFrontOfFirstFurnaceLoc
+
+    local inFrontOfFirstFurnaceCoord = Coord.newCoordSystem('inFrontOfFirstFurnace').origin
+    local bridge = Bridge.new(inFrontOfFirstFurnaceLoc.coord, inFrontOfFirstFurnaceCoord, inFrontOfFirstFurnaceLoc.pos.facing)
 
     -- Figures out the number of logs that will be used in
     -- order to produce the desired number of charcoal
@@ -560,34 +538,34 @@ local registerSimpleCharcoalSmeltingMill = function(opts)
             inFrontOfFirstFurnaceLoc:travelHere()
         end,
         exit = function(self)
-            navigate.moveToPos(inFrontOfFirstFurnaceLoc.cmps.pos, { 'right', 'forward', 'up' })
+            navigate.moveToPos(inFrontOfFirstFurnaceLoc.pos, { 'right', 'forward', 'up' })
         end,
-        nextSprint = function(self)
+        nextSprint = navigate.withBridge(bridge, function(self)
             local newTaskState = util.copyTable(self.taskState)
 
             -- Insert raw materials and fuel
             if self.taskState.quantityInFirstFurnace == 0 then
                 -- Fill fuel from the bottom
-                local belowFirstFurnaceCmps = inFrontOfFirstFurnaceLoc.cmps.compassAt({ forward=1, up=-1 })
-                navigate.moveToPos(belowFirstFurnaceCmps.pos, { 'up', 'forward', 'right' })
+                local belowFirstFurnaceCoord = inFrontOfFirstFurnaceCoord:at({ forward=1, up=-1 })
+                navigate.moveToCoord(belowFirstFurnaceCoord, { 'up', 'forward', 'right' })
                 highLevelCommands.dropItemUp('minecraft:charcoal', 1)
 
-                navigate.moveToCoord(inFrontOfFirstFurnaceLoc.cmps.pos, { 'forward', 'right', 'up' })
+                navigate.moveToCoord(inFrontOfFirstFurnaceCoord, { 'forward', 'right', 'up' })
 
                 -- Fill raw materials from the top
-                local aboveFirstFurnaceCmps = inFrontOfFirstFurnaceLoc.cmps.compassAt({ forward=1, up=1 })
-                navigate.moveToPos(aboveFirstFurnaceCmps.pos, { 'up', 'right' })
+                local aboveFirstFurnaceCoord = inFrontOfFirstFurnaceCoord:at({ forward=1, up=1 })
+                navigate.moveToCoord(aboveFirstFurnaceCoord, { 'up', 'right' })
                 highLevelCommands.dropItemDown('minecraft:log', 8)
 
-                navigate.moveToPos(inFrontOfFirstFurnaceLoc.cmps.pos, { 'forward', 'right', 'up' })
+                navigate.moveToCoord(inFrontOfFirstFurnaceCoord, { 'forward', 'right', 'up' })
 
                 newTaskState.quantityInFirstFurnace = 8
 
             -- Wait and collect results from a furnace
             else
                 -- Move into position if needed
-                local belowFirstFurnaceCmps = inFrontOfFirstFurnaceLoc.cmps.compassAt({ forward=1, up=-1 })
-                navigate.moveToPos(belowFirstFurnaceCmps.pos, { 'up', 'forward', 'right' })
+                local belowFirstFurnaceCoord = inFrontOfFirstFurnaceCoord:at({ forward=1, up=-1 })
+                navigate.moveToCoord(belowFirstFurnaceCoord, { 'up', 'forward', 'right' })
 
                 highLevelCommands.findAndSelectEmptySlot()
                 local collectionSuccess = commands.turtle.suckUp(64)
@@ -608,7 +586,7 @@ local registerSimpleCharcoalSmeltingMill = function(opts)
 
             self.taskState = newTaskState
             return newTaskState.collected >= self.logsBeingSmelted
-        end,
+        end),
         getRequiredResources = function(resourceRequest)
             if resourceRequest.resourceName ~= 'minecraft:charcoal' then
                 error('Only charcoal is supported')
@@ -618,6 +596,50 @@ local registerSimpleCharcoalSmeltingMill = function(opts)
             }
         end,
         supplies = { 'minecraft:charcoal' },
+    })
+end
+
+local registerTorchUpIslandProject = function(opts)
+    local inFrontOfChestLoc = opts.inFrontOfChestLoc
+
+    return act.Project.register({
+        id = 'mainIsland:torchUpIsland',
+        enter = function(self)
+            inFrontOfChestLoc:travelHere()
+        end,
+        exit = function(self)
+            navigate.assertAtPos(inFrontOfChestLoc.pos)
+        end,
+        nextSprint = function(self)
+            -- torch 1 is directly left of the disk drive
+            local torch1Coord = inFrontOfChestLoc.coord:at({ forward=1, right=-1, up=1 })
+            navigate.moveToCoord(torch1Coord, {'right', 'forward', 'up'})
+            highLevelCommands.placeItemDown('minecraft:torch')
+
+            -- torch 2 is on the left side of the island
+            local torch2Coord = inFrontOfChestLoc.coord:at({ forward=-1, right=-4, up=1 })
+            navigate.moveToCoord(torch2Coord, {'right', 'forward', 'up'})
+            highLevelCommands.placeItemDown('minecraft:torch')
+
+            -- torch 3 is next to the trees
+            local torch3Coord = inFrontOfChestLoc.coord:at({ forward=-3, right=-2, up=1 })
+            navigate.moveToCoord(torch3Coord, {'right', 'forward', 'up'})
+            highLevelCommands.placeItemDown('minecraft:torch')
+
+            -- torch 4 is on dirt above where the trees grow
+            local betweenTreesCoord = inFrontOfChestLoc.coord:at({ forward=-4, right=-3, up=1 })
+            navigate.moveToCoord(betweenTreesCoord, {'right', 'forward', 'up'})
+            local torch4Coord = inFrontOfChestLoc.coord:at({ forward=-4, up=10 })
+            navigate.moveToCoord(torch4Coord, {'up', 'forward', 'right'})
+            highLevelCommands.placeItemDown('minecraft:torch')
+
+            navigate.moveToPos(inFrontOfChestLoc.pos, {'forward', 'right', 'up'})
+
+            return true
+        end,
+        requiredResources = {
+            ['minecraft:torch'] = { quantity=4, at='INVENTORY' },
+        },
     })
 end
 
@@ -641,8 +663,8 @@ local registerCobblestoneGeneratorMill = function(opts)
             homeLoc:travelHere()
         end,
         exit = function(self)
-            navigate.face(homeLoc.cmps.facing)
-            navigate.assertAtPos(homeLoc.cmps.pos)
+            navigate.face(homeLoc.pos.facing)
+            navigate.assertAtPos(homeLoc.pos)
         end,
         nextSprint = function(self)
             highLevelCommands.waitUntilDetectBlock({
@@ -661,7 +683,6 @@ end
 
 local registerStartingIslandTreeFarm = function(opts)
     local homeLoc = opts.homeLoc
-    local bedrockPos = opts.bedrockPos
 
     return act.Farm.register({
         id = 'mainIsland:startingIslandTreeFarm',
@@ -669,23 +690,23 @@ local registerStartingIslandTreeFarm = function(opts)
             homeLoc:travelHere()
         end,
         exit = function(self)
-            navigate.assertAtPos(homeLoc.cmps.pos)
+            navigate.assertAtPos(homeLoc.pos)
         end,
         nextSprint = function(self)
             commands.turtle.select(1)
-            local startPos = state.getTurtlePos()
+            local startPos = navigate.getTurtlePos()
 
-            local mainCmps = homeLoc.cmps.compassAt({ forward=-5 })
-            navigate.moveToCoord(mainCmps.coord)
+            local mainCoord = homeLoc.coord:at({ forward=-5 })
+            navigate.moveToCoord(mainCoord)
 
-            local inFrontOfEachTreeCmps = {
-                mainCmps.compassAt({ right=-3 }),
-                mainCmps.compassAt({ right=3 }),
+            local inFrontOfEachTreePos = {
+                mainCoord:at({ right=-3 }):face('forward'),
+                mainCoord:at({ right=3 }):face('forward'),
             }
 
-            for i, inFrontOfTreeCmps in ipairs(inFrontOfEachTreeCmps) do
-                navigate.moveToPos(inFrontOfTreeCmps.pos)
-                treeFarmBehavior.tryHarvestTree(inFrontOfTreeCmps)
+            for i, inFrontOfTreePos in ipairs(inFrontOfEachTreePos) do
+                navigate.moveToPos(inFrontOfTreePos)
+                treeFarmBehavior.tryHarvestTree(inFrontOfTreePos)
             end
 
             navigate.moveToPos(startPos, { 'up', 'right', 'forward' })
@@ -746,9 +767,8 @@ local registerCraftingMills = function()
 end
 
 local registerHarvestExcessDirtProject = function(opts)
-    local bedrockPos = opts.bedrockPos
+    local bedrockCoord = opts.bedrockCoord
     local homeLoc = opts.homeLoc
-    local bedrockCmps = space.createCompass(bedrockPos)
 
     return act.Project.register({
         id = 'mainIsland:harvestExcessDirt',
@@ -756,13 +776,13 @@ local registerHarvestExcessDirtProject = function(opts)
             homeLoc:travelHere()
         end,
         exit = function(self)
-            navigate.assertAtPos(homeLoc.cmps.pos)
+            navigate.assertAtPos(homeLoc.pos)
         end,
         nextSprint = function(self)
-            local startPos = state.getTurtlePos()
-            local digStartCmps = bedrockCmps.compassAt({ forward=2, up=-1 })
+            local startPos = navigate.getTurtlePos()
+            local digStartCoord = bedrockCoord:at({ forward=2, up=-1 })
 
-            navigate.moveToCoord(digStartCmps.coord, { 'forward', 'up' })
+            navigate.moveToCoord(digStartCoord, { 'forward', 'up' })
 
             local dirtToDig = Sketch.new({
                 layers = {{
@@ -780,7 +800,7 @@ local registerHarvestExcessDirtProject = function(opts)
                 markers = {
                     digStart = { char = '!' }
                 },
-            }):anchorMarker('digStart', digStartCmps.coord)
+            }):anchorMarker('digStart', digStartCoord)
 
             highLevelCommands.snake({
                 boundingBox = dirtToDig.bounds,
@@ -792,7 +812,7 @@ local registerHarvestExcessDirtProject = function(opts)
                 end,
             })
 
-            navigate.moveToCoord(digStartCmps.coord)
+            navigate.moveToCoord(digStartCoord)
             navigate.moveToPos(startPos, { 'up', 'forward' })
 
             return true
@@ -810,19 +830,19 @@ local registerTowerProject = function(opts)
             homeLoc:travelHere()
         end,
         exit = function(self)
-            navigate.assertAtPos(homeLoc.cmps.pos)
+            navigate.assertAtPos(homeLoc.pos)
         end,
         nextSprint = function(self)
-            local startPos = state.getTurtlePos()
+            local startPos = navigate.getTurtlePos()
 
-            local nextToTowers = homeLoc.cmps.compassAt({ right = -5 })
-            local towerBaseCmps = homeLoc.cmps.compassAt({ right = -6 - (towerNumber*2) })
+            local nextToTowersCoord = homeLoc.coord:at({ right = -5 })
+            local towerBaseCoord = homeLoc.coord:at({ right = -6 - (towerNumber*2) })
             
-            navigate.moveToCoord(nextToTowers.coord, { 'forward', 'right', 'up' })
+            navigate.moveToCoord(nextToTowersCoord, { 'forward', 'right', 'up' })
             for x = 0, 1 do
                 for z = 0, 3 do
                     navigate.moveToCoord(
-                        towerBaseCmps.coordAt({ forward = -z, right = -x }),
+                        towerBaseCoord:at({ forward = -z, right = -x }),
                         { 'forward', 'right', 'up' }
                     )
                     -- for i = 1, 32 do
@@ -837,7 +857,7 @@ local registerTowerProject = function(opts)
             end
             commands.turtle.select(1)
 
-            navigate.moveToCoord(nextToTowers.coord, { 'forward', 'right', 'up' })
+            navigate.moveToCoord(nextToTowersCoord, { 'forward', 'right', 'up' })
             navigate.moveToPos(startPos, { 'right', 'forward', 'up' })
 
             return true
@@ -851,21 +871,21 @@ local registerTowerProject = function(opts)
 end
 
 function module.register()
-    local bedrockCmps = space.createCompass({ forward = 3, right = 0, up = 64, face = 'forward' })
+    local bedrockCoord = Coord.absolute({ forward = 3, right = 0, up = 64 })
 
     -- homeLoc is right above the bedrock
-    local homeLoc = Location.register(bedrockCmps.posAt({ up=3 }))
+    local homeLoc = Location.register(bedrockCoord:at({ up=3 }):face('forward'))
     -- in front of chest, but facing north
-    local inFrontOfChestLoc = Location.register(homeLoc.cmps.posAt({ right=3 }))
+    local inFrontOfChestLoc = Location.register(homeLoc.pos:at({ right=3 }))
     -- facing away from the chest, with the disk drive to the right
-    local initialLoc = Location.register(inFrontOfChestLoc.cmps.posAt({ face='left' }))
+    local initialLoc = Location.register(inFrontOfChestLoc.pos:face('left'))
     local inFrontOfFirstFurnaceLoc = Location.register(
         -- faces the furnace
-        inFrontOfChestLoc.cmps.posAt({ forward=1, right=1, up=1, face='right' })
+        inFrontOfChestLoc.pos:at({ forward=1, right=1, up=1 }):face('right')
     )
 
     local cobblestoneGeneratorMill = registerCobblestoneGeneratorMill({ homeLoc = homeLoc })
-    local startingIslandTreeFarm = registerStartingIslandTreeFarm({ bedrockPos = bedrockCmps.pos, homeLoc = homeLoc })
+    local startingIslandTreeFarm = registerStartingIslandTreeFarm({ homeLoc = homeLoc })
     local furnaceMill = registerFurnaceMill({ inFrontOfFirstFurnaceLoc = inFrontOfFirstFurnaceLoc })
     local simpleCharcoalSmeltingMill = registerSimpleCharcoalSmeltingMill({ inFrontOfFirstFurnaceLoc = inFrontOfFirstFurnaceLoc })
     local craftingMills = registerCraftingMills()
@@ -879,12 +899,12 @@ function module.register()
         -- projects
         initialization = registerInitializationProject({ initialLoc = initialLoc, homeLoc = homeLoc, inFrontOfChestLoc = inFrontOfChestLoc }),
         startBuildingCobblestoneGenerator = registerStartBuildingCobblestoneGeneratorProject({ homeLoc = homeLoc, craftingMills = craftingMills }),
-        harvestInitialTreeAndPrepareTreeFarm = registerHarvestInitialTreeAndPrepareTreeFarmProject({ bedrockPos = bedrockCmps.pos, homeLoc = homeLoc, startingIslandTreeFarm = startingIslandTreeFarm }),
-        waitForIceToMeltAndfinishCobblestoneGenerator = registerWaitForIceToMeltAndfinishCobblestoneGeneratorProject({ homeLoc = homeLoc, cobblestoneGeneratorMill = cobblestoneGeneratorMill }),
+        harvestInitialTreeAndPrepareTreeFarm = registerHarvestInitialTreeAndPrepareTreeFarmProject({ bedrockCoord = bedrockCoord, homeLoc = homeLoc, startingIslandTreeFarm = startingIslandTreeFarm }),
+        waitForIceToMeltAndFinishCobblestoneGenerator = registerWaitForIceToMeltAndFinishCobblestoneGeneratorProject({ homeLoc = homeLoc, cobblestoneGeneratorMill = cobblestoneGeneratorMill }),
         buildFurnaces = registerBuildFurnacesProject({ inFrontOfChestLoc = inFrontOfChestLoc, inFrontOfFirstFurnaceLoc = inFrontOfFirstFurnaceLoc }),
         smeltInitialCharcoal = registerSmeltInitialCharcoalProject({ inFrontOfFirstFurnaceLoc = inFrontOfFirstFurnaceLoc, furnaceMill = furnaceMill, simpleCharcoalSmeltingMill = simpleCharcoalSmeltingMill }),
         torchUpIsland = registerTorchUpIslandProject({ inFrontOfChestLoc = inFrontOfChestLoc }),
-        harvestExcessDirt = registerHarvestExcessDirtProject({ bedrockPos = bedrockCmps.pos, homeLoc = homeLoc }),
+        harvestExcessDirt = registerHarvestExcessDirtProject({ bedrockCoord = bedrockCoord, homeLoc = homeLoc }),
         tower1 = registerTowerProject({ homeLoc = homeLoc, towerNumber = 1 }),
         tower2 = registerTowerProject({ homeLoc = homeLoc, towerNumber = 2 }),
         tower3 = registerTowerProject({ homeLoc = homeLoc, towerNumber = 3 }),

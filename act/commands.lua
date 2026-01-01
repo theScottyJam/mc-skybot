@@ -1,22 +1,41 @@
+--[[
+    This module should be used instead of the global turtle table that's automatically provided.
+    The APi provided by this module generally tries to stay similar to the global one,
+    but there's some slight modifications to prevent common pitfalls, and the movement
+    functions have been altered so it keeps track of the turtle's current position automatically.
+]]
+
 local util = moduleLoader.tryImport('util.lua')
 local inspect = moduleLoader.tryImport('inspect.lua')
-local space = import('./space.lua')
 local state = import('./state.lua')
+local Coord = import('./space/Coord.lua')
+
+-- The turtle's starting location is the origin of this coordinate system.
+-- This allows this module to keep track of the turtle without knowing its absolute coordinate.
+-- Others can figure out how to translate to an absolute coordinate if it is needed.
+local turtleStartPos = Coord.newCoordSystem('turtleStartAsOrigin').origin:face('forward')
 
 local module = {
+    turtleStartOrigin = turtleStartPos.coord,
     -- Copy the global turtle table, then we'll override select methods.
     turtle = util.copyTable(turtle)
 }
+
+local commandsStateManager = state.__registerPieceOfState('module:commands', function()
+    return { turtlePos = turtleStartPos }
+end)
+
+function module.__getTurtlePos()
+    return commandsStateManager:get().turtlePos
+end
 
 local commandWithStateChanges = function(execute, updateState)
     return function(...)
         local result = table.pack(execute(table.unpack({ ... })))
 
-        if updateState ~= nil then
-            local newTurtlePos = util.copyTable(state.getTurtlePos())
-            updateState(newTurtlePos, table.unpack({ ... }))
-            state.setTurtlePos(newTurtlePos)
-        end
+        local newTurtlePos = updateState(commandsStateManager:get().turtlePos, table.unpack({ ... }))
+        newTurtlePos.coord:assertCompatible(turtleStartPos.coord)
+        commandsStateManager:getAndModify().turtlePos = newTurtlePos
 
         if inspect.onStep ~= nil then
             inspect.onStep()
@@ -32,7 +51,7 @@ module.turtle.up = commandWithStateChanges(function()
         success = turtle.up()
     end
 end, function(turtlePos)
-    turtlePos.up = turtlePos.up + 1
+    return turtlePos:at({ up = 1 })
 end)
 
 module.turtle.down = commandWithStateChanges(function()
@@ -41,7 +60,7 @@ module.turtle.down = commandWithStateChanges(function()
         success = turtle.down()
     end
 end, function(turtlePos)
-    turtlePos.up = turtlePos.up - 1
+    return turtlePos:at({ up = -1 })
 end)
 
 module.turtle.forward = commandWithStateChanges(function()
@@ -50,10 +69,10 @@ module.turtle.forward = commandWithStateChanges(function()
         success = turtle.forward()
     end
 end, function(turtlePos)
-    if turtlePos.face == 'forward' then turtlePos.forward = turtlePos.forward + 1
-    elseif turtlePos.face == 'backward' then turtlePos.forward = turtlePos.forward - 1
-    elseif turtlePos.face == 'right' then turtlePos.right = turtlePos.right + 1
-    elseif turtlePos.face == 'left' then turtlePos.right = turtlePos.right - 1
+    if turtlePos.facing == 'forward' then return turtlePos:at({ forward = 1 })
+    elseif turtlePos.facing == 'backward' then return turtlePos:at({ forward = -1 })
+    elseif turtlePos.facing == 'right' then return turtlePos:at({ right = 1 })
+    elseif turtlePos.facing == 'left' then return turtlePos:at({ right = -1 })
     else error('Invalid face')
     end
 end)
@@ -64,10 +83,10 @@ module.turtle.backward = commandWithStateChanges(function()
         success = turtle.backward()
     end
 end, function(turtlePos)
-    if turtlePos.face == 'forward' then turtlePos.forward = turtlePos.forward - 1
-    elseif turtlePos.face == 'backward' then turtlePos.forward = turtlePos.forward + 1
-    elseif turtlePos.face == 'right' then turtlePos.right = turtlePos.right - 1
-    elseif turtlePos.face == 'left' then turtlePos.right = turtlePos.right + 1
+    if turtlePos.facing == 'forward' then return turtlePos:at({ forward = -1 })
+    elseif turtlePos.facing == 'backward' then return turtlePos:at({ forward = 1 })
+    elseif turtlePos.facing == 'right' then return turtlePos:at({ right = -1 })
+    elseif turtlePos.facing == 'left' then return turtlePos:at({ right = 1 })
     else error('Invalid face')
     end
 end)
@@ -75,13 +94,13 @@ end)
 module.turtle.turnLeft = commandWithStateChanges(function()
     turtle.turnLeft()
 end, function(turtlePos)
-    turtlePos.face = space.__rotateFaceCounterClockwise(turtlePos.face)
+    return turtlePos:rotateCounterClockwise()
 end)
 
 module.turtle.turnRight = commandWithStateChanges(function()
     turtle.turnRight()
 end, function(turtlePos)
-    turtlePos.face = space.__rotateFaceClockwise(turtlePos.face)
+    return turtlePos:rotateClockwise()
 end)
 
 -- The place functions return a success boolean.
