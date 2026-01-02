@@ -57,10 +57,7 @@ end
 function module.init(opts)
     local initialTurtlePos = opts.initialTurtlePos
     initialTurtlePos.coord:assertAbsolute()
-
-    -- TODO: Maybe the second argument should be a position instead of a coordinate?
-    -- TODO: I have the arguments backwards and am using convertOut() instead of convertIn(), because I need the "left" rotation to happen before the translation. Maybe I should provide a way to fix that when providing arguments - go back to allowing two positions to be provided or something?
-    startPosBridge = Bridge.new(initialTurtlePos.coord, commands.turtleStartOrigin, initialTurtlePos.facing)
+    startPosBridge = Bridge.new(initialTurtlePos, commands.turtleStartOrigin:face('forward'))
 end
 
 function module.getAbsoluteTurtlePos()
@@ -99,8 +96,8 @@ function module.assertAtPos(expectedPos_)
     local expectedPos = convertPosOut(expectedPos_)
     local currentPos = module.getAbsoluteTurtlePos()
     if not currentPos:looseEquals(expectedPos) then
-        local currentPosStr = '(f='..currentPos.forward..',r='..currentPos.right..',u='..currentPos.up..',f='..currentPos.facing..')'
-        local expectedPosStr = '(f='..expectedPos.forward..',r='..expectedPos.right..',u='..expectedPos.up..',f='..expectedPos.facing..')'
+        local currentPosStr = '(f='..currentPos.forward..',r='..currentPos.right..',u='..currentPos.up..','..currentPos.facing..')'
+        local expectedPosStr = '(f='..expectedPos.forward..',r='..expectedPos.right..',u='..expectedPos.up..','..expectedPos.facing..')'
         error('Expected current pos '..currentPosStr..' to be expected pos '..expectedPosStr)
     end
 end

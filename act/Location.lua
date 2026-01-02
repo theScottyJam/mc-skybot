@@ -90,6 +90,7 @@ end
 -- PUBLIC FUNCTIONS --
 
 function static.register(pos)
+    pos.coord:assertAbsolute()
     local loc = util.attachPrototype(prototype, {
         pos = pos,
         coord = pos.coord, -- For easy access

@@ -347,7 +347,7 @@ function prototype:anchorMarker(markerId, coord, sketchFacing)
     return util.attachPrototype(prototype, util.mergeTables(
         self,
         {
-            _bridge = Bridge.new(coord, self._markerIdToCoord[markerId], sketchFacing),
+            _bridge = Bridge.new(coord:face('forward'), self._markerIdToCoord[markerId]:face(sketchFacing or 'forward')),
         }
     )):_init()
 end
@@ -357,7 +357,7 @@ function prototype:anchorBackwardBottomLeft(coord, sketchFacing)
     return util.attachPrototype(prototype, util.mergeTables(
         self,
         {
-            _bridge = Bridge.new(coord, self._origin, sketchFacing),
+            _bridge = Bridge.new(coord:face('forward'), self._origin:face(sketchFacing or 'forward')),
         }
     )):_init()
 end
@@ -403,7 +403,7 @@ function static.new(opts)
 end
 
 function prototype:_init()
-    self.origin = self._bridge.outCoord:origin()
+    self.origin = self._bridge.outPos.coord:origin()
     self.bounds = self._bounds:convertOut(self._bridge)
     return self
 end

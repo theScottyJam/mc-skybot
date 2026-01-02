@@ -43,11 +43,11 @@ function module.countClockwiseRotations(fromFacing, toFacing)
 end
 
 function module.convertFacingIn(outFace, bridge)
-    return module.rotateFacingClockwise(outFace, bridge.delta.clockwiseTurns)
+    return module.rotateFacingClockwise(outFace, module.countClockwiseRotations(bridge.outPos.facing, bridge.inPos.facing))
 end
 
 function module.convertFacingOut(inFace, bridge)
-    return module.rotateFacingCounterClockwise(inFace, bridge.delta.clockwiseTurns)
+    return module.rotateFacingClockwise(inFace, module.countClockwiseRotations(bridge.inPos.facing, bridge.outPos.facing))
 end
 
 return module

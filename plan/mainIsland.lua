@@ -226,7 +226,7 @@ local registerBuildFurnacesProject = function(opts)
     local inFrontOfFirstFurnaceLoc = opts.inFrontOfFirstFurnaceLoc
 
     local inFrontOfFirstFurnaceCoord = Coord.newCoordSystem('inFrontOfFirstFurnace').origin
-    local bridge = Bridge.new(inFrontOfFirstFurnaceLoc.coord, inFrontOfFirstFurnaceCoord, inFrontOfFirstFurnaceLoc.pos.facing)
+    local bridge = Bridge.new(inFrontOfFirstFurnaceLoc.pos, inFrontOfFirstFurnaceCoord:face('forward'))
 
     return act.Project.register({
         id = 'mainIsland:buildFurnaces',
@@ -271,7 +271,7 @@ local registerSmeltInitialCharcoalProject = function(opts)
     local simpleCharcoalSmeltingMill = opts.simpleCharcoalSmeltingMill
 
     local inFrontOfFirstFurnaceCoord = Coord.newCoordSystem('inFrontOfFirstFurnace').origin
-    local bridge = Bridge.new(inFrontOfFirstFurnaceLoc.coord, inFrontOfFirstFurnaceCoord, inFrontOfFirstFurnaceLoc.pos.facing)
+    local bridge = Bridge.new(inFrontOfFirstFurnaceLoc.pos, inFrontOfFirstFurnaceCoord:face('forward'))
 
     return act.Project.register({
         id = 'mainIsland:smeltInitialCharcoal',
@@ -342,7 +342,7 @@ local registerFurnaceMill = function(opts)
     end
 
     local inFrontOfFirstFurnaceCoord = Coord.newCoordSystem('inFrontOfFirstFurnace').origin
-    local bridge = Bridge.new(inFrontOfFirstFurnaceLoc.coord, inFrontOfFirstFurnaceCoord, inFrontOfFirstFurnaceLoc.pos.facing)
+    local bridge = Bridge.new(inFrontOfFirstFurnaceLoc.pos, inFrontOfFirstFurnaceCoord:face('forward'))
 
     return act.Mill.register({
         id = 'mainIsland:furnace',
@@ -504,7 +504,7 @@ local registerSimpleCharcoalSmeltingMill = function(opts)
     local inFrontOfFirstFurnaceLoc = opts.inFrontOfFirstFurnaceLoc
 
     local inFrontOfFirstFurnaceCoord = Coord.newCoordSystem('inFrontOfFirstFurnace').origin
-    local bridge = Bridge.new(inFrontOfFirstFurnaceLoc.coord, inFrontOfFirstFurnaceCoord, inFrontOfFirstFurnaceLoc.pos.facing)
+    local bridge = Bridge.new(inFrontOfFirstFurnaceLoc.pos, inFrontOfFirstFurnaceCoord:face('forward'))
 
     -- Figures out the number of logs that will be used in
     -- order to produce the desired number of charcoal
@@ -875,12 +875,12 @@ function module.register()
 
     -- homeLoc is right above the bedrock
     local homeLoc = Location.register(bedrockCoord:at({ up=3 }):face('forward'))
-    -- in front of chest, but facing north
+    -- in front of chest, but facing north. (The chest would be on your right).
     local inFrontOfChestLoc = Location.register(homeLoc.pos:at({ right=3 }))
     -- facing away from the chest, with the disk drive to the right
     local initialLoc = Location.register(inFrontOfChestLoc.pos:face('left'))
+    -- faces the furnace
     local inFrontOfFirstFurnaceLoc = Location.register(
-        -- faces the furnace
         inFrontOfChestLoc.pos:at({ forward=1, right=1, up=1 }):face('right')
     )
 

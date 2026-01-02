@@ -1,5 +1,6 @@
 local util = import('util.lua')
 local serializer = import('../_serializer.lua')
+local facingTools = import('./facingTools.lua')
 local PositionModule = moduleLoader.lazyImport('./Position.lua')
 
 local static = {}
@@ -72,20 +73,13 @@ function prototype:toXYZCoord()
     }
 end
 
--- Rotates the coordData table around the anchor coordinate, `count` times.
+-- Rotates the coordData table around the origin, `count` times.
 -- coordData is a table containing "forward" and "right" fields.
-local rotateClockwise = function(coordData, anchor, count)
-    while count > 3 do
-        count = count - 4
-    end
-
+local rotateClockwise = function(coordData, count)
     for i = 0, count - 1 do -- -1 because Lua's loops are inclusive.
-        local forwardFromAnchor = coordData.forward - anchor.forward
-        local rightFromAnchor = coordData.right - anchor.right
-
         coordData = {
-            forward = coordData.forward - forwardFromAnchor - rightFromAnchor,
-            right = coordData.right - rightFromAnchor + forwardFromAnchor,
+            forward = -coordData.right,
+            right = coordData.forward,
         }        
     end
 
@@ -94,35 +88,35 @@ end
 
 -- Translates the coordinate into the bridged coordinate system
 function prototype:convertIn(bridge)
-    self:assertCompatible(bridge.outCoord)
+    self:assertCompatible(bridge.outPos.coord)
     
-    local coordData = rotateClockwise({
-        forward = self.forward + bridge.delta.forward,
-        right = self.right + bridge.delta.right,
-    }, bridge.inCoord, bridge.delta.clockwiseTurns)
+    local delta = rotateClockwise({
+        forward = self.forward - bridge.outPos.forward,
+        right = self.right - bridge.outPos.right,
+    }, facingTools.countClockwiseRotations(bridge.outPos.facing, bridge.inPos.facing))
 
     return static._new({
-        forward = coordData.forward,
-        right = coordData.right,
-        up = self.up + bridge.delta.up,
-        coordSystemId = bridge.inCoord._coordSystemId,
+        forward = delta.forward + bridge.inPos.forward,
+        right = delta.right + bridge.inPos.right,
+        up = self.up + bridge.inPos.up - bridge.outPos.up,
+        coordSystemId = bridge.inPos.coord._coordSystemId,
     })
 end
 
 -- Translates the coordinate out of the bridged coordinate system
 function prototype:convertOut(bridge)
-    self:assertCompatible(bridge.inCoord)
+    self:assertCompatible(bridge.inPos.coord)
 
-    local coordData = rotateClockwise({
-        forward = self.forward,
-        right = self.right,
-    }, bridge.inCoord, 4 - bridge.delta.clockwiseTurns)
+    local delta = rotateClockwise({
+        forward = self.forward - bridge.inPos.forward,
+        right = self.right - bridge.inPos.right,
+    }, facingTools.countClockwiseRotations(bridge.inPos.facing, bridge.outPos.facing))
 
     return static._new({
-        forward = coordData.forward - bridge.delta.forward,
-        right = coordData.right - bridge.delta.right,
-        up = self.up - bridge.delta.up,
-        coordSystemId = bridge.outCoord._coordSystemId,
+        forward = delta.forward + bridge.outPos.forward,
+        right = delta.right + bridge.outPos.right,
+        up = self.up + bridge.outPos.up - bridge.inPos.up,
+        coordSystemId = bridge.outPos.coord._coordSystemId,
     })
 end
 

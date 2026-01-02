@@ -13,36 +13,34 @@ local facingTools = import('./facingTools.lua')
 local static = {}
 local prototype = {}
 
--- Generally the "outCoord" will be on the absolute coordinate plane, or at least one step closer to an absolute plane.
--- You cross the bridge "in" to the relative plane or "out" of it, back to the more absolute plane.
+-- Creates a bridge between two coordinate planes. This bridge can be used to convert coordinates/positions/etc from
+-- one coordinate plane to the other and back.
+-- By providing these two positions, you're stating that the two positions are actually the exact same (for the purposes of this bridge instance),
+-- only they're located on different coordinate planes.
+-- All translations will use this information to figure out how the two coordinate planes relate to each other.
 --
--- The "in" coordinate plane can be rotated if "inFacing" is provided. For example, if "inFacing" is "right",
--- then all points in the "in" coordinate plane will be rotated 90 degrees clockwise around "inCoord".
-function static.new(outCoord, inCoord, inFacing)
-    -- The only reason you can bridge a coordinate system to itself (using the same position as both values)
-    -- is to allow "no-op" bridges to be created that don't perform any conversions on the coordinates.
+-- Conventionally the "outPos" will be on the absolute coordinate plane, or at least one step closer to an absolute plane.
+-- You cross the bridge "in" to the relative plane or "out" of it, back to the more absolute plane.
+function static.new(outPos, inPos)
     util.assert(
-        not outCoord:isCompatible(inCoord) or outCoord:equals(inCoord),
-        'Both the source and destination reference the same coordinate system. This can only be done if the two positions are exactly the same.'
+        not outPos.coord:isCompatible(inPos.coord),
+        'The two positions provided must reference different coordinate planes.'
     )
 
     return util.attachPrototype(prototype, {
-        outCoord = outCoord:origin(),
-        inCoord = inCoord:origin(),
-        delta = {
-            forward = inCoord.forward - outCoord.forward,
-            right = inCoord.right - outCoord.right,
-            up = inCoord.up - outCoord.up,
-            clockwiseTurns = facingTools.countClockwiseRotations(inFacing or 'forward', 'forward'),
-        }
+        outPos = outPos,
+        inPos = inPos,
     })
 end
 
 -- Creates an bridge that doesn't perform any translations when used.
--- The bridge only works for the coordinate plan of the supplied coordinate.
+-- The bridge only works for the coordinate plane of the supplied coordinate.
 function static.noop(coord)
-    local origin = coord:origin()
-    return static.new(origin, origin)
+    local originPos = coord:origin():face('forward')
+    return util.attachPrototype(prototype, {
+        outPos = originPos,
+        inPos = originPos,
+    })
 end
 
 return static
