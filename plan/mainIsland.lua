@@ -800,7 +800,7 @@ local registerHarvestExcessDirtProject = function(opts)
                 markers = {
                     digStart = { char = '!' }
                 },
-            }):anchorMarker('digStart', digStartCoord)
+            }):anchorMarker('digStart', digStartCoord:face('forward'))
 
             highLevelCommands.snake({
                 boundingBox = dirtToDig.bounds,

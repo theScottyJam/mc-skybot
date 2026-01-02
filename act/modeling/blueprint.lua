@@ -102,9 +102,9 @@ function module.create(opts)
 
     local requiredResources = calcRequiredResources(relSketch, mapKey)
 
-    -- blueprintFacing is optional
-    return function(buildStartPos, blueprintFacing)
-        local sketch = relSketch:anchorMarker(buildStartMarker, buildStartPos.coord, blueprintFacing)
+    -- The value of buildStartPos will determine where the blueprint is build and what direction it will be oriented.
+    return function(buildStartPos)
+        local sketch = relSketch:anchorMarker(buildStartMarker, buildStartPos)
 
         return {
             requiredResources = util.mapMapTable(requiredResources, function(quantity)

@@ -242,7 +242,7 @@ function prototype:_paddingRequiredToMakeLayerFillSketchBounds(layer)
     -- Only returning "left" and "forward" because that's all callers need.
     return {
         padLeft = self._primaryRefBorderDistances.left - layer.primaryRefBorderDistances.left,
-        padForward = self.bounds.depth - layer.depth - padBackward,
+        padForward = self._bounds.depth - layer.depth - padBackward,
     }
 end
 
@@ -343,21 +343,11 @@ function prototype:forEachFilledCell(fn)
 end
 
 -- `sketchFacing` is optional and can be used to rotate the sketch around the marker.
-function prototype:anchorMarker(markerId, coord, sketchFacing)
+function prototype:anchorMarker(markerId, pos)
     return util.attachPrototype(prototype, util.mergeTables(
         self,
         {
-            _bridge = Bridge.new(coord:face('forward'), self._markerIdToCoord[markerId]:face(sketchFacing or 'forward')),
-        }
-    )):_init()
-end
-
--- `sketchFacing` is optional and can be used to rotate the sketch around the marker.
-function prototype:anchorBackwardBottomLeft(coord, sketchFacing)
-    return util.attachPrototype(prototype, util.mergeTables(
-        self,
-        {
-            _bridge = Bridge.new(coord:face('forward'), self._origin:face(sketchFacing or 'forward')),
+            _bridge = Bridge.new(pos, self._markerIdToCoord[markerId]:face('forward')),
         }
     )):_init()
 end
