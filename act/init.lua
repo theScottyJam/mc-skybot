@@ -1,5 +1,5 @@
 return {
-    blueprint = import('./modeling/blueprint.lua'),
+    Blueprint = import('./modeling/Blueprint.lua'),
     BoundingBox = import('./space/BoundingBox.lua'),
     Bridge = import('./space/Bridge.lua'),
     commands = import('./commands.lua'),

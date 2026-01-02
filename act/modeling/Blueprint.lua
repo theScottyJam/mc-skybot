@@ -2,10 +2,12 @@ local util = import('util.lua')
 local Coord = import('../space/Coord.lua')
 local Position = import('../space/Position.lua')
 local navigate = import('../navigate.lua')
+local Project = import('../planner/Project.lua')
 local highLevelCommands = import('../highLevelCommands.lua')
 local Sketch = import('./Sketch.lua')
 
-local module = {}
+local static = {}
+local prototype = {}
 
 local calcRequiredResources = function(sketch, mapKey)
     local requiredResources = {} -- maps block ids to quantity required for the build
@@ -84,65 +86,92 @@ local nextCoordToVisit = function (sketch, mapKey, previousCoord)
     return nil
 end
 
+-- The value of buildStartPos will determine where the blueprint is build and what direction it will be oriented.
+-- Many taskFactory options are also supported.
+function prototype:registerConstructionProject(opts)
+    local buildStartPos = opts.buildStartPos
+    local init = opts.init or function() end
+    local before = opts.before or function() end
+    local enter = opts.enter or function() end
+    local exit = opts.exit or function() end
+    local after = opts.after or function() end
+
+    local sketch = self._relSketch:anchorMarker(self._buildStartMarker, buildStartPos)
+    local mapKey = self._mapKey
+
+    -- Anything stored on "self" will be prefixed with "_blueprint_" to namespace it, because the "self" table
+    -- will also be passed to the hooks for others to use, and they don't need to be aware of the internal blueprint state.
+    return Project.register({
+        id = 'blueprint:'..self._id,
+        requiredResources = util.mapMapTable(self._requiredResources, function(quantity)
+            return { quantity=quantity, at='INVENTORY' }
+        end),
+        init = function(self)
+            init(self)
+            self._blueprint_nextCoord = nextCoordToVisit(sketch, mapKey)
+            util.assert(self._blueprint_nextCoord ~= nil, 'Attempted to use an empty blueprint')
+        end,
+        before = function(self)
+            before(self)
+        end,
+        enter = function(self)
+            enter(self)
+            navigate.assertAtPos(buildStartPos)
+        end,
+        exit = function(self)
+            navigate.moveToPos(buildStartPos, {'forward', 'right', 'up'})
+            exit(self)
+        end,
+        after = function(self)
+            after(self)
+        end,
+        nextSprint = function(self)
+            local targetCoord = self._blueprint_nextCoord
+
+            local targetChar = sketch:getCharAt(targetCoord)
+            util.assert(mapKey[targetChar])
+
+            navigate.moveToCoord(
+                targetCoord:at({ up = 1 }),
+                {'up', 'right', 'forward'}
+            )
+            highLevelCommands.placeItemDown(mapKey[targetChar])
+
+            self._blueprint_nextCoord = nextCoordToVisit(sketch, mapKey, targetCoord)
+            return self._blueprint_nextCoord == nil
+        end,
+    })
+end
+
 --[[
 inputs:
     ...Everything Sketch.new() expects
+    id = Unique id to register this blueprint under.
     key = Maps resource names to characters
     buildStartMarker = The name of a marker that marks where the turtle will be at when it starts building.
 
 You are required to provide a "build start marker" somewhere in the area. This marks where the turtle will start
 when it works on the project. The marker should be placed at an edge, and there should be a column of empty space above it.
 ]]
-function module.create(opts)
+function static.new(opts_)
+    local opts = util.copyTable(opts_)
+    local id = opts.id
     local key = opts.key
     local buildStartMarker = opts.buildStartMarker
+    opts.id = nil
+    opts.key = nil
+    opts.buildStartMarker = nil
 
     local mapKey = util.flipMapTable(key) -- Flips the key so it maps characters to ids, which is more useful internally.
     local relSketch = Sketch.new(opts)
 
-    local requiredResources = calcRequiredResources(relSketch, mapKey)
-
-    -- The value of buildStartPos will determine where the blueprint is build and what direction it will be oriented.
-    return function(buildStartPos)
-        local sketch = relSketch:anchorMarker(buildStartMarker, buildStartPos)
-
-        return {
-            requiredResources = util.mapMapTable(requiredResources, function(quantity)
-                return { quantity=quantity, at='INVENTORY' }
-            end),
-            createTaskState = function()
-                local nextCoord = nextCoordToVisit(sketch, mapKey)
-                util.assert(nextCoord ~= nil, 'Attempted to use an empty blueprint')
-                return {
-                    buildStartPos = buildStartPos,
-                    nextCoord = nextCoord,
-                }
-            end,
-            enter = function(taskState)
-                navigate.assertAtPos(taskState.buildStartPos)
-            end,
-            exit = function(taskState, info)
-                navigate.moveToPos(taskState.buildStartPos, {'forward', 'right', 'up'})
-            end,
-            nextSprint = function(taskState)
-                local nextTaskState = util.copyTable(taskState)
-                local targetCoord = taskState.nextCoord
-
-                local targetChar = sketch:getCharAt(targetCoord)
-                util.assert(mapKey[targetChar])
-
-                navigate.moveToCoord(
-                    targetCoord:at({ up = 1 }),
-                    {'up', 'right', 'forward'}
-                )
-                highLevelCommands.placeItemDown(mapKey[targetChar])
-
-                nextTaskState.nextCoord = nextCoordToVisit(sketch, mapKey, targetCoord)
-                util.mergeTablesInPlace(taskState, nextTaskState)
-                return nextTaskState.nextCoord == nil
-            end,
-        }
-    end
+    return util.attachPrototype(prototype, {
+        _id = id,
+        _relSketch = relSketch,
+        _buildStartMarker = buildStartMarker,
+        _mapKey = mapKey,
+        _requiredResources = calcRequiredResources(relSketch, mapKey),
+    })
 end
 
-return module
+return static

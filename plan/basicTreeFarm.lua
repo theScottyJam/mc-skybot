@@ -9,7 +9,8 @@ local state = act.state
 
 local module = {}
 
-local functionalScaffoldingBlueprint = act.blueprint.create({
+local functionalScaffoldingBlueprint = act.Blueprint.new({
+    id = 'basicTreeFarm:functionalScaffolding',
     key = {
         ['minecraft:stone'] = 'X',
         ['minecraft:dirt'] = 'D',
@@ -64,32 +65,20 @@ function registerFunctionalScaffoldingProject(opts)
     local treeFarmEntranceLoc = opts.treeFarmEntranceLoc
     local treeFarm = opts.treeFarm
 
-    local functionalScaffolding = functionalScaffoldingBlueprint(treeFarmEntranceLoc.pos)
-
-    return act.Project.register({
-        id = 'basicTreeFarm:createFunctionalScaffolding',
-        init = function(self)
-            -- mutable state
-            self.taskState = functionalScaffolding.createTaskState()
-        end,
+    return functionalScaffoldingBlueprint:registerConstructionProject({
+        buildStartPos = treeFarmEntranceLoc.pos,
         before = function(self)
             Location.addPath(homeLoc, treeFarmEntranceLoc)
         end,
         enter = function(self)
             treeFarmEntranceLoc:travelHere()
-            functionalScaffolding.enter(self.taskState)
         end,
         exit = function(self)
-            functionalScaffolding.exit(self.taskState)
             navigate.assertAtPos(treeFarmEntranceLoc.pos)
         end,
         after = function(self)
             treeFarm:activate()
         end,
-        nextSprint = function(self)
-            return functionalScaffolding.nextSprint(self.taskState)
-        end,
-        requiredResources = functionalScaffolding.requiredResources,
     })
 end
 
