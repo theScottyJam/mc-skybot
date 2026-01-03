@@ -95,17 +95,28 @@ function prototype:registerConstructionProject(opts)
     local enter = opts.enter or function() end
     local exit = opts.exit or function() end
     local after = opts.after or function() end
+    local requiredResourcesRequested = opts.requiredResources or {}
 
     local sketch = self._relSketch:anchorMarker(self._buildStartMarker, buildStartPos)
     local mapKey = self._mapKey
+
+    local requiredResources = {}
+    for id, quantity in util.sortedMapTablePairs(self._requiredResources) do
+        requiredResources[id] = { quantity = quantity, at = 'INVENTORY' }
+    end
+    for id, resourceInfo in util.sortedMapTablePairs(requiredResourcesRequested) do
+        util.assert(resourceInfo.at == 'INVENTORY')
+        if requiredResources[id] == nil then
+            requiredResources[id] = { quantity = 0, at = 'INVENTORY' }
+        end
+        requiredResources[id].quantity = requiredResources[id].quantity + resourceInfo.quantity
+    end
 
     -- Anything stored on "self" will be prefixed with "_blueprint_" to namespace it, because the "self" table
     -- will also be passed to the hooks for others to use, and they don't need to be aware of the internal blueprint state.
     return Project.register({
         id = 'blueprint:'..self._id,
-        requiredResources = util.mapMapTable(self._requiredResources, function(quantity)
-            return { quantity=quantity, at='INVENTORY' }
-        end),
+        requiredResources = requiredResources,
         init = function(self)
             init(self)
             self._blueprint_nextCoord = nextCoordToVisit(sketch, mapKey)

@@ -77,10 +77,10 @@ end, function(turtlePos)
     end
 end)
 
-module.turtle.backward = commandWithStateChanges(function()
+module.turtle.back = commandWithStateChanges(function()
     local success = false
     while not success do
-        success = turtle.backward()
+        success = turtle.back()
     end
 end, function(turtlePos)
     if turtlePos.facing == 'forward' then return turtlePos:at({ forward = -1 })

@@ -50,7 +50,8 @@ local functionalScaffoldingBlueprint = act.Blueprint.new({
             '  D  X D X  D  ',
             '  XXXXXXXXXXX  ',
             '       X       ', -- Leaves shouldn't go farther than here
-            '       X       ', -- This row needs to remain empty so there's room for the turtle to travel upwards.
+            '       X       ', -- This row needs to remain empty so there's room for the turtle to travel upwards to harvest the trees.
+            '       X       ', -- Extending the walkway by one more so the trees are far enough away from the island's lava source.
             '       !       ',
         },
         {
@@ -119,7 +120,6 @@ end
 
 function module.register(opts)
     local homeLoc = opts.homeLoc
-    -- Using forward=3 to make sure it's far enough away from the lava source so the leaves don't catch fire.
     local treeFarmEntranceLoc = Location.register(homeLoc.pos:at({ forward = 2 }))
 
     local treeFarm = registerTreeFarm({ treeFarmEntranceLoc = treeFarmEntranceLoc })
