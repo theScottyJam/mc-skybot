@@ -16,32 +16,6 @@ local findEmptyInventorySlots = function(inventory)
     return emptySlots
 end
 
--- Operation written in an old-style way, that might not even be needed anymore.
--- module.transferToFirstEmptySlot = registerCommand(
---     'highLevelCommands:transferToFirstEmptySlot',
---     function(state, opts)
---         opts = opts or {}
---         local allowEmpty = opts.allowEmpty or false
-
---         local firstEmptySlot = nil
---         for i = 1, 16 do
---             local count = turtle.getItemCount(i)
---             if count == 0 then
---                 firstEmptySlot = i
---                 break
---             end
---         end
---         if firstEmptySlot == nil then
---             error('Failed to find an empty slot.')
---         end
---         local success = turtle.transferTo(firstEmptySlot)
---         if not success then
---             if allowEmpty then return end
---             error('Failed to transfer to the first empty slot (was the source empty?)')
---         end
---     end
--- )
-
 function module.findAndSelectSlotWithItem(itemIdToFind, opts)
     if opts == nil then opts = {} end
     local allowMissing = opts.allowMissing or false
@@ -122,10 +96,7 @@ dropItemUsing = function(itemId, amount, dropFn)
         module.findAndSelectSlotWithItem(itemId)
         local quantityInSlot = commands.turtle.getItemCount()
         local amountToDrop = util.minNumber(quantityInSlot, amount)
-
-        if amountToDrop == 0 then
-            error('Internal error when using dropItemAt command.')
-        end
+        util.assert(amountToDrop ~= 0)
 
         dropFn(amountToDrop)
 
@@ -138,10 +109,11 @@ end
 -- `maxQuantity` is optional, and default to the max,
 -- which is a stack per item the recipe produces. (e.g. reeds
 -- produce multiple paper with a single craft)
--- pre-condition: There must be an empty space above the turtle
+-- pre-condition: You must be at a crafting station, meaning you must be facing a crafting table containing an empty chest above.
+-- pre-condition: You must have at least one empty inventory slot.
 function module.craft(recipe, maxQuantity)
     maxQuantity = maxQuantity -- may be nil
-    if util.tableSize(recipe.from) == 0 then error('Empty recipe') end
+    util.assert(util.tableSize(recipe.from) ~= 0, 'Empty recipe')
 
     local numOfItemsInChest = 0
 
@@ -153,16 +125,13 @@ function module.craft(recipe, maxQuantity)
         end
     end
 
-    if commands.turtle.detectUp() then
-        error('Can not craft unless there is room above the turtle')
-    end
-
-    module.findAndSelectSlotWithItem('minecraft:chest')
-    commands.turtle.placeUpAndAssert()
-    -- Put any remaining chests into the chest, to make sure we have at least one empty inventory slot
-    commands.turtle.dropUp(64)
-    module.findAndSelectSlotWithItem('minecraft:crafting_table')
-    commands.turtle.equipRight()
+    module.findAndSelectEmptySlot()
+    commands.turtle.dig() -- Pick up the crafting table
+    util.assert(commands.turtle.equipRight()) -- Equip the crafting table (un-equipping the pickaxe)
+    commands.turtle.up() -- Move up to the chest.
+    local _, inspectedChest = commands.turtle.inspect()
+    util.assert(inspectedChest.name == 'minecraft:chest')
+    commands.turtle.drop(1) -- Drop off pickaxe so we have at least one empty inventory slot.
     commands.turtle.select(1)
 
     local findLocationsOfItems = function(whereItemsAre, itemId)
@@ -175,7 +144,7 @@ function module.craft(recipe, maxQuantity)
         return itemLocations
     end
 
-    local craftSlotIds = { 1, 2, 3, 5, 6, 7, 9, 10, 11 }
+    local craftSlotIds = {1, 2, 3, 5, 6, 7, 9, 10, 11}
     local startingInventory = module.takeInventory()
     -- emptySlot and whereItemsAre will be updated in the following for loop
     -- to stay up-to-date as things shift around.
@@ -227,7 +196,7 @@ function module.craft(recipe, maxQuantity)
     for i = 1, 16 do
         if not util.tableContains(usedRecipeCells, i) then
             commands.turtle.select(i)
-            commands.turtle.dropUp(64)
+            commands.turtle.drop(64)
             numOfItemsInChest = numOfItemsInChest + 1
         end
     end
@@ -275,19 +244,21 @@ function module.craft(recipe, maxQuantity)
     while quantityUsing > 0 do
         commands.turtle.craft(util.minNumber(64, quantityUsing * recipe.yields))
         quantityUsing = quantityUsing - commands.turtle.getItemCount() / recipe.yields
-        commands.turtle.dropUp(64)
+        commands.turtle.drop(64)
         numOfItemsInChest = numOfItemsInChest + 1
     end
     commands.turtle.select(1)
 
     for i = 1, numOfItemsInChest do
-        commands.turtle.suckUp(64)
+        commands.turtle.suck(64)
     end
 
     module.findAndSelectSlotWithItem('minecraft:diamond_pickaxe')
     commands.turtle.equipRight()
+    commands.turtle.down()
+    module.findAndSelectSlotWithItem('minecraft:crafting_table')
+    commands.turtle.placeAndAssert()
     commands.turtle.select(1)
-    commands.turtle.digUp()
 end
 
 -- Move everything to the earlier slots in the inventory

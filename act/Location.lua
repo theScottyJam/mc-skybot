@@ -1,8 +1,5 @@
 --[[
     A location represents a specific, marked point in space that you might frequently travel to.
-
-    A location should always have a spot above it that's empty. This allows the turtle
-    to place a chest there, to craft at any location.
 ]]
 
 local util = import('util.lua')

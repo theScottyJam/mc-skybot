@@ -34,6 +34,110 @@ local registerInitializationProject = function(opts)
     })
 end
 
+local registerCraftingStationProject = function(opts)
+    local inFrontOfChestLoc = opts.inFrontOfChestLoc
+    local homeLoc = opts.homeLoc
+    local craftingStationLoc = opts.craftingStationLoc
+    local craftingStationChestLoc = opts.craftingStationChestLoc
+    local craftingMills = opts.craftingMills
+
+    return act.Project.register({
+        id = 'mainIsland:craftingStation',
+        before = function(self)
+            Location.addPath(homeLoc, craftingStationLoc)
+            Location.addPath(craftingStationLoc, craftingStationChestLoc)
+        end,
+        enter = function(self)
+            inFrontOfChestLoc:travelHere()
+        end,
+        exit = function(self)
+            navigate.assertAtPos(craftingStationChestLoc.pos)
+        end,
+        after = function(self)
+            -- Crafting mills are activated here, because the way crafting was
+            -- designed, it requires the turtle to have access to a spare chest,
+            -- and this is the point where an empty chest becomes available.
+            for _, mill in ipairs(craftingMills) do
+                mill:activate()
+            end
+        end,
+        nextSprint = function(self)
+            -- Grab contents from the chest
+            commands.turtle.suck(1)
+            commands.turtle.suck(1)
+
+            -- Pick up the chest
+            commands.turtle.dig()
+
+            -- Places the crafting table that should start in the turtle's inventory
+            craftingStationLoc:travelHere()
+            highLevelCommands.placeItem('minecraft:crafting_table')
+
+            -- Place the chest back down
+            craftingStationChestLoc:travelHere()
+            highLevelCommands.placeItem('minecraft:chest')
+
+            return true
+        end,
+    })
+end
+
+local registerStartBuildingCobblestoneGeneratorProject = function(opts)
+    local homeLoc = opts.homeLoc
+    local inFrontOfChestLoc = opts.inFrontOfChestLoc
+
+    return act.Project.register({
+        id = 'mainIsland:startBuildingCobblestoneGenerator',
+        enter = function(self)
+            homeLoc:travelHere()
+        end,
+        exit = function(self)
+            navigate.assertAtPos(homeLoc.pos)
+        end,
+        nextSprint = function(self)
+            local startPos = navigate.getTurtlePos()
+
+            -- Note that the dirt right under the "home location" won't be dug out at this time, that will happen
+            -- in the later project that finishes the cobblestone generator.
+
+            -- Dig out east branch
+            navigate.face('right')
+            for i = 1, 2 do
+                commands.turtle.forward()
+                commands.turtle.digDown()
+            end
+
+            -- Place lava down
+            highLevelCommands.placeItemDown('minecraft:lava_bucket')
+
+            -- Dig out south branch
+            navigate.moveToPos(homeLoc.pos:face('backward'))
+            commands.turtle.forward()
+            commands.turtle.digDown()
+            commands.turtle.down()
+            commands.turtle.digDown()
+            commands.turtle.dig()
+            commands.turtle.up()
+
+            -- Place ice down
+            -- (We're placing ice here, instead of in it's final spot, so it can be closer to the lava
+            -- so the lava can melt it)
+            highLevelCommands.placeItemDown('minecraft:ice')
+
+            -- Dig out place for player to stand
+            navigate.moveToCoord(homeLoc.coord:at({ right=-1 }))
+            commands.turtle.digDown()
+
+            navigate.moveToPos(startPos)
+
+            return true
+        end,
+        postConditions = function(currentConditions)
+            currentConditions.mainIsland.startedCobblestoneGeneratorConstruction = true
+        end,
+    })
+end
+
 -- Pre-condition: Must have two dirt in inventory
 local registerHarvestInitialTreeAndPrepareTreeFarmProject = function(opts)
     local bedrockCoord = opts.bedrockCoord
@@ -100,76 +204,6 @@ local registerHarvestInitialTreeAndPrepareTreeFarmProject = function(opts)
             -- 2 for each "sappling-arm", and 2 for the dirt that hovers above the trees
             ['minecraft:dirt'] = { quantity=6, at='INVENTORY' }
         }
-    })
-end
-
-local registerStartBuildingCobblestoneGeneratorProject = function(opts)
-    local homeLoc = opts.homeLoc
-    local craftingMills = opts.craftingMills
-
-    return act.Project.register({
-        id = 'mainIsland:startBuildingCobblestoneGenerator',
-        enter = function(self)
-            homeLoc:travelHere()
-        end,
-        exit = function(self)
-            navigate.assertAtPos(homeLoc.pos)
-        end,
-        after = function(self)
-            -- Crafting mills are activated here, because the way crafting was
-            -- designed, it requires the turtle to have a chest in its inventory,
-            -- and the turtle picks up a chest here.
-            for _, mill in ipairs(craftingMills) do
-                mill:activate()
-            end
-        end,
-        nextSprint = function(self)
-            local startPos = navigate.getTurtlePos()
-
-            -- Dig out east branch
-            navigate.face('right')
-            for i = 1, 2 do
-                commands.turtle.forward()
-                commands.turtle.digDown()
-            end
-
-            -- Grab stuff from chest
-            commands.turtle.forward()
-            commands.turtle.suck(1)
-            commands.turtle.suck(1)
-
-            -- Pick up chest
-            commands.turtle.dig()
-
-            -- Place lava down
-            navigate.moveToCoord(homeLoc.coord:at({ right=2 }))
-            highLevelCommands.placeItemDown('minecraft:lava_bucket')
-
-            -- Dig out west branch
-            navigate.moveToPos(homeLoc.pos:face('backward'))
-            commands.turtle.forward()
-            commands.turtle.digDown()
-            commands.turtle.down()
-            commands.turtle.digDown()
-            commands.turtle.dig()
-            commands.turtle.up()
-
-            -- Place ice down
-            -- (We're placing ice here, instead of in it's final spot, so it can be closer to the lava
-            -- so the lava can melt it)
-            highLevelCommands.placeItemDown('minecraft:ice')
-
-            -- Dig out place for player to stand
-            navigate.moveToCoord(homeLoc.coord:at({ right=-1 }))
-            commands.turtle.digDown()
-
-            navigate.moveToPos(startPos)
-
-            return true
-        end,
-        postConditions = function(currentConditions)
-            currentConditions.mainIsland.startedCobblestoneGeneratorConstruction = true
-        end,
     })
 end
 
@@ -718,7 +752,9 @@ local registerStartingIslandTreeFarm = function(opts)
     })
 end
 
-local registerCraftingMills = function()
+local registerCraftingMills = function(opts)
+    local craftingStationLoc = opts.craftingStationLoc
+
     local millList = {}
     for i, recipe in pairs(recipes.crafting) do
         local mill = act.Mill.register({
@@ -733,6 +769,12 @@ local registerCraftingMills = function()
                 util.assert(requestedQuantity <= 64 * 8, 'Can not handle that large of a quantity yet')
                 self.requestedQuantity = requestedQuantity
             end,
+            enter = function(self)
+                craftingStationLoc:travelHere()
+            end,
+            exit = function(self)
+                navigate.assertAtPos(craftingStationLoc.pos)
+            end,
             nextSprint = function(self)
                 local amountNeeded = self.requestedQuantity - self.produced
                 local craftAmount = util.minNumber(64 * recipe.yields, amountNeeded)
@@ -742,9 +784,7 @@ local registerCraftingMills = function()
                 return self.produced == self.requestedQuantity
             end,
             getRequiredResources = function(resourceRequest)
-                if resourceRequest.resourceName ~= recipe.to then
-                    error('Unreachable: Requested an invalid resource')
-                end
+                util.assert(resourceRequest.resourceName == recipe.to, 'Unreachable: Requested an invalid resource')
 
                 local craftQuantity = math.ceil(resourceRequest.quantity / recipe.yields)
 
@@ -835,8 +875,8 @@ local registerTowerProject = function(opts)
         nextSprint = function(self)
             local startPos = navigate.getTurtlePos()
 
-            local nextToTowersCoord = homeLoc.coord:at({ right = -5 })
-            local towerBaseCoord = homeLoc.coord:at({ right = -6 - (towerNumber*2) })
+            local nextToTowersCoord = homeLoc.coord:at({ right = -5, forward = 1 })
+            local towerBaseCoord = homeLoc.coord:at({ right = -6 - (towerNumber*2), forward = 1 })
             
             navigate.moveToCoord(nextToTowersCoord, { 'forward', 'right', 'up' })
             for x = 0, 1 do
@@ -874,21 +914,29 @@ function module.register()
     local bedrockCoord = Coord.absolute({ forward = 3, right = 0, up = 64 })
 
     -- homeLoc is right above the bedrock
-    local homeLoc = Location.register(bedrockCoord:at({ up=3 }):face('forward'))
-    -- in front of chest, but facing north. (The chest would be on your right).
-    local inFrontOfChestLoc = Location.register(homeLoc.pos:at({ right=3 }))
+    local homeLoc = Location.register(bedrockCoord:at({ up = 3 }):face('forward'))
+    -- in front of chest, facing the chest (which is to the east of where you would be standing)
+    local inFrontOfChestLoc = Location.register(homeLoc.pos:at({ right = 3 }):face('right'))
     -- facing away from the chest, with the disk drive to the right
     local initialLoc = Location.register(inFrontOfChestLoc.pos:face('left'))
     -- faces the furnace
     local inFrontOfFirstFurnaceLoc = Location.register(
-        inFrontOfChestLoc.pos:at({ forward=1, right=1, up=1 }):face('right')
+        inFrontOfChestLoc.pos:at({ forward = 1, right = 1, up = 1 }):face('right')
+    )
+    -- Faces the crafting table
+    local craftingStationLoc = Location.register(
+        homeLoc.pos:at({ right = -1 }):face('left')
+    )
+    -- Faces the chest
+    local craftingStationChestLoc = Location.register(
+        craftingStationLoc.pos:at({ up = 1 })
     )
 
     local cobblestoneGeneratorMill = registerCobblestoneGeneratorMill({ homeLoc = homeLoc })
     local startingIslandTreeFarm = registerStartingIslandTreeFarm({ homeLoc = homeLoc })
     local furnaceMill = registerFurnaceMill({ inFrontOfFirstFurnaceLoc = inFrontOfFirstFurnaceLoc })
     local simpleCharcoalSmeltingMill = registerSimpleCharcoalSmeltingMill({ inFrontOfFirstFurnaceLoc = inFrontOfFirstFurnaceLoc })
-    local craftingMills = registerCraftingMills()
+    local craftingMills = registerCraftingMills({ craftingStationLoc = craftingStationLoc })
 
     return {
         -- locations
@@ -898,7 +946,8 @@ function module.register()
 
         -- projects
         initialization = registerInitializationProject({ initialLoc = initialLoc, homeLoc = homeLoc, inFrontOfChestLoc = inFrontOfChestLoc }),
-        startBuildingCobblestoneGenerator = registerStartBuildingCobblestoneGeneratorProject({ homeLoc = homeLoc, craftingMills = craftingMills }),
+        craftingStationProject = registerCraftingStationProject({ inFrontOfChestLoc = inFrontOfChestLoc, homeLoc = homeLoc, craftingStationLoc = craftingStationLoc, craftingStationChestLoc = craftingStationChestLoc, craftingMills = craftingMills }),
+        startBuildingCobblestoneGenerator = registerStartBuildingCobblestoneGeneratorProject({ homeLoc = homeLoc, inFrontOfChestLoc = inFrontOfChestLoc }),
         harvestInitialTreeAndPrepareTreeFarm = registerHarvestInitialTreeAndPrepareTreeFarmProject({ bedrockCoord = bedrockCoord, homeLoc = homeLoc, startingIslandTreeFarm = startingIslandTreeFarm }),
         waitForIceToMeltAndFinishCobblestoneGenerator = registerWaitForIceToMeltAndFinishCobblestoneGeneratorProject({ homeLoc = homeLoc, cobblestoneGeneratorMill = cobblestoneGeneratorMill }),
         buildFurnaces = registerBuildFurnacesProject({ inFrontOfChestLoc = inFrontOfChestLoc, inFrontOfFirstFurnaceLoc = inFrontOfFirstFurnaceLoc }),

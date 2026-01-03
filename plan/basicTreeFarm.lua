@@ -119,7 +119,8 @@ end
 
 function module.register(opts)
     local homeLoc = opts.homeLoc
-    local treeFarmEntranceLoc = Location.register(homeLoc.pos:at({ forward=2 }))
+    -- Using forward=3 to make sure it's far enough away from the lava source so the leaves don't catch fire.
+    local treeFarmEntranceLoc = Location.register(homeLoc.pos:at({ forward = 2 }))
 
     local treeFarm = registerTreeFarm({ treeFarmEntranceLoc = treeFarmEntranceLoc })
 

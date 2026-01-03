@@ -18,6 +18,7 @@ local completeMapKey = {
     ['minecraft:grass'] = 'D',
     ['minecraft:chest'] = 'C',
     ['minecraft:cobblestone'] = 'c',
+    ['minecraft:crafting_table'] = '+',
     ['minecraft:stone'] = 'S',
     ['minecraft:leaves'] = 'l',
     ['minecraft:sapling'] = 's',

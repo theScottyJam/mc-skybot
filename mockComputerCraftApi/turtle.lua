@@ -310,16 +310,24 @@ function module.equipLeft()
     local turtle = _G.mockComputerCraftApi.world.turtle
     local inventoryItem = turtle.inventory[turtle.selectedSlot] -- possibly nil
     util.assert(inventoryItem == nil or inventoryItem.quantity == 1, 'Currently unable to equip from a slot with multiple items')
+    -- Others may be supported, this is just what's coded in the assert for now.
+    util.assert(inventoryItem.id == 'minecraft:crafting_table' or inventoryItem.id == 'minecraft:diamond_pickaxe')
     turtle.inventory[turtle.selectedSlot] = turtle.equippedLeft
     turtle.equippedLeft = inventoryItem
+    -- It should return false if trying to equip an invalid item. We're just throwing instead.
+    return true
 end
 
 function module.equipRight()
     local turtle = _G.mockComputerCraftApi.world.turtle
     local inventoryItem = turtle.inventory[turtle.selectedSlot] -- possibly nil
     util.assert(inventoryItem == nil or inventoryItem.quantity == 1, 'Currently unable to equip from a slot with multiple items')
+    -- Others may be supported, this is just what's coded in the assert for now.
+    util.assert(inventoryItem.id == 'minecraft:crafting_table' or inventoryItem.id == 'minecraft:diamond_pickaxe')
     turtle.inventory[turtle.selectedSlot] = turtle.equippedRight
     turtle.equippedRight = inventoryItem
+    -- It should return false if trying to equip an invalid item. We're just throwing instead.
+    return true
 end
 
 local canPlace = {
@@ -332,6 +340,7 @@ local canPlace = {
     'minecraft:cobblestone',
     'minecraft:stone',
     'minecraft:chest',
+    'minecraft:crafting_table',
     'minecraft:furnace',
     'minecraft:torch'
 }
@@ -487,6 +496,7 @@ end
 local canDig = {
     'minecraft:dirt',
     'minecraft:cobblestone',
+    'minecraft:crafting_table',
     'minecraft:grass',
     'minecraft:log',
     'minecraft:leaves',
@@ -513,6 +523,8 @@ local digAt = function(coordBeingDug, toolSide)
         error('Can not pick up a furnace filled with items, or that is actively running')
     end
     if not util.tableContains(canDig, dugCell.id) then
+        -- If this error is thrown, it probably just means you need to update this function to teach it what kind
+        -- of behavior happens when you dig this unrecognized block.
         error('Can not dig block '..dugCell.id..' yet. Perhaps this requires using a tool, which is not supported.')
     end
 

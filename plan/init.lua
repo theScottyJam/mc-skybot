@@ -21,6 +21,7 @@ function module.register()
             -- To run a custom project for debugging purposes, use the following anywhere it's needed:
             --   debugProject(mainIsland.homeLoc),
             mainIsland.initialization,
+            mainIsland.craftingStationProject,
             mainIsland.startBuildingCobblestoneGenerator,
             mainIsland.harvestInitialTreeAndPrepareTreeFarm,
             mainIsland.waitForIceToMeltAndFinishCobblestoneGenerator,
