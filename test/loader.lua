@@ -9,5 +9,6 @@ end
 
 runTestModule('turtlescript/test.lua')
 runTestModule('act/modeling/Sketch.test.lua')
+runTestModule('act/Location.test.lua')
 
 testFramework.runTests()

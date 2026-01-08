@@ -18,6 +18,9 @@ local prototype = {}
 local INITIAL_CHARCOAL_REQUIRED = 16
 
 -- Sets this plan as the active plan to run.
+--
+-- See Farm.registerValueOfFarmableResources()'s docs for information on how
+-- the values are interpreted in the valueOfFarmableResources table.
 function static.register(opts)
     local initialTurtlePos = opts.initialTurtlePos
     local projectList = opts.projectList

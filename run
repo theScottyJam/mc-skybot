@@ -24,6 +24,7 @@ local parseTerminalArgs = function(tArgs)
             expectFlagValueFor = tArg
         elseif tArg == '--test' then
             parsedArgs.runTests = true
+            parsedArgs.useMockLib = true -- The turtle must be mocked during testing
             if parsedArgs.basePath == nil then
                 parsedArgs.basePath = './'
             end
@@ -209,17 +210,18 @@ if inspect.registerGlobals ~= nil then
     inspect.registerGlobals()
 end
 
-if inputs.runTests then
-    import('test/loader.lua')
-    return
-end
-
 if inputs.useMockLib then
     import('mockComputerCraftApi/init.lua').registerGlobals()
 end
 
 if turtle == nil then
     print('Built-in APIs are missing. Did you intend to use --mock?')
+    return
+end
+
+if inputs.runTests then
+    import('./act/state.lua').init()
+    import('test/loader.lua')
     return
 end
 
@@ -243,7 +245,17 @@ if inspect.pauseUnpauseAfterEachSprint then
             break
         end
 
-        plan:runNextSprint()
+        local ok, theError = xpcall(function()
+            plan:runNextSprint()
+        end, debug.traceback)
+
+        if not ok then
+            if inspect.showFinalState then
+                inspect.showFinalState(true)
+                print()
+            end
+            error(theError, 0) -- `0` prevents it from tacking on another stack trace.
+        end
 
         if inspect.pauseUnpauseAfterEachSprint then
             -- We don't want to completely empty the module cache, as that would
@@ -259,13 +271,24 @@ else
     local act = import('act/init.lua')
     local plan = import('plan/init.lua').register()
     plan:startFromBeginning()
-    while not plan:isPlanExhausted() do
-        plan:runNextSprint()
+
+    local ok, theError = xpcall(function()
+        while not plan:isPlanExhausted() do
+            plan:runNextSprint()
+        end
+    end, debug.traceback)
+
+    if not ok then
+        if inspect.showFinalState then
+            inspect.showFinalState(true)
+            print()
+        end
+        error(theError, 0) -- `0` prevents it from tacking on another stack trace.
     end
 end
 
 if inspect.showFinalState then
-    inspect.showFinalState()
+    inspect.showFinalState(false)
 elseif inputs.useMockLib then
     print('Finished running simulated run.')
     print('Copy-paste inspect.example.lua as inspect.lua and modify it to your liking to view the results of the simulated run.')

@@ -131,6 +131,7 @@ end
 
 -- All fields are optional
 function static.absolute(opts)
+    opts = opts or {}
     return static._new({
         forward = opts.forward,
         right = opts.right,

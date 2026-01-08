@@ -405,6 +405,12 @@ local registerFurnaceMill = function(opts)
         enter = function(self)
             inFrontOfFirstFurnaceLoc:travelHere()
         end,
+        ifExits = function(self)
+            return {
+                location = inFrontOfFirstFurnaceLoc,
+                work = navigate.workToMoveToPos(inFrontOfFirstFurnaceLoc.pos, { 'right', 'forward', 'up' })
+            }
+        end,
         exit = function(self)
             navigate.moveToPos(inFrontOfFirstFurnaceLoc.pos, { 'right', 'forward', 'up' })
         end,
@@ -571,6 +577,12 @@ local registerSimpleCharcoalSmeltingMill = function(opts)
         enter = function(self)
             inFrontOfFirstFurnaceLoc:travelHere()
         end,
+        ifExits = function(self)
+            return {
+                location = inFrontOfFirstFurnaceLoc,
+                work = navigate.workToMoveToPos(inFrontOfFirstFurnaceLoc.pos, { 'right', 'forward', 'up' })
+            }
+        end,
         exit = function(self)
             navigate.moveToPos(inFrontOfFirstFurnaceLoc.pos, { 'right', 'forward', 'up' })
         end,
@@ -696,6 +708,9 @@ local registerCobblestoneGeneratorMill = function(opts)
         enter = function(self)
             homeLoc:travelHere()
         end,
+        ifExits = function(self)
+            return { location = homeLoc, work = 0 }
+        end,
         exit = function(self)
             navigate.face(homeLoc.pos.facing)
             navigate.assertAtPos(homeLoc.pos)
@@ -720,9 +735,7 @@ local registerStartingIslandTreeFarm = function(opts)
 
     return act.Farm.register({
         id = 'mainIsland:startingIslandTreeFarm',
-        enter = function(self)
-            homeLoc:travelHere()
-        end,
+        enterLoc = homeLoc,
         exit = function(self)
             navigate.assertAtPos(homeLoc.pos)
         end,
@@ -748,7 +761,9 @@ local registerStartingIslandTreeFarm = function(opts)
             return true
         end,
         supplies = treeFarmBehavior.stats.supplies,
-        calcExpectedYield = treeFarmBehavior.stats.calcExpectedYield,
+        calcExpectedYield = function(timeSpan)
+            return treeFarmBehavior.stats.calcExpectedYield(timeSpan, { treeCount = 2 })
+        end,
     })
 end
 
@@ -771,6 +786,9 @@ local registerCraftingMills = function(opts)
             end,
             enter = function(self)
                 craftingStationLoc:travelHere()
+            end,
+            ifExits = function(self)
+                return { location = craftingStationLoc, work = 0 }
             end,
             exit = function(self)
                 navigate.assertAtPos(craftingStationLoc.pos)

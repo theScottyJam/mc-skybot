@@ -22,6 +22,15 @@ inputs:
         It will run before the task starts and whenever the task continues after an
         interruption, and is supposed to bring the turtle from any registered location
         in the world to a desired position.
+    opts?.ifExits(self): { location = ..., work = ... }
+        Will be called at a given interruption to determine which location the turtle will move to if
+        exit() were to be called and how many units of work it would take to move to that location.
+        This information is used to decide if it's worth interrupting at this point or not.
+
+        It will not be called if the project has finished (there's no reason to figure out
+        how much work it takes to exit at the end).
+        You do not need to supply this function if the project does not support interruptions
+        (i.e. it all runs in a single task).
     opts?.exit(self): void
         This function will run after the task finishes and whenever the task needs to pause
         for an interruption, and is supposed to bring the turtle to a registered location.
@@ -43,6 +52,7 @@ function static.register(opts)
         init = opts.init or function() end,
         before = opts.before or function() end,
         enter = opts.enter or function() end,
+        ifExits = opts.ifExits or nil,
         exit = opts.exit or function() end,
         after = opts.after or function() end,
         nextSprint = opts.nextSprint,

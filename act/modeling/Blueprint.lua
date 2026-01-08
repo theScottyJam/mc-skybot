@@ -86,16 +86,23 @@ local nextCoordToVisit = function (sketch, mapKey, previousCoord)
     return nil
 end
 
--- The value of buildStartPos will determine where the blueprint is build and what direction it will be oriented.
--- Many taskFactory options are also supported.
+--[[
+Inputs:
+    buildStartPos = where the blueprint will be built. The orientation will determine which way the blueprint will be facing.
+    ...Many taskFactory options are also supported. For interruptions, you will be placed at the buildStartPos before exit() is called,
+       and you must send the turtle back to buildStartPos during the enter() call.
+       An `ifExits` function is required and should also assume the turtle is at buildStartPos when calculating the information.
+]]
 function prototype:registerConstructionProject(opts)
     local buildStartPos = opts.buildStartPos
     local init = opts.init or function() end
     local before = opts.before or function() end
     local enter = opts.enter or function() end
+    local ifExits = opts.ifExits
     local exit = opts.exit or function() end
     local after = opts.after or function() end
     local requiredResourcesRequested = opts.requiredResources or {}
+    util.assert(ifExits ~= nil)
 
     local sketch = self._relSketch:anchorMarker(self._buildStartMarker, buildStartPos)
     local mapKey = self._mapKey
@@ -128,6 +135,11 @@ function prototype:registerConstructionProject(opts)
         enter = function(self)
             enter(self)
             navigate.assertAtPos(buildStartPos)
+        end,
+        ifExits = function(self)
+            local moveToBuildStartWork = navigate.workToMoveToPos(buildStartPos, {'forward', 'right', 'up'})
+            local response = ifExits(self)
+            return { location = response.location, work = response.work + moveToBuildStartWork }
         end,
         exit = function(self)
             navigate.moveToPos(buildStartPos, {'forward', 'right', 'up'})

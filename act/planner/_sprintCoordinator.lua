@@ -9,6 +9,7 @@ local state = import('../state.lua')
 local Farm = import('./Farm.lua')
 local highLevelCommands = import('../highLevelCommands.lua')
 local Project = import('./Project.lua')
+local Location = import('../Location.lua')
 local time = import('../_time.lua')
 local resourceCollection = import('./_resourceCollection.lua')
 local serializer = import('../_serializer.lua')
@@ -36,8 +37,10 @@ local assertProjectListProvided = function()
 end
 
 -- `expectedYieldInfo` is what gets returned by a farm's __calcExpectedYield() function.
-local scoreFromExpectedYieldInfo = function(expectedYieldInfo, resourcesInInventory)
-    local work = expectedYieldInfo.work
+-- `travelWork` is how much work it takes to travel to the farm's enter location. `expectedYieldInfo.work` will account
+--    for the work of actually entering the task and performing it.
+local scoreFromExpectedYieldInfo = function(expectedYieldInfo, travelWork, resourcesInInventory)
+    local work = expectedYieldInfo.work + travelWork
     local expectedResources = expectedYieldInfo.yield
 
     local score = 0
@@ -56,7 +59,7 @@ end
 -- and whenever an interruption has finished.
 -- Returns an interrupt task, or nil if there
 -- are no interruptions.
-local checkForInterruptions = function(resourcesInInventory)
+local checkForInterruptions = function(resourcesInInventory, primaryTaskInterruptInfo)
     local currentTime = time.get()
     local winningFarm = {
         farm = nil,
@@ -67,7 +70,8 @@ local checkForInterruptions = function(resourcesInInventory)
         local elapsedTime = currentTime - farmInfo.lastVisited
 
         local expectedYieldInfo = farmInfo.farm.__calcExpectedYield(elapsedTime)
-        local score = scoreFromExpectedYieldInfo(expectedYieldInfo, resourcesInInventory)
+        local travelWork = primaryTaskInterruptInfo.work + Location.workToMove(primaryTaskInterruptInfo.location, farmInfo.farm.enterLoc) * 2
+        local score = scoreFromExpectedYieldInfo(expectedYieldInfo, travelWork, resourcesInInventory)
         if score > winningFarm.score then
             winningFarm = {
                 farm = farmInfo.farm,
@@ -134,7 +138,17 @@ function module.runNextSprint()
         if resourcesInInventory == nil then
             resourcesInInventory = countNonReservedResourcesInInventory()
         end
-        local interruptTask = checkForInterruptions(resourcesInInventory)
+
+        local primaryTaskInterruptInfo
+        if planState.primaryTask:entered() then
+            primaryTaskInterruptInfo = planState.primaryTask:ifInterrupted()
+        else
+            -- Perhaps we've harvested resources and are just about to start the task, or maybe
+            -- we're waiting on farms to harvest and have been sitting around idling.
+            primaryTaskInterruptInfo = { location = Location.currentLocation(), work = 0 }
+        end
+
+        local interruptTask = checkForInterruptions(resourcesInInventory, primaryTaskInterruptInfo)
         if interruptTask ~= nil then
             planState.interruptTask = interruptTask
             if planState.primaryTask ~= nil then
@@ -164,7 +178,6 @@ function module.displayInProgressTasks()
     local planState = planStateManager:get()
     print('primary task: '..(planState.primaryTask and planState.primaryTask.displayName or 'nil'))
     print('interrupt task: '..(planState.interruptTask and planState.interruptTask.displayName or 'nil'))
-    print()
 end
 
 -- Should be called right after state has been initialized.

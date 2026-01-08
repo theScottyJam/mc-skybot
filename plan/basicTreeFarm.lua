@@ -74,6 +74,9 @@ function registerFunctionalScaffoldingProject(opts)
         enter = function(self)
             treeFarmEntranceLoc:travelHere()
         end,
+        ifExits = function(self)
+            return { location = homeLoc, work = 0 }
+        end,
         exit = function(self)
             navigate.assertAtPos(treeFarmEntranceLoc.pos)
         end,
@@ -88,9 +91,7 @@ local registerTreeFarm = function(opts)
 
     return act.Farm.register({
         id = 'basicTreeFarm:treeFarm',
-        enter = function(self)
-            treeFarmEntranceLoc:travelHere()
-        end,
+        enterLoc = treeFarmEntranceLoc,
         exit = function(self)
             navigate.assertAtPos(treeFarmEntranceLoc.pos)
         end,
@@ -114,7 +115,9 @@ local registerTreeFarm = function(opts)
             return true
         end,
         supplies = treeFarmBehavior.stats.supplies,
-        calcExpectedYield = treeFarmBehavior.stats.calcExpectedYield,
+        calcExpectedYield = function(timeSpan)
+            return treeFarmBehavior.stats.calcExpectedYield(timeSpan, { treeCount = 3 })
+        end,
     })
 end
 

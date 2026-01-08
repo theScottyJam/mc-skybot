@@ -16,17 +16,29 @@ end
 
 local module = {}
 
+----- Quick preferences -----
+
+local showStepByStep = false
+local debugInfoOnError = false
+
+-- Uncomment to display each step
+-- local showStepByStep = true
+
+-- Uncomment to show debug info when errors happen
+-- (This can get in the way of print-based debugging)
+-- local debugInfoOnError = true
+
 -- Set this to true to cause the program to pause after each sprint, shut itself mostly down,
 -- then bring itself back up and unpause. This helps test the pause/unpause feature,
 -- but it may make it run slower.
-module.pauseUnpauseAfterEachSprint = true
+-- module.pauseUnpauseAfterEachSprint = true
+
+----- End of quick preferences -----
 
 -- Methods will be attached in addition to the properties defined immediately below.
 local debugGlobal = {
     -- Shows the current step we're on
     step = 0,
-    -- Set this to true to start displaying each step
-    showStepByStep = false,
 }
 
 local busySleep = function(seconds)
@@ -35,7 +47,7 @@ local busySleep = function(seconds)
     -- (When mocking, the original is backed-up to _G.originalOs)
     local osModule = _G.originalOs or _G.os
     local sec = tonumber(osModule.clock() + seconds);
-    while (osModule.clock() < sec) do 
+    while osModule.clock() < sec do 
     end
 end
 
@@ -78,7 +90,7 @@ function module.onStep()
 
     local SLEEP_TIME = 0.05
     debugGlobal.step = debugGlobal.step + 1
-    if debugGlobal.showStepByStep then
+    if showStepByStep then
         if idling then return end
         if lastIdleEndAt == step - 1 then
             local skipCount = lastIdleEndAt - lastIdleStartAt
@@ -89,7 +101,7 @@ function module.onStep()
         -- _G.mockComputerCraftApi.present.displayMap({ minX = -8, maxX = 5, minY = 0, maxY = 999, minZ = -5, maxZ = 5 }, { showKey = false })
         _G.mockComputerCraftApi.present.displayCentered({ width = 20, height = 12 })
         print('step: '..step)
-        -- act().plan.displayInProgressTasks()
+        -- act().Plan.displayInProgressTasks() print()
         -- _G.mockComputerCraftApi.present.inventory()
         _G.mockComputerCraftApi.present.turtlePosition()
 
@@ -97,16 +109,22 @@ function module.onStep()
     end
 end
 
--- Called when the turtle has finished
-function module.showFinalState()
+-- Called when the turtle has completed all tasks or an uncaught error has occurred.
+function module.showFinalState(triggeredByError)
     -- Only show debug info if we're in the mock environment.
     if _G.mockComputerCraftApi == nil then
+        return
+    end
+    if triggeredByError and not debugInfoOnError then
         return
     end
 
     mockComputerCraftApi.present.displayMap({ minX = -18, maxX = 18, minY = 0, maxY = 79, minZ = -15, maxZ = 3 }, { showKey = false })
     mockComputerCraftApi.present.turtlePosition()
     mockComputerCraftApi.present.now()
+    if triggeredByError then
+        act().Plan.displayInProgressTasks()
+    end
     mockComputerCraftApi.present.inventory()
     -- print(act().state.createSerializeSnapshot())
 end
@@ -126,7 +144,7 @@ function module.debugProject(homeLoc)
             -- local startPos = navigate.getTurtlePos()
             -- local currentWorld = _G.mockComputerCraftApi.world
             -- worldTools().addToInventory('minecraft:charcoal', 64)
-            debugGlobal.showStepByStep = true
+            showStepByStep = true
 
             -- navigate.moveToPos(startPos)
             return true

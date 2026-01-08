@@ -45,6 +45,11 @@ function module.__registerPieceOfState(statePieceId, initializer)
         return currentState[statePieceId]
     end
 
+    function prototype:update(newValue)
+        util.assert(self ~= nil)
+        currentState[statePieceId] = newValue
+    end
+
     return util.attachPrototype(prototype, {})
 end
 

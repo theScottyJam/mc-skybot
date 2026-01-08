@@ -2,8 +2,9 @@ local module = {}
 
 local e = 2.71828
 
+-- A sigmoid curve has the steepest acceleration in the middle and a more shallow slope at the ends.
 -- y at minX is 0.036
--- y at maxX is maxY - 0.036
+-- y at maxX is maxY
 function module.sigmoidFactory(xBounds)
     local minX = xBounds.minX
     local maxX = xBounds.maxX
@@ -19,6 +20,7 @@ function module.sigmoidFactory(xBounds)
     end
 end
 
+-- This curve starts at the y intercept and decreases over time, approaching zero.
 -- The smaller the factor, the more shallow the curve.
 function module.inverseSqrtCurve(opts)
     local yIntercept = opts.yIntercept

@@ -40,6 +40,87 @@ local convertFacingOut = function(facing)
     return facing
 end
 
+local defaultTo = function(param, fallback)
+    if param == nil then
+        return fallback
+    else
+        return param
+    end
+end
+
+local realEffect = {
+    forward = function(count)
+        for i = 1, defaultTo(count, 1) do
+            commands.turtle.forward()
+        end
+    end,
+    up = function(count)
+        for i = 1, defaultTo(count, 1) do
+            commands.turtle.up()
+        end
+    end,
+    down = function(count)
+        for i = 1, defaultTo(count, 1) do
+            commands.turtle.down()
+        end
+    end,
+    turnLeft = commands.turtle.turnLeft,
+    turnRight = commands.turtle.turnRight,
+    getPos = function()
+        util.assert(startPosBridge ~= nil, 'The navigate module has not yet been initialized.')
+        return commands.__getTurtlePos():convertOut(startPosBridge)
+    end,
+}
+
+-- Many functions receive an "effect" table. You can supply this mock one for the purposes
+-- of learning how much work a particular action or set of actions would take.
+function module.mockEffect(startingPos)
+    if startingPos == nil then
+        startingPos = realEffect.getPos()
+    end
+    startingPos.coord:assertAbsolute()
+
+    -- Movement work is 1.5 while turning is 1.0. The added 0.5 is to account for the fact that each movement costs an amount of fuel.
+
+    local work = 0
+    local pos = startingPos
+    return {
+        forward = function(count)
+            count = defaultTo(count, 1)
+            work = work + count * 1.5
+            if pos.facing == 'forward' then pos = pos:at({ forward = count })
+            elseif pos.facing == 'right' then pos = pos:at({ right = count })
+            elseif pos.facing == 'backward' then pos = pos:at({ forward = -count })
+            elseif pos.facing == 'left' then pos = pos:at({ right = -count })
+            else error('unreachable') end
+        end,
+        up = function(count)
+            count = defaultTo(count, 1)
+            work = work + count * 1.5
+            pos = pos:at({ up = count })
+        end,
+        down = function(count)
+            count = defaultTo(count, 1)
+            work = work + count * 1.5
+            pos = pos:at({ up = -count })
+        end,
+        turnLeft = function()
+            work = work + 1
+            pos = pos:rotateCounterClockwise()
+        end,
+        turnRight = function()
+            work = work + 1
+            pos = pos:rotateClockwise()
+        end,
+        getPos = function()
+            return pos
+        end,
+        getWork = function()
+            return work
+        end
+    }
+end
+
 -- Decorates the provided function. While it's being called, all values passed to this navigate module must
 -- be relative to the bridged coordinate plane instead of the absolute one. This module will automatically
 -- translate the coordinates to absolute coordinates.
@@ -60,9 +141,9 @@ function module.init(opts)
     startPosBridge = Bridge.new(initialTurtlePos, commands.turtleStartOrigin:face('forward'))
 end
 
-function module.getAbsoluteTurtlePos()
-    util.assert(startPosBridge ~= nil, 'The navigate module has not yet been initialized.')
-    return commands.__getTurtlePos():convertOut(startPosBridge)
+function module.getAbsoluteTurtlePos(effect_)
+    local effect = effect_ or realEffect
+    return effect.getPos()
 end
 
 -- Returns the turtle position, relative to the contents of bridgeStack.
@@ -106,58 +187,69 @@ end
 -- The turtle will end facing the direction of travel. (To pick a different facing or preserve facing, use moveToPos())
 -- dimensionOrder is optional, and indicates which dimensions to travel first. e.g. {'right', 'up'}.
 -- It defaults to { 'forward', 'right', 'up' }. Dimensions can be omited to prevent movement in that direction.
-function module.moveToCoord(destinationCoord_, dimensionOrder)
+function module.moveToCoord(destinationCoord_, dimensionOrder_, effect_)
     local destinationCoord = convertCoordOut(destinationCoord_)
-    local dimensionOrder = dimensionOrder or { 'forward', 'right', 'up' }
+    local dimensionOrder = dimensionOrder_ or { 'forward', 'right', 'up' }
+    local effect = effect_ or realEffect
 
     for _, dimension in ipairs(dimensionOrder) do
-        while dimension == 'forward' and module.getAbsoluteTurtlePos().forward < destinationCoord.forward do
-            module._faceAbsolute('forward')
-            commands.turtle.forward()
+        if dimension == 'forward' and effect.getPos().forward < destinationCoord.forward then
+            module._faceAbsolute('forward', effect)
+            effect.forward(destinationCoord.forward - effect.getPos().forward)
         end
-        while dimension == 'forward' and module.getAbsoluteTurtlePos().forward > destinationCoord.forward do
-            module._faceAbsolute('backward')
-            commands.turtle.forward()
+        if dimension == 'forward' and effect.getPos().forward > destinationCoord.forward then
+            module._faceAbsolute('backward', effect)
+            effect.forward(effect.getPos().forward - destinationCoord.forward)
         end
-        while dimension == 'right' and module.getAbsoluteTurtlePos().right < destinationCoord.right do
-            module._faceAbsolute('right')
-            commands.turtle.forward()
+        if dimension == 'right' and effect.getPos().right < destinationCoord.right then
+            module._faceAbsolute('right', effect)
+            effect.forward(destinationCoord.right - effect.getPos().right)
         end
-        while dimension == 'right' and module.getAbsoluteTurtlePos().right > destinationCoord.right do
-            module._faceAbsolute('left')
-            commands.turtle.forward()
+        if dimension == 'right' and effect.getPos().right > destinationCoord.right then
+            module._faceAbsolute('left', effect)
+            effect.forward(effect.getPos().right - destinationCoord.right)
         end
-        while dimension == 'up' and module.getAbsoluteTurtlePos().up < destinationCoord.up do
-            commands.turtle.up()
+        if dimension == 'up' and effect.getPos().up < destinationCoord.up then
+            effect.up(destinationCoord.up - effect.getPos().up)
         end
-        while dimension == 'up' and module.getAbsoluteTurtlePos().up > destinationCoord.up do
-            commands.turtle.down()
+        if dimension == 'up' and effect.getPos().up > destinationCoord.up then
+            effect.down(effect.getPos().up - destinationCoord.up)
         end
     end
 end
 
 -- Similar to moveToCoord(), except it will update the turtle's final facing according to destinationPos's facing value.
-function module.moveToPos(destinationPos, dimensionOrder)
-    module.moveToCoord(destinationPos.coord, dimensionOrder)
-    module.face(destinationPos.facing)
+-- `effect` can be nil
+function module.moveToPos(destinationPos, dimensionOrder, effect)
+    module.moveToCoord(destinationPos.coord, dimensionOrder, effect)
+    module.face(destinationPos.facing, effect)
+end
+
+function module.workToMoveToPos(destinationPos, dimensionOrder)
+    local effect = module.mockEffect()
+    module.moveToPos(destinationPos, dimensionOrder, effect)
+    return effect.getWork()
 end
 
 -- The facing will be relative to whatever bridges are currently in the bridgeStack.
-function module.face(targetFacing_)
-    module._faceAbsolute(convertFacingOut(targetFacing_))
+-- `effect` can be nil
+function module.face(targetFacing, effect)
+    module._faceAbsolute(convertFacingOut(targetFacing), effect)
 end
 
-function module._faceAbsolute(targetFacing)
-    local beforeFace = module.getAbsoluteTurtlePos().facing
+function module._faceAbsolute(targetFacing, effect_)
+    local effect = effect_ or realEffect
+
+    local beforeFace = effect.getPos().facing
     local rotations = facingTools.countClockwiseRotations(beforeFace, targetFacing)
 
     if rotations == 1 then
-        commands.turtle.turnRight()
+        effect.turnRight()
     elseif rotations == 2 then
-        commands.turtle.turnRight()
-        commands.turtle.turnRight()
+        effect.turnRight()
+        effect.turnRight()
     elseif rotations == 3 then
-        commands.turtle.turnLeft()
+        effect.turnLeft()
     end
 end
 

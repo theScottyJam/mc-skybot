@@ -96,7 +96,9 @@ module.stats = {
         'minecraft:apple',
         -- 'minecraft:stick',
     },
-    calcExpectedYield = function(timeSpan)
+    calcExpectedYield = function(timeSpan, opts)
+        local treeCount = opts.treeCount
+
         local checkTime = 20
         local treeHarvestTime = 140
 
@@ -108,15 +110,15 @@ module.stats = {
         local saplingsDroppedPerTree = 2.75
         local createCurve = curves.sigmoidFactory({ minX = 0.3, maxX = 3 })
         return {
-            work = createCurve({ minY = checkTime, maxY = checkTime + treeHarvestTime * 2 })(timeSpan),
+            work = createCurve({ minY = checkTime, maxY = checkTime + treeHarvestTime * treeCount })(timeSpan),
             yield = {
-                ['minecraft:log'] = createCurve({ maxY = 2 * logsPerTree })(timeSpan),
-                ['minecraft:sapling'] = createCurve({ maxY = 2 * leavesOnTree * chanceOfSaplingDrop })(timeSpan),
-                ['minecraft:apple'] = createCurve({ maxY = 2 * leavesOnTree * chanceOfAppleDrop })(timeSpan),
+                ['minecraft:log'] = createCurve({ maxY = treeCount * logsPerTree })(timeSpan),
+                ['minecraft:sapling'] = createCurve({ maxY = treeCount * leavesOnTree * chanceOfSaplingDrop })(timeSpan),
+                ['minecraft:apple'] = createCurve({ maxY = treeCount * leavesOnTree * chanceOfAppleDrop })(timeSpan),
                 -- Commenting this out, because I don't want the turtle to ever purposely try waiting
                 -- for tree to grow in order to get sticks, when the turtle might have wood on hand
                 -- and could just craft them.
-                -- ['minecraft:stick'] = createCurve({ maxY = 2 * leavesOnTree * chanceOfStickDrop })(timeSpan),
+                -- ['minecraft:stick'] = createCurve({ maxY = treeCount * leavesOnTree * chanceOfStickDrop })(timeSpan),
             },
         }
     end,

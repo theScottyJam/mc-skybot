@@ -51,6 +51,18 @@ function prototype:prepareForInterrupt()
     end
 end
 
+-- Called to learn what would happen if an interruption were to be triggered
+-- Returns: { location = ..., work = ... }
+function prototype:ifInterrupted()
+    util.assert(self._entered, 'This can only be called when you are actively performing the task.')
+    util.assert(self._behaviors.ifExits ~= nil, 'This task does not support interruptions.')
+    return self._behaviors.ifExits(self._taskState)
+end
+
+function prototype:entered()
+    return self._entered
+end
+
 --[[
 Inputs:
     displayName:
