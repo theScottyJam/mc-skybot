@@ -13,6 +13,7 @@ return {
     navigate = import('./navigate.lua'),
     Position = import('./space/Position.lua'),
     Project = import('./planner/Project.lua'),
+    Routine = import('./planner/Routine.lua'),
     Sketch = import('./modeling/Sketch.lua'),
     state = import('./state.lua'),
     Plan = import('./planner/Plan.lua'),

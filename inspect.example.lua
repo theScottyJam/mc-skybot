@@ -131,7 +131,7 @@ end
 
 -- A special project you can register in your project list to let you run arbitrary code at a specific point in time.
 function module.debugProject(homeLoc)
-    local location = act().location
+    local Location = act().Location
     local navigate = act().navigate
     local highLevelCommands = act().highLevelCommands
 

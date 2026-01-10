@@ -25,6 +25,7 @@ function module.register()
             mainIsland.startBuildingCobblestoneGenerator,
             mainIsland.harvestInitialTreeAndPrepareTreeFarm,
             mainIsland.waitForIceToMeltAndFinishCobblestoneGenerator,
+            debugProject(mainIsland.homeLoc),
             mainIsland.buildFurnaces,
             mainIsland.smeltInitialCharcoal,
             mainIsland.torchUpIsland,

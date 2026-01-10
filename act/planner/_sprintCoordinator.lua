@@ -175,9 +175,26 @@ end
 -- Used for introspection purposes.
 function module.displayInProgressTasks()
     assertProjectListProvided() -- No tasks would be started if a project list has not been provided yet.
+
+    local formatTask = function(task)
+        if task == nil then
+            return '<none>'
+        end
+
+        local result = ''
+        for _, displayName in ipairs(task:displayNameList()) do
+            if result == '' then
+                result = displayName
+            else
+                result = result .. '\n  -> ' .. displayName
+            end
+        end
+        return result
+    end
+
     local planState = planStateManager:get()
-    print('primary task: '..(planState.primaryTask and planState.primaryTask.displayName or 'nil'))
-    print('interrupt task: '..(planState.interruptTask and planState.interruptTask.displayName or 'nil'))
+    print('primary task: '..formatTask(planState.primaryTask))
+    print('interrupt task: '..formatTask(planState.interruptTask))
 end
 
 -- Should be called right after state has been initialized.

@@ -8,7 +8,7 @@ To run it in mock mode, you can use the following:
 lua ./run --base "$(pwd)/" --mock
 ```
 
-To run this in a turtle, follow the "prepare the world" instructions below, then run `run`
+To run this in a turtle, follow the "prepare the world" instructions below, then run `run` with no arguments.
 
 Automated tests can be ran with
 

@@ -20,20 +20,22 @@ inputs:
         You can, for example, register a new location path that you will need to use within the task.
     opts?.enter(self): void
         It will run before the task starts and whenever the task continues after an
-        interruption, and is supposed to bring the turtle from any registered location
-        in the world to a desired position.
+        interruption or routine execution, and is supposed to bring the turtle from
+        any registered location in the world to a desired position.
     opts?.ifExits(self): { location = ..., work = ... }
-        Will be called at a given interruption to determine which location the turtle will move to if
+        Will be called between sprints to determine which location the turtle will move to if
         exit() were to be called and how many units of work it would take to move to that location.
         This information is used to decide if it's worth interrupting at this point or not.
 
         It will not be called if the project has finished (there's no reason to figure out
         how much work it takes to exit at the end).
+
         You do not need to supply this function if the project does not support interruptions
         (i.e. it all runs in a single task).
     opts?.exit(self): void
-        This function will run after the task finishes and whenever the task needs to pause
-        for an interruption, and is supposed to bring the turtle to a registered location.
+        This function will run whenever the turtle needs to be brought to a registered location,
+        such as after the task finishes, whenever the task needs to pause for an interruption,
+        or if nextSprint() returns a routine to execute.
     opts?.after(self): void
         Called after the task has been fully completed.
         You can, for example, activate a mill or farm in this function.
@@ -41,6 +43,8 @@ inputs:
         Returns a "exhausted" boolean, which, when true,
         indicates that the task has finished. (i.e. it is not at an interruption point).
         After `true` is returned, `exit()` then `after()` will be called.
+        May also return a routine instance, which will cause exit() to be called, then the
+        routine to be performed, then enter(), then this taskRunner will continue on.
 
 All functions provided above will be passed along as the "behaviors" to any
 new tasks being created. Any optional behavior will be passed along as a no-op function.

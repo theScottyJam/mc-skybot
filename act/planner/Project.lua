@@ -1,3 +1,8 @@
+--[[
+    The turtle's ultimate goal is to complete a "plan", which is composed of a list of projects - things
+    for the turtle to do, which usually consists of building things.
+]]
+
 local util = import('util.lua')
 local TaskFactory = import('./_TaskFactory.lua')
 local serializer = import('../_serializer.lua')
